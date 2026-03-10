@@ -37,7 +37,7 @@ and safely reconstructs the original XML structure.
 
 1. Clone the project files:
 ```bash
-git clone https://github.com/K4TEL/atrium-translator.git
+git clone https://github.com/ufal/atrium-translator.git
 ```
 2. Create virtual environment and activate it (optional but recommended):
 ```bash
@@ -150,7 +150,7 @@ output = ./translated_files
 **©️ 2026 UFAL & ATRIUM**
 
 [^1]: https://lindat.mff.cuni.cz/services/translation/
-[^2]: https://github.com/K4TEL/atrium-translator
+[^2]: https://github.com/ufal/atrium-translator
 [^4]: https://atrium-research.eu/
 [^5]: https://huggingface.co/facebook/fasttext-language-identification
 [^3]: https://ufal.mff.cuni.cz/home-page
