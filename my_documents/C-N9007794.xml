@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?><?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-N9007794">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-N9007794</identifier>
+<datestamp>2025-07-24T12:38:24.875Z</datestamp>
+<setSpec>archeologicky_zaznam:lokalita</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-N9007794</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3506">Litoměřice</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-612901">Hostěnice u Brozan</amcr:hlavni_katastr>
+      <amcr:uzivatelske_oznaceni>1229 (ID SAS); 02-43-18/14 (poř. č. SAS)</amcr:uzivatelske_oznaceni>
+    </amcr:chranene_udaje>
+    <amcr:lokalita>
+      <amcr:igsn>10.71928/C-N9007794</amcr:igsn>
+      <amcr:typ_lokality xml:lang="cs" id="HES-001122">nemovitá památka</amcr:typ_lokality>
+      <amcr:druh xml:lang="cs" id="HES-001435">pozůstatek sídliště</amcr:druh>
+      <amcr:zachovalost xml:lang="cs" id="HES-001453">zaniklá lokalita</amcr:zachovalost>
+      <amcr:jistota xml:lang="cs" id="HES-001449">jisté (&gt; 95 %)</amcr:jistota>
+      <amcr:chranene_udaje>
+        <amcr:nazev>Mury (u Hostěnic) - zaniklá vesnice</amcr:nazev>
+        <amcr:popis>Místo zaniklé středověké osady Mury - poprvé v pramenech zmíněna v r. 1226 (zpětně v 2. pol. 12. stol.) v majetku doksanského kláštera. Zaniká povodní ve 14. stol. Dnes na části její původní rozlohy ves Sv. Kliment. ZSO Mury bývalo starší lit. považováno za městečko. Toto tvrzení vyvrátil výzkum O. Kotyzy aj. Smetany (1992). Jednalo se o vcelku velkou ves s více jak 20 staveními. U této vsi poprvé zmíněna emfyteuze - 1226.</amcr:popis>
+        <amcr:poznamka>Záznam vznikl na základě revidovaných údajů Státního archeologického seznamu.</amcr:poznamka>
+      </amcr:chranene_udaje>
+    </amcr:lokalita>
+    <amcr:historie>
+      <amcr:id>hist-1014058</amcr:id>
+      <amcr:datum_zmeny>2024-05-31T02:42:45+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-1022780</amcr:id>
+      <amcr:datum_zmeny>2024-05-31T02:42:45+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3158995</amcr:id>
+      <amcr:datum_zmeny>2025-07-24T12:36:06.871500+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000594">U-000594</amcr:uzivatel>
+      <amcr:poznamka>úprava metadat, připojení dokumentu</amcr:poznamka>
+      <amcr:typ_zmeny>AZ-1</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3159002</amcr:id>
+      <amcr:datum_zmeny>2025-07-24T12:38:22.920278+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000594">U-000594</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-N9007794-D01</amcr:ident_cely>
+      <amcr:pian id="P-0243-010590">P-0243-010590</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001074">lokalita</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9007794-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000328">vrcholný středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000068">vesnice/městečko</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9007794-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000271">pozdní středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000068">vesnice/městečko</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:dokument id="C-TX-194803060">C-TX-194803060</amcr:dokument>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr>
+</metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

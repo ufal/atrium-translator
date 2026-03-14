@@ -1,0 +1,194 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-N9000112">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-N9000112</identifier>
+<datestamp>2025-07-25T12:07:09.973Z</datestamp>
+<setSpec>archeologicky_zaznam:lokalita</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-N9000112</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3100">Hlavní město Praha</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-728730">Jinonice</amcr:hlavni_katastr>
+      <amcr:uzivatelske_oznaceni>970 (DB ohrazení)</amcr:uzivatelske_oznaceni>
+    </amcr:chranene_udaje>
+    <amcr:lokalita>
+      <amcr:igsn>10.71928/C-N9000112</amcr:igsn>
+      <amcr:typ_lokality xml:lang="cs" id="HES-001122">nemovitá památka</amcr:typ_lokality>
+      <amcr:druh xml:lang="cs" id="HES-001431">pozůstatek ohrazení</amcr:druh>
+      <amcr:zachovalost xml:lang="cs" id="HES-001455">nadzemní relikty</amcr:zachovalost>
+      <amcr:jistota xml:lang="cs" id="HES-001449">jisté (&gt; 95 %)</amcr:jistota>
+      <amcr:chranene_udaje>
+        <amcr:nazev>Praha-Jinonice - fence 1 - Butovice (In the playgrounds, In the playgrounds)</amcr:nazev>
+        <amcr:popis>Location On the playgrounds, sometimes also On the playgrounds. A distinctive spur shaped by the Prokop and Dalai Streams. The site is now understood to be a two-piece; the location of Behind St Lawrence has not yet been established. Two patchy strips of cross-fencing of the spur (the fortification of the acropolis today in the form of a substantial terrace and the fortification of the foreshore in the form of a low wall). A little research (on the S side) in the 1960s showed the perimeter fortifications of the acropolis. Strong settlement of the primeval (primarily the Vivian culture), as well as early medieval (old-castle-center, with the fortifications having stone elements indicating a rather younger date within this interval). Early medieval settlement ends just before the turn of the 9th and 10th centuries.</amcr:popis>
+      </amcr:chranene_udaje>
+    </amcr:lokalita>
+    <amcr:historie>
+      <amcr:id>hist-1004008</amcr:id>
+      <amcr:datum_zmeny>2019-01-18T17:04:57+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-1014785</amcr:id>
+      <amcr:datum_zmeny>2024-05-20T11:54:23+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-N9000112-D01</amcr:ident_cely>
+      <amcr:pian id="P-1242-010031">P-1242-010031</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001074">lokalita</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000112-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000372">řivnáčská kultura</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000069">výšinné sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000112-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000383">pozdní doba bronzová</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000069">výšinné sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000112-K003</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000386">raný středověk 1</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000062">ojedinělý nález</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76458</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000534">val</amcr:druh>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000112-K004</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000301">raný středověk 2</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000081">sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000112-K005</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000379">raný středověk 3</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000072">hradiště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000112-K006</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000269">kultura s lineární keramikou</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000062">ojedinělý nález</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000112-K007</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000361">kultura s vypíchanou keramikou</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000062">ojedinělý nález</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000112-K008</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000318">kultura zvoncovitých pohárů</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000062">ojedinělý nález</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-7877</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000301">BIB-0000301</amcr:ext_zdroj>
+      <amcr:paginace>84</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8154</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000380">BIB-0000380</amcr:ext_zdroj>
+      <amcr:paginace>17-19</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8300</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000450">BIB-0000450</amcr:ext_zdroj>
+      <amcr:paginace>205</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10167</amcr:id>
+      <amcr:ext_zdroj id="BIB-0002689">BIB-0002689</amcr:ext_zdroj>
+      <amcr:paginace>175</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-14870</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005697">BIB-0005697</amcr:ext_zdroj>
+      <amcr:paginace>102-104</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-7965</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000336">BIB-0000336</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8876</amcr:id>
+      <amcr:ext_zdroj id="BIB-0001197">BIB-0001197</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10183</amcr:id>
+      <amcr:ext_zdroj id="BIB-0002698">BIB-0002698</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10500</amcr:id>
+      <amcr:ext_zdroj id="BIB-0003180">BIB-0003180</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10855</amcr:id>
+      <amcr:ext_zdroj id="BIB-0003975">BIB-0003975</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-21319</amcr:id>
+      <amcr:ext_zdroj id="BIB-0007643">BIB-0007643</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-21638</amcr:id>
+      <amcr:ext_zdroj id="BIB-0007912">BIB-0007912</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:dokument id="C-DT-100003446">C-DT-100003446</amcr:dokument>
+    <amcr:dokument id="C-DT-100003447">C-DT-100003447</amcr:dokument>
+    <amcr:dokument id="C-DT-100003448">C-DT-100003448</amcr:dokument>
+    <amcr:dokument id="C-DT-100003449">C-DT-100003449</amcr:dokument>
+    <amcr:dokument id="C-DT-100003450">C-DT-100003450</amcr:dokument>
+    <amcr:dokument id="C-DT-100003451">C-DT-100003451</amcr:dokument>
+    <amcr:dokument id="C-DT-100003452">C-DT-100003452</amcr:dokument>
+    <amcr:dokument id="C-DT-100003453">C-DT-100003453</amcr:dokument>
+    <amcr:dokument id="C-DT-100003454">C-DT-100003454</amcr:dokument>
+    <amcr:dokument id="C-DT-100003455">C-DT-100003455</amcr:dokument>
+    <amcr:dokument id="C-DT-100003456">C-DT-100003456</amcr:dokument>
+    <amcr:dokument id="C-DT-100003457">C-DT-100003457</amcr:dokument>
+    <amcr:dokument id="C-DT-100003458">C-DT-100003458</amcr:dokument>
+    <amcr:dokument id="C-DT-100003459">C-DT-100003459</amcr:dokument>
+    <amcr:dokument id="C-DT-100003460">C-DT-100003460</amcr:dokument>
+    <amcr:dokument id="C-DT-100003461">C-DT-100003461</amcr:dokument>
+    <amcr:dokument id="C-DT-100003462">C-DT-100003462</amcr:dokument>
+    <amcr:dokument id="C-PY-900000161">C-PY-900000161</amcr:dokument>
+    <amcr:dokument id="C-PY-900000162">C-PY-900000162</amcr:dokument>
+    <amcr:dokument id="C-PY-001145915">C-PY-001145915</amcr:dokument>
+    <amcr:dokument id="C-LD-000000928">C-LD-000000928</amcr:dokument>
+    <amcr:dokument id="C-LD-000010481">C-LD-000010481</amcr:dokument>
+    <amcr:dokument id="C-LD-000010482">C-LD-000010482</amcr:dokument>
+    <amcr:dokument id="C-TX-196005667">C-TX-196005667</amcr:dokument>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr>
+</metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

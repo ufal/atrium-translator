@@ -1,0 +1,106 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-202000543A-DT-27">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-202000543A-DT-27</identifier>
+<datestamp>2025-03-29T19:30:24.576Z</datestamp>
+<setSpec>dokument</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:dokument>
+    <amcr:ident_cely>C-202000543A-DT-27</amcr:ident_cely>
+    <amcr:doi>10.60585/C-202000543A-DT-27</amcr:doi>
+    <amcr:stav>3</amcr:stav>
+    <amcr:typ_dokumentu xml:lang="cs" id="HES-001090">fotografie výzkumu/sondy</amcr:typ_dokumentu>
+    <amcr:material_originalu xml:lang="cs" id="HES-000217">digitální soubor</amcr:material_originalu>
+    <amcr:rada xml:lang="cs" id="HES-000874">fotografie terénu (digitální)</amcr:rada>
+    <amcr:autor id="OS-007567" poradi="1">Tomková, Kateřina</amcr:autor>
+    <amcr:rok_vzniku>2019</amcr:rok_vzniku>
+    <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v.v.i.</amcr:organizace>
+    <amcr:pristupnost xml:lang="cs" id="HES-000866">badatel</amcr:pristupnost>
+    <amcr:datum_zverejneni>2021-08-12</amcr:datum_zverejneni>
+    <amcr:jazyk_dokumentu xml:lang="cs" id="HES-000174">nerelevantní</amcr:jazyk_dokumentu>
+    <amcr:ulozeni_originalu xml:lang="cs" id="HES-001166">primárně digitální dokument</amcr:ulozeni_originalu>
+    <amcr:oznaceni_originalu>DTC20200054327</amcr:oznaceni_originalu>
+    <amcr:popis>Probe 4, eastern cut; obj. 1.</amcr:popis>
+    <amcr:poznamka>Detritus based on findings of novelty to subrecent age overlapping undated objects.</amcr:poznamka>
+    <amcr:licence xml:lang="cs" id="HES-001489">Creative Commons Uveďte původ-Neužívejte komerčně 4.0 Mezinárodní</amcr:licence>
+    <amcr:historie>
+      <amcr:id>hist-692589</amcr:id>
+      <amcr:datum_zmeny>2021-08-12T11:23:47+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>D01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-894647</amcr:id>
+      <amcr:datum_zmeny>2021-08-12T11:23:47+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>D23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:soubor>
+      <amcr:id>soub-412863</amcr:id>
+      <amcr:path>rest/AMCR/record/C-202000543A-DT-27/file/cd22cdd7-7220-4dab-b8aa-d79231ff52bc</amcr:path>
+      <amcr:nazev>C202000543ADT27.tif</amcr:nazev>
+      <amcr:mimetype>image/tiff</amcr:mimetype>
+      <amcr:rozsah>1</amcr:rozsah>
+      <amcr:size_mb>17.9277458191</amcr:size_mb>
+      <amcr:sha_512>f4e86596818494e1d3d4e97802a43a3880e28a8d346ba9a402507bc2e995ce66559ed72b78ad57608655d405e1d1d98911aef42d33abb73c7ccc47a83db57150</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-202000543A-DT-27/file/cd22cdd7-7220-4dab-b8aa-d79231ff52bc</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2667310</amcr:id>
+        <amcr:datum_zmeny>2022-05-05T22:00:00+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000159">U-000159</amcr:uzivatel>
+        <amcr:poznamka>C202000543ADT27.tif</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:extra_data>
+      <amcr:cislo_objektu>obj. 1</amcr:cislo_objektu>
+      <amcr:geom_system>4326</amcr:geom_system>
+    </amcr:extra_data>
+    <amcr:dokument_cast>
+      <amcr:ident_cely>C-202000543A-DT-27-D001</amcr:ident_cely>
+      <amcr:archeologicky_zaznam id="C-202000543A">C-202000543A</amcr:archeologicky_zaznam>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-202000543A-DT-27-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000316">datace neurčena</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000081">sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-127793</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000486">zahloubený objekt</amcr:druh>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-202000543A-DT-27-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000252">novověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000081">sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-127794</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000457">navážka</amcr:druh>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-202000543A-DT-27-K003</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000347">industriální období</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000081">sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-127700</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000457">navážka</amcr:druh>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+    </amcr:dokument_cast>
+  </amcr:dokument>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

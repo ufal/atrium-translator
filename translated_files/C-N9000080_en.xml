@@ -1,0 +1,156 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-N9000080">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-N9000080</identifier>
+<datestamp>2025-05-01T10:15:09.850Z</datestamp>
+<setSpec>archeologicky_zaznam:lokalita</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-N9000080</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3212">Rakovník</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-700240">Mšecké Žehrovice</amcr:hlavni_katastr>
+      <amcr:uzivatelske_oznaceni>874 (DB ohrazení)</amcr:uzivatelske_oznaceni>
+    </amcr:chranene_udaje>
+    <amcr:lokalita>
+      <amcr:igsn>10.71928/C-N9000080</amcr:igsn>
+      <amcr:typ_lokality xml:lang="cs" id="HES-001122">nemovitá památka</amcr:typ_lokality>
+      <amcr:druh xml:lang="cs" id="HES-001431">pozůstatek ohrazení</amcr:druh>
+      <amcr:zachovalost xml:lang="cs" id="HES-001455">nadzemní relikty</amcr:zachovalost>
+      <amcr:jistota xml:lang="cs" id="HES-001449">jisté (&gt; 95 %)</amcr:jistota>
+      <amcr:chranene_udaje>
+        <amcr:nazev>Mšecké Žehrovice - fence 1</amcr:nazev>
+        <amcr:popis>Location Libeň (at the foot of the slope; 430,5 m above sea level). The foothills of the long spine of Libeň, between Novodvorsky and Doomsday Creek; Z from the location of Ranch at Doomsday Creek. Regular, rectangular enclosures formed of berms and trenches measuring 80 x 200 metres, with raised corners. A large columned structure, two semi-earthworks and other objects were uncovered in the grounds.</amcr:popis>
+      </amcr:chranene_udaje>
+    </amcr:lokalita>
+    <amcr:historie>
+      <amcr:id>hist-1004015</amcr:id>
+      <amcr:datum_zmeny>2019-01-18T17:04:58+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-1014792</amcr:id>
+      <amcr:datum_zmeny>2024-05-20T11:54:23+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-N9000080-D01</amcr:ident_cely>
+      <amcr:pian id="P-1214-010012">P-1214-010012</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001074">lokalita</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000080-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000255">mladší–pozdní doba laténská (LtC2–D)</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000014">dvorec/dvůr</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000005">kult</amcr:aktivita>
+        <amcr:poznamka>spektrum hmotné kultury</amcr:poznamka>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76634</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000486">zahloubený objekt</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76799</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000508">příkop</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76046</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000534">val</amcr:druh>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000080-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000264">pozdní paleolit</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000062">ojedinělý nález</amcr:areal>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000080-K003</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000267">neolit</amcr:obdobi>
+        <amcr:jistota>false</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000062">ojedinělý nález</amcr:areal>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000080-K004</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000285">eneolit</amcr:obdobi>
+        <amcr:jistota>false</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000062">ojedinělý nález</amcr:areal>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N9000080-K005</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000276">raný středověk 2–4</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000062">ojedinělý nález</amcr:areal>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8183</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000404">BIB-0000404</amcr:ext_zdroj>
+      <amcr:paginace>364</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-21554</amcr:id>
+      <amcr:ext_zdroj id="BIB-0007674">BIB-0007674</amcr:ext_zdroj>
+      <amcr:paginace>472-480</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-7829</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000291">BIB-0000291</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-14008</amcr:id>
+      <amcr:ext_zdroj id="BIB-0004751">BIB-0004751</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-15412</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005713">BIB-0005713</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-15478</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005714">BIB-0005714</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-15863</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005746">BIB-0005746</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:dokument id="C-DT-100002783">C-DT-100002783</amcr:dokument>
+    <amcr:dokument id="C-DT-100002784">C-DT-100002784</amcr:dokument>
+    <amcr:dokument id="C-DT-100002785">C-DT-100002785</amcr:dokument>
+    <amcr:dokument id="C-DT-100002786">C-DT-100002786</amcr:dokument>
+    <amcr:dokument id="C-DT-100002787">C-DT-100002787</amcr:dokument>
+    <amcr:dokument id="C-DT-100002788">C-DT-100002788</amcr:dokument>
+    <amcr:dokument id="C-DT-100002789">C-DT-100002789</amcr:dokument>
+    <amcr:dokument id="C-DT-100002790">C-DT-100002790</amcr:dokument>
+    <amcr:dokument id="C-DT-100002791">C-DT-100002791</amcr:dokument>
+    <amcr:dokument id="C-DT-100002792">C-DT-100002792</amcr:dokument>
+    <amcr:dokument id="C-DT-100002793">C-DT-100002793</amcr:dokument>
+    <amcr:dokument id="C-DT-100002794">C-DT-100002794</amcr:dokument>
+    <amcr:dokument id="C-DT-100002795">C-DT-100002795</amcr:dokument>
+    <amcr:dokument id="C-DT-100002796">C-DT-100002796</amcr:dokument>
+    <amcr:dokument id="C-DT-100002797">C-DT-100002797</amcr:dokument>
+    <amcr:dokument id="C-DT-100002798">C-DT-100002798</amcr:dokument>
+    <amcr:dokument id="C-PY-001145600">C-PY-001145600</amcr:dokument>
+    <amcr:dokument id="C-LD-000010375">C-LD-000010375</amcr:dokument>
+    <amcr:dokument id="C-LD-000010376">C-LD-000010376</amcr:dokument>
+    <amcr:dokument id="C-LD-000010377">C-LD-000010377</amcr:dokument>
+    <amcr:dokument id="C-LD-000010378">C-LD-000010378</amcr:dokument>
+    <amcr:dokument id="C-LD-000011030">C-LD-000011030</amcr:dokument>
+    <amcr:dokument id="C-LD-000011031">C-LD-000011031</amcr:dokument>
+    <amcr:dokument id="C-LD-000011032">C-LD-000011032</amcr:dokument>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

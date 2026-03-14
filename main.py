@@ -70,11 +70,11 @@ def parse_arguments():
         config.read_string(''.join(cleaned_lines))
         defaults = config['DEFAULT']
 
-        if 'input_path' in defaults: args.input_path = Path(defaults['input_path'])
-        if 'output' in defaults: args.output = Path(defaults['output'])
-        if 'source_lang' in defaults: args.source_lang = defaults['source_lang']
-        if 'target_lang' in defaults: args.target_lang = defaults['target_lang']
-        if 'fields' in defaults: args.xpaths = Path(defaults['fields'])
+        if args.input_path is None and 'input_path' in defaults: args.input_path = Path(defaults['input_path'])
+        if args.output is None and 'output' in defaults: args.output = Path(defaults['output'])
+        if args.source_lang == 'cs' and 'source_lang' in defaults: args.source_lang = defaults['source_lang']
+        if args.target_lang == 'en' and 'target_lang' in defaults: args.target_lang = defaults['target_lang']
+        if args.xpaths is None and 'fields' in defaults: args.xpaths = Path(defaults['fields'])
 
     return args
 
@@ -129,9 +129,12 @@ def main():
         with open(input_path, 'r', encoding='utf-8') as f:
             urls = [line.strip() for line in f if line.strip() and line.startswith('http')]
 
+        input_save_dir = Path("./my_documents")
+        input_save_dir.mkdir(parents=True, exist_ok=True)
+
         for url in urls:
             print(f"[INFO] Downloading: {url}")
-            local_file = fetch_xml_from_url(url, download_dir)
+            local_file = fetch_xml_from_url(url, input_save_dir)
             if local_file:
                 files_to_process.append(local_file)
     elif input_path.is_dir():
@@ -144,12 +147,13 @@ def main():
         print(f"[WARN] No valid XML files found.")
         return
 
-    out_dir = args.output if args.output else input_path.parent / f"translated_{args.target_lang}"
-    if input_path.is_dir(): out_dir.mkdir(parents=True, exist_ok=True)
+    is_batch = input_path.is_dir() or (input_path.suffix == '.txt')
+    out_dir = args.output if args.output else Path.cwd() / f"translated_{args.target_lang}"
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     for i, file_path in enumerate(files_to_process, 1):
         print(f"\n[FILE {i}/{len(files_to_process)}] Processing: {file_path.name}")
-        output_file = generate_output_path(file_path, out_dir, args, is_batch=input_path.is_dir())
+        output_file = generate_output_path(file_path, out_dir, args, is_batch=is_batch)
 
         csv_path = output_file.with_name(f"{file_path.name.split('.')[0]}_log.csv")
         with open(csv_path, "w", encoding="utf-8", newline="") as csv_file:

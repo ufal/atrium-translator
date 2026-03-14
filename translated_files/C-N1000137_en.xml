@@ -1,0 +1,250 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-N1000137">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-N1000137</identifier>
+<datestamp>2025-07-18T11:22:33.357Z</datestamp>
+<setSpec>archeologicky_zaznam:lokalita</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-N1000137</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3210">Praha-západ</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-742511">Žalov</amcr:hlavni_katastr>
+      <amcr:uzivatelske_oznaceni>1156 (DB ohrazení)</amcr:uzivatelske_oznaceni>
+    </amcr:chranene_udaje>
+    <amcr:lokalita>
+      <amcr:igsn>10.71928/C-N1000137</amcr:igsn>
+      <amcr:typ_lokality xml:lang="cs" id="HES-001122">nemovitá památka</amcr:typ_lokality>
+      <amcr:druh xml:lang="cs" id="HES-001431">pozůstatek ohrazení</amcr:druh>
+      <amcr:zachovalost xml:lang="cs" id="HES-001454">lokalita pod zástavbou</amcr:zachovalost>
+      <amcr:jistota xml:lang="cs" id="HES-001449">jisté (&gt; 95 %)</amcr:jistota>
+      <amcr:chranene_udaje>
+        <amcr:nazev>Žalov - fence 1 - Left Hradec</amcr:nazev>
+        <amcr:popis>Location Left Player. Hradiště Levý Hradec na ostrožně nad levy bank Vltava. A late 9th century church has been documented on the site (but the archaeological research found the foundations are slightly younger). One of the most important centres of the early Czech state. The fortification is only fragmentary. The site is made up of an acropolis with St. Kliment's Church and a long-watched forecourt, and more recently a second forecourt south of the first.</amcr:popis>
+      </amcr:chranene_udaje>
+    </amcr:lokalita>
+    <amcr:historie>
+      <amcr:id>hist-1003785</amcr:id>
+      <amcr:datum_zmeny>2018-05-19T15:27:17+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-1014564</amcr:id>
+      <amcr:datum_zmeny>2024-05-20T11:54:23+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-N1000137-D01</amcr:ident_cely>
+      <amcr:pian id="P-1224-010109">P-1224-010109</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001074">lokalita</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N1000137-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000379">raný středověk 3</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:presna_datace>9. století</amcr:presna_datace>
+        <amcr:areal xml:lang="cs" id="HES-000072">hradiště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76676</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000486">zahloubený objekt</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76555</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000508">příkop</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76439</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000534">val</amcr:druh>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N1000137-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000325">raný středověk 4</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:presna_datace>10.-11. století</amcr:presna_datace>
+        <amcr:areal xml:lang="cs" id="HES-000072">hradiště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76682</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000486">zahloubený objekt</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76569</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000508">příkop</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76471</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000534">val</amcr:druh>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-1134</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000151">BIB-0000151</amcr:ext_zdroj>
+      <amcr:paginace>285: 896/1</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-6505</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000271">BIB-0000271</amcr:ext_zdroj>
+      <amcr:paginace>97nn.</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8152</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000380">BIB-0000380</amcr:ext_zdroj>
+      <amcr:paginace>30-35</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8213</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000420">BIB-0000420</amcr:ext_zdroj>
+      <amcr:paginace>178</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8258</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000439">BIB-0000439</amcr:ext_zdroj>
+      <amcr:paginace>200</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8302</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000450">BIB-0000450</amcr:ext_zdroj>
+      <amcr:paginace>203</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10786</amcr:id>
+      <amcr:ext_zdroj id="BIB-0003815">BIB-0003815</amcr:ext_zdroj>
+      <amcr:paginace>144-146</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-13311</amcr:id>
+      <amcr:ext_zdroj id="BIB-0004398">BIB-0004398</amcr:ext_zdroj>
+      <amcr:paginace>17</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-22219</amcr:id>
+      <amcr:ext_zdroj id="BIB-0008550">BIB-0008550</amcr:ext_zdroj>
+      <amcr:paginace>111</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-22323</amcr:id>
+      <amcr:ext_zdroj id="BIB-0008586">BIB-0008586</amcr:ext_zdroj>
+      <amcr:paginace>222, 376, 377</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-22817</amcr:id>
+      <amcr:ext_zdroj id="BIB-0008748">BIB-0008748</amcr:ext_zdroj>
+      <amcr:paginace>209, tab. 48</amcr:paginace>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-1466</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000178">BIB-0000178</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-3064</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000204">BIB-0000204</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-6504</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000269">BIB-0000269</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8010</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000350">BIB-0000350</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-8355</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000467">BIB-0000467</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10100</amcr:id>
+      <amcr:ext_zdroj id="BIB-0002578">BIB-0002578</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10146</amcr:id>
+      <amcr:ext_zdroj id="BIB-0002663">BIB-0002663</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10149</amcr:id>
+      <amcr:ext_zdroj id="BIB-0002664">BIB-0002664</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10815</amcr:id>
+      <amcr:ext_zdroj id="BIB-0003895">BIB-0003895</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10824</amcr:id>
+      <amcr:ext_zdroj id="BIB-0003922">BIB-0003922</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-10839</amcr:id>
+      <amcr:ext_zdroj id="BIB-0003945">BIB-0003945</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-11479</amcr:id>
+      <amcr:ext_zdroj id="BIB-0004267">BIB-0004267</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-14516</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005457">BIB-0005457</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-15912</amcr:id>
+      <amcr:ext_zdroj id="BIB-0006015">BIB-0006015</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-21127</amcr:id>
+      <amcr:ext_zdroj id="BIB-0007643">BIB-0007643</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:dokument id="C-DY-100000132">C-DY-100000132</amcr:dokument>
+    <amcr:dokument id="C-DT-100004946">C-DT-100004946</amcr:dokument>
+    <amcr:dokument id="C-DT-100004947">C-DT-100004947</amcr:dokument>
+    <amcr:dokument id="C-DT-100004948">C-DT-100004948</amcr:dokument>
+    <amcr:dokument id="C-DT-100004949">C-DT-100004949</amcr:dokument>
+    <amcr:dokument id="C-DT-100004950">C-DT-100004950</amcr:dokument>
+    <amcr:dokument id="C-DT-100004951">C-DT-100004951</amcr:dokument>
+    <amcr:dokument id="C-DT-100004952">C-DT-100004952</amcr:dokument>
+    <amcr:dokument id="C-DT-100004953">C-DT-100004953</amcr:dokument>
+    <amcr:dokument id="C-DT-100004954">C-DT-100004954</amcr:dokument>
+    <amcr:dokument id="C-DT-100004955">C-DT-100004955</amcr:dokument>
+    <amcr:dokument id="C-DT-100004956">C-DT-100004956</amcr:dokument>
+    <amcr:dokument id="C-DT-100004957">C-DT-100004957</amcr:dokument>
+    <amcr:dokument id="C-DT-100004958">C-DT-100004958</amcr:dokument>
+    <amcr:dokument id="C-DT-100004959">C-DT-100004959</amcr:dokument>
+    <amcr:dokument id="C-DT-100004960">C-DT-100004960</amcr:dokument>
+    <amcr:dokument id="C-DT-100004961">C-DT-100004961</amcr:dokument>
+    <amcr:dokument id="C-DT-100004962">C-DT-100004962</amcr:dokument>
+    <amcr:dokument id="C-DT-100004963">C-DT-100004963</amcr:dokument>
+    <amcr:dokument id="C-DT-100004964">C-DT-100004964</amcr:dokument>
+    <amcr:dokument id="C-DT-100004965">C-DT-100004965</amcr:dokument>
+    <amcr:dokument id="C-PY-900000234">C-PY-900000234</amcr:dokument>
+    <amcr:dokument id="C-PY-900000236">C-PY-900000236</amcr:dokument>
+    <amcr:dokument id="C-DT-100005380">C-DT-100005380</amcr:dokument>
+    <amcr:dokument id="C-DT-100005381">C-DT-100005381</amcr:dokument>
+    <amcr:dokument id="C-DT-100005382">C-DT-100005382</amcr:dokument>
+    <amcr:dokument id="C-PY-001145583">C-PY-001145583</amcr:dokument>
+    <amcr:dokument id="C-DL-200200293">C-DL-200200293</amcr:dokument>
+    <amcr:dokument id="C-DL-200200294">C-DL-200200294</amcr:dokument>
+    <amcr:dokument id="C-DL-200200295">C-DL-200200295</amcr:dokument>
+    <amcr:dokument id="C-DL-200200296">C-DL-200200296</amcr:dokument>
+    <amcr:dokument id="C-LD-000000903">C-LD-000000903</amcr:dokument>
+    <amcr:dokument id="C-LD-000000908">C-LD-000000908</amcr:dokument>
+    <amcr:dokument id="C-LD-000011023">C-LD-000011023</amcr:dokument>
+    <amcr:dokument id="C-TX-195405285">C-TX-195405285</amcr:dokument>
+    <amcr:dokument id="C-TX-197404593">C-TX-197404593</amcr:dokument>
+    <amcr:dokument id="C-TX-197404644">C-TX-197404644</amcr:dokument>
+    <amcr:dokument id="C-TX-197404528">C-TX-197404528</amcr:dokument>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr>
+</metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

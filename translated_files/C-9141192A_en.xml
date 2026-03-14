@@ -1,0 +1,100 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-9141192A">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-9141192A</identifier>
+<datestamp>2024-07-19T06:56:30.966Z</datestamp>
+<setSpec>archeologicky_zaznam:akce</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-9141192A</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3208">Nymburk</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-682691">Libice nad Cidlinou</amcr:hlavni_katastr>
+      <amcr:uzivatelske_oznaceni>ARÚ Praha 6289/1997</amcr:uzivatelske_oznaceni>
+    </amcr:chranene_udaje>
+    <amcr:akce>
+      <amcr:typ>N</amcr:typ>
+      <amcr:je_nz>false</amcr:je_nz>
+      <amcr:odlozena_nz>false</amcr:odlozena_nz>
+      <amcr:hlavni_vedouci id="OS-007991">Březinová, Helena</amcr:hlavni_vedouci>
+      <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v.v.i.</amcr:organizace>
+      <amcr:vedouci_akce_ostatni>
+        <amcr:id>vedo-451</amcr:id>
+        <amcr:vedouci id="OS-004596">Princová-Justová, Jarmila</amcr:vedouci>
+        <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v.v.i.</amcr:organizace>
+      </amcr:vedouci_akce_ostatni>
+      <amcr:specifikace_data xml:lang="cs" id="HES-000886">přesně v letech</amcr:specifikace_data>
+      <amcr:datum_zahajeni>1997-01-01</amcr:datum_zahajeni>
+      <amcr:datum_ukonceni>1997-12-31</amcr:datum_ukonceni>
+      <amcr:hlavni_typ xml:lang="cs" id="HES-001056">vertikální řez</amcr:hlavni_typ>
+      <amcr:chranene_udaje>
+        <amcr:lokalizace_okolnosti>Z část předhradí, st.p.No. 47, K Hradišti Street No. 8. Initiative: construction.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>Rescue research on the site of two vehicle stall shelters, the construction of which, in the case of JZ, will consist of a shelter of 6 concrete columns anchored in beads with a floor plan of 60 x 60 cm and a depth of 90 cm. The SV shelter will stand on 8 concrete columns of the same nature, with beads also 60 x 60 cm at a depth of 90 cm, and the north wall of the shelter will use the base of the north fence of the property (the base will be renovated). There was a distinctly early modern and younger modern situation in the 14 foxholes (probes 78 a-m) as well as in the groove for the new wall in the route of the property's north fence (probe 78 n), and in the probes 78 g and 78 h alone, there was a layer beneath the younger layers, though without artifacts, but castle-like in nature.</amcr:souhrn_upresneni>
+      </amcr:chranene_udaje>
+    </amcr:akce>
+    <amcr:historie>
+      <amcr:id>hist-126468</amcr:id>
+      <amcr:datum_zmeny>2021-03-20T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-355956</amcr:id>
+      <amcr:datum_zmeny>2021-03-20T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ12</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-520713</amcr:id>
+      <amcr:datum_zmeny>2021-03-20T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-9141192A-D01</amcr:ident_cely>
+      <amcr:pian id="P-1314-000477">P-1314-000477</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001070">celek akce</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9141192A-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000276">raný středověk 2–4</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000072">hradiště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-60175</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9141192A-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000252">novověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000081">sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-60176</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-94401</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005720">BIB-0005720</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:dokument id="C-TX-199706289">C-TX-199706289</amcr:dokument>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

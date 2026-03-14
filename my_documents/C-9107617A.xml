@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8" ?><?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-9107617A">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-9107617A</identifier>
+<datestamp>2024-07-18T09:33:47.317Z</datestamp>
+<setSpec>archeologicky_zaznam:akce</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-9107617A</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3209">Praha-východ</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-767859">Lázně Toušeň</amcr:hlavni_katastr>
+    </amcr:chranene_udaje>
+    <amcr:akce>
+      <amcr:typ>N</amcr:typ>
+      <amcr:je_nz>false</amcr:je_nz>
+      <amcr:odlozena_nz>true</amcr:odlozena_nz>
+      <amcr:hlavni_vedouci id="OS-001270">Špaček, Jaroslav</amcr:hlavni_vedouci>
+      <amcr:organizace xml:lang="cs" id="ORG-000123">Městské muzeum v Čelákovicích, p.o.</amcr:organizace>
+      <amcr:specifikace_data xml:lang="cs" id="HES-000886">přesně v letech</amcr:specifikace_data>
+      <amcr:datum_zahajeni>2007-01-01</amcr:datum_zahajeni>
+      <amcr:datum_ukonceni>2007-12-31</amcr:datum_ukonceni>
+      <amcr:hlavni_typ xml:lang="cs" id="HES-001057">sonda</amcr:hlavni_typ>
+      <amcr:ulozeni_nalezu>M Čelákovice, př. č. 119/07.</amcr:ulozeni_nalezu>
+      <amcr:chranene_udaje>
+        <amcr:lokalizace_okolnosti>Ulice V Ovčárně, p. p. č. 25. Podnět: kanalizační přípojka pro č. p. 33.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>V jámě byl nalezen dobře zachovalý skelet koně s podkovami u předních končetin. Spodní část zadních končetin byla narušena mladším výkopem.</amcr:souhrn_upresneni>
+      </amcr:chranene_udaje>
+    </amcr:akce>
+    <amcr:historie>
+      <amcr:id>hist-44826</amcr:id>
+      <amcr:datum_zmeny>2017-05-23T22:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000668">U-000668</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-230148</amcr:id>
+      <amcr:datum_zmeny>2017-05-23T22:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ12</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-2414817</amcr:id>
+      <amcr:datum_zmeny>2021-11-13T22:19:30+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000025">U-000025</amcr:uzivatel>
+      <amcr:poznamka>Vzhledem k rozsahu a charakteru výzkumu prosím o zpracování řádné NZ.</amcr:poznamka>
+      <amcr:typ_zmeny>AZ-1</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-255121</amcr:id>
+      <amcr:datum_zmeny>2023-06-25T22:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-2857128</amcr:id>
+      <amcr:datum_zmeny>2024-07-13T14:52:55.389766+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:poznamka>TOUŠEŇ -&gt; LÁZNĚ TOUŠEŇ</amcr:poznamka>
+      <amcr:typ_zmeny>KAT</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-9107617A-D01</amcr:ident_cely>
+      <amcr:pian id="P-1313-000929">P-1313-000929</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001070">celek akce</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9107617A-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000327">vrcholný–pozdní středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000068">vesnice/městečko</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-14582</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000441">jáma</amcr:druh>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-79928</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000491">konstrukční prvek</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000893">konstrukce zděná</amcr:specifikace>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-11490</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-22485</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>xxx</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-12268</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000748">stavební keramika</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-32243</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000706">zlomek mazanice</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000993">mazanice</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-29787</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000639">zlomek kosti</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000987">kost zvířecí</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-7453</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000707">amorfní zlomek/předmět</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000966">bronz</amcr:specifikace>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-8728</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000707">amorfní zlomek/předmět</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000969">dřevo</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-33722</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000707">amorfní zlomek/předmět</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001011">sklo</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-34786</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000707">amorfní zlomek/předmět</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001026">železo</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-30171</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000642">kostra</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000987">kost zvířecí</amcr:specifikace>
+          <amcr:poznamka>skelet koně uložený v  jámě</amcr:poznamka>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-33141</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000777">malakofauna</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001010">schránky měkýšů</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-415</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000645">struska</amcr:druh>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-860</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000781">uhlíky/popel</amcr:druh>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-35275</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000821">kopí/hrot kopí</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001026">železo</amcr:specifikace>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-35776</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000746">podkova</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001026">železo</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-26520</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000736">kachel</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+          <amcr:poznamka>zlomky</amcr:poznamka>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-30769</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000740">pojivo</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000992">malta</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9107617A-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000325">raný středověk 4</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000081">sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-11491</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-21187</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000544">místo výroby</amcr:druh>
+          <amcr:poznamka>jáma vyplněná mazanicí</amcr:poznamka>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-32244</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000706">zlomek mazanice</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000993">mazanice</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-29788</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000639">zlomek kosti</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000987">kost zvířecí</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-861</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000781">uhlíky/popel</amcr:druh>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-25396</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000714">nádoba</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>xxx</amcr:pocet>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9107617A-K003</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000252">novověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000068">vesnice/městečko</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-11276</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-25243</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000714">nádoba</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-69448</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005693">BIB-0005693</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

@@ -1,0 +1,167 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-9100725A">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-9100725A</identifier>
+<datestamp>2024-07-18T08:07:35.395Z</datestamp>
+<setSpec>archeologicky_zaznam:akce</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-9100725A</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3302">Český Krumlov</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-635286">Pasečná</amcr:hlavni_katastr>
+    </amcr:chranene_udaje>
+    <amcr:akce>
+      <amcr:typ>N</amcr:typ>
+      <amcr:je_nz>false</amcr:je_nz>
+      <amcr:odlozena_nz>true</amcr:odlozena_nz>
+      <amcr:hlavni_vedouci id="OS-004176">Havlice, Jiří</amcr:hlavni_vedouci>
+      <amcr:organizace xml:lang="cs" id="ORG-000098">Národní památkový ústav - územní odborné pracoviště v Českých Budějovicích</amcr:organizace>
+      <amcr:specifikace_data xml:lang="cs" id="HES-000886">přesně v letech</amcr:specifikace_data>
+      <amcr:datum_zahajeni>2004-01-01</amcr:datum_zahajeni>
+      <amcr:datum_ukonceni>2004-12-31</amcr:datum_ukonceni>
+      <amcr:hlavni_typ xml:lang="cs" id="HES-001058">skupina/síť sond</amcr:hlavni_typ>
+      <amcr:ulozeni_nalezu>NPÚ České Budějovice.</amcr:ulozeni_nalezu>
+      <amcr:chranene_udaje>
+        <amcr:lokalizace_okolnosti>Vítek's Stone Castle.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>Rescue research to the extent of four probes at the site of the forthcoming construction of the observation tower in the northern part of the Gothic donjon. The wall of the tower, based on an untreated bedrock, its construction dated by a layer of finds from the 1st half of the 14th century. A 90 cm-wide wall dividing the interior of the donjon into two halves was captured, while other walls, with preserved Gothic plaster, defined two corner rooms. In one of them, uncovered remains of a brick floor dating from the 17th to 18th centuries. From the medieval leveling layers comes a large find collection of fragments of ceramics, pottery tiles and metal objects from the 14th and 1st halves of the 15th. On the surface of the geological bedrock, found a flint core and a mouth from late Paleolithic to Mesolithic.</amcr:souhrn_upresneni>
+      </amcr:chranene_udaje>
+    </amcr:akce>
+    <amcr:historie>
+      <amcr:id>hist-38347</amcr:id>
+      <amcr:datum_zmeny>2017-05-23T22:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000647">U-000647</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-225010</amcr:id>
+      <amcr:datum_zmeny>2017-05-23T22:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ12</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-249999</amcr:id>
+      <amcr:datum_zmeny>2017-05-24T21:47:58+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-9100725A-D01</amcr:ident_cely>
+      <amcr:pian id="P-3241-010007">P-3241-010007</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001070">celek akce</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9100725A-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000284">paleolit–mezolit</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000060">neurčený areál</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-10229</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000640">kamenná industrie</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000973">kámen</amcr:specifikace>
+          <amcr:pocet>2</amcr:pocet>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9100725A-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000271">pozdní středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000015">hrad</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-77586</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000491">konstrukční prvek</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000896">konstrukce kamenná</amcr:specifikace>
+          <amcr:pocet>3</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-10126</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-19517</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-34244</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000707">amorfní zlomek/předmět</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001016">textil</amcr:specifikace>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-35371</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000792">šíp/šipka/hrot šípu/šipky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001026">železo</amcr:specifikace>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-36068</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000679">hřeb/hřebík/nýt</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001026">železo</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-26959</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000736">kachel</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9100725A-K003</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000381">novověk 1</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000015">hrad</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-76950</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000492">dláždění</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000894">konstrukce cihlová</amcr:specifikace>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-10127</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-19518</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-33414</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000707">amorfní zlomek/předmět</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001011">sklo</amcr:specifikace>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-36067</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000679">hřeb/hřebík/nýt</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001026">železo</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-66848</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005692">BIB-0005692</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

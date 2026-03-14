@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" ?><?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-9124095A">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-9124095A</identifier>
+<datestamp>2024-07-19T01:45:58.318Z</datestamp>
+<setSpec>archeologicky_zaznam:akce</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-9124095A</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3402">Cheb</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-634646">Františkovy Lázně</amcr:hlavni_katastr>
+    </amcr:chranene_udaje>
+    <amcr:akce>
+      <amcr:typ>N</amcr:typ>
+      <amcr:je_nz>false</amcr:je_nz>
+      <amcr:odlozena_nz>false</amcr:odlozena_nz>
+      <amcr:hlavni_vedouci id="OS-003532">Plesl, Evžen</amcr:hlavni_vedouci>
+      <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v.v.i.</amcr:organizace>
+      <amcr:vedouci_akce_ostatni>
+        <amcr:id>vedo-1629</amcr:id>
+        <amcr:vedouci id="OS-005235">Pleslová, Emilie</amcr:vedouci>
+        <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v.v.i.</amcr:organizace>
+      </amcr:vedouci_akce_ostatni>
+      <amcr:specifikace_data xml:lang="cs" id="HES-000886">přesně v letech</amcr:specifikace_data>
+      <amcr:datum_zahajeni>1959-01-01</amcr:datum_zahajeni>
+      <amcr:datum_ukonceni>1960-12-31</amcr:datum_ukonceni>
+      <amcr:hlavni_typ xml:lang="cs" id="HES-001058">skupina/síť sond</amcr:hlavni_typ>
+      <amcr:chranene_udaje>
+        <amcr:lokalizace_okolnosti>Lázeňský areál v JV části obce, pramen Palliardi, jižně od budovy Císařských lázní. Podnět: úprava pramene.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>Při úpravě pramene byla odhalena dřevěná konstrukce. Následný archeologický výzkum odkryl zbytky haťování a více úrovní se zbytky opracovaných i neopracovaných dřev, dřevěných konstrukcí, větší množství rostlinných makrozbytků (šišky, lískové oříšky), několik kusů štípané industrie datované do mezolitu a zlomky keramických nádob datovaných do obd. popelnicových polí a mladší doby bronzové. Autor výzkumu pozůstatky dřevěné stavby interpretoval jako stavbu lehčí kostrukce z pozdní doby bronzové.
+Několik nezávislých přírodověných analýz přineslo informace o podobě okolní krajiny. Výzkum komplikovala vysoká hladina spodní vody, resp. vývěr minerálních pramenů. Velká část dřevěných prvků byla znehodnocena při konzervaci v laboratoři.</amcr:souhrn_upresneni>
+      </amcr:chranene_udaje>
+    </amcr:akce>
+    <amcr:historie>
+      <amcr:id>hist-276247</amcr:id>
+      <amcr:datum_zmeny>2021-03-20T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ12</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-22527</amcr:id>
+      <amcr:datum_zmeny>2021-03-20T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-442318</amcr:id>
+      <amcr:datum_zmeny>2021-12-28T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000203">U-000203</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-9124095A-D01</amcr:ident_cely>
+      <amcr:pian id="P-1114-100123">P-1114-100123</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001070">celek akce</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9124095A-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000316">datace neurčena</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000060">neurčený areál</amcr:areal>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-90430</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000491">konstrukční prvek</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000897">konstrukce dřevěná</amcr:specifikace>
+          <amcr:pocet>xx</amcr:pocet>
+          <amcr:poznamka>podlaha, kůly</amcr:poznamka>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-93683</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000473">pramen</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000896">konstrukce kamenná</amcr:specifikace>
+          <amcr:poznamka>Patrně kamenné zpevnění pramene.</amcr:poznamka>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-165933</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000781">uhlíky/popel</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000969">dřevo</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-165934</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000698">vzorek paleobotanický</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001009">rostlinné makrozbytky</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9124095A-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000275">mezolit</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000060">neurčený areál</amcr:areal>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-165722</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000640">kamenná industrie</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000978">kámen štípaný</amcr:specifikace>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9124095A-K003</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000281">období popelnicových polí</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000060">neurčený areál</amcr:areal>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-93684</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000438">budova/stavba</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000897">konstrukce dřevěná</amcr:specifikace>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-165935</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9124095A-K004</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000290">mladší doba bronzová</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000060">neurčený areál</amcr:areal>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-165936</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9124095A-K005</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000350">novověk–industriální období</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000060">neurčený areál</amcr:areal>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-165937</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000981">keramika kamenina</amcr:specifikace>
+          <amcr:pocet>x</amcr:pocet>
+          <amcr:poznamka>Waldenburské zboží, zlomky z lahví na minerální vodu</amcr:poznamka>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9124095A-K006</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000327">vrcholný–pozdní středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000060">neurčený areál</amcr:areal>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-165938</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-29855</amcr:id>
+      <amcr:ext_zdroj id="BIB-0000293">BIB-0000293</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-42350</amcr:id>
+      <amcr:ext_zdroj id="BIB-0001441">BIB-0001441</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-100177</amcr:id>
+      <amcr:ext_zdroj id="BIB-0008104">BIB-0008104</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:dokument id="C-TX-195905793">C-TX-195905793</amcr:dokument>
+    <amcr:dokument id="C-TX-196000652">C-TX-196000652</amcr:dokument>
+    <amcr:dokument id="C-TX-196000833">C-TX-196000833</amcr:dokument>
+    <amcr:dokument id="C-TX-196000981">C-TX-196000981</amcr:dokument>
+    <amcr:dokument id="C-TX-196001026">C-TX-196001026</amcr:dokument>
+    <amcr:dokument id="C-TX-196001209">C-TX-196001209</amcr:dokument>
+    <amcr:dokument id="C-TX-196001567">C-TX-196001567</amcr:dokument>
+    <amcr:dokument id="C-TX-196001773">C-TX-196001773</amcr:dokument>
+    <amcr:dokument id="C-TX-196002069">C-TX-196002069</amcr:dokument>
+    <amcr:dokument id="C-TX-196002231">C-TX-196002231</amcr:dokument>
+    <amcr:dokument id="C-TX-196905648">C-TX-196905648</amcr:dokument>
+    <amcr:dokument id="C-TX-196002965">C-TX-196002965</amcr:dokument>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

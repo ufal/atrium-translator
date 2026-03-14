@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?><?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-DT-100003326">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-DT-100003326</identifier>
+<datestamp>2025-03-22T22:32:57.706Z</datestamp>
+<setSpec>dokument</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:dokument>
+    <amcr:ident_cely>C-DT-100003326</amcr:ident_cely>
+    <amcr:doi>10.60585/C-DT-100003326</amcr:doi>
+    <amcr:stav>3</amcr:stav>
+    <amcr:typ_dokumentu xml:lang="cs" id="HES-001089">fotografie lokality</amcr:typ_dokumentu>
+    <amcr:material_originalu xml:lang="cs" id="HES-000217">digitální soubor</amcr:material_originalu>
+    <amcr:rada xml:lang="cs" id="HES-000874">fotografie terénu (digitální)</amcr:rada>
+    <amcr:autor id="OS-007291" poradi="1">Marounek, Jiří</amcr:autor>
+    <amcr:rok_vzniku>2005</amcr:rok_vzniku>
+    <amcr:organizace xml:lang="cs" id="ORG-000013">[archeolog mimo organizaci]</amcr:organizace>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:datum_zverejneni>2008-12-31</amcr:datum_zverejneni>
+    <amcr:jazyk_dokumentu xml:lang="cs" id="HES-000174">nerelevantní</amcr:jazyk_dokumentu>
+    <amcr:ulozeni_originalu xml:lang="cs" id="HES-001166">primárně digitální dokument</amcr:ulozeni_originalu>
+    <amcr:oznaceni_originalu>Plzeň_-_Hradiště_01.jpg</amcr:oznaceni_originalu>
+    <amcr:popis>Hradiště (u Plzně) - ohrazení 1 - Pod Homolkou (U Černic, U Doudlevec, Na Hradě). Terénní hrana na severu a vnitřní plocha hradiště.</amcr:popis>
+    <amcr:licence xml:lang="cs" id="HES-001489">Creative Commons Uveďte původ-Neužívejte komerčně 4.0 Mezinárodní</amcr:licence>
+    <amcr:historie>
+      <amcr:id>hist-811297</amcr:id>
+      <amcr:datum_zmeny>2019-01-22T12:00:04+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>D23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-608803</amcr:id>
+      <amcr:datum_zmeny>2019-01-22T12:00:04+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-004405">U-004405</amcr:uzivatel>
+      <amcr:typ_zmeny>D01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:soubor>
+      <amcr:id>soub-84409</amcr:id>
+      <amcr:path>rest/AMCR/record/C-DT-100003326/file/39f020dd-304d-4e86-9637-97bbeb73ec21</amcr:path>
+      <amcr:nazev>CDT100003326.tif</amcr:nazev>
+      <amcr:mimetype>image/tiff</amcr:mimetype>
+      <amcr:rozsah>1</amcr:rozsah>
+      <amcr:size_mb>30.5994625092</amcr:size_mb>
+      <amcr:sha_512>6cac90925c4b4d40e4ee8ae97a1d6c525549435dff3d02a2d477ba416efed9a8bab4789fe27fd0f1bc6f53624e5bdfa9e7a2e361f0feb113bc01f6541b536f46</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-DT-100003326/file/39f020dd-304d-4e86-9637-97bbeb73ec21</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2499682</amcr:id>
+        <amcr:datum_zmeny>2019-01-22T23:00:00+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000159">U-000159</amcr:uzivatel>
+        <amcr:poznamka>CDT100003326.tif</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:extra_data>
+      <amcr:geom_system>4326</amcr:geom_system>
+    </amcr:extra_data>
+    <amcr:dokument_cast>
+      <amcr:ident_cely>C-DT-100003326-D001</amcr:ident_cely>
+      <amcr:archeologicky_zaznam id="C-N9000052">C-N9000052</amcr:archeologicky_zaznam>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-DT-100003326-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000384">doba bronzová–halštatská</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000072">hradiště</amcr:areal>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-116397</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000570">terénní hrana</amcr:druh>
+        </amcr:nalez_objekt>
+      </amcr:komponenta>
+    </amcr:dokument_cast>
+  </amcr:dokument>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

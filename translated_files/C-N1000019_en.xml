@@ -1,0 +1,122 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-N1000019">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-N1000019</identifier>
+<datestamp>2025-07-17T14:37:29.222Z</datestamp>
+<setSpec>archeologicky_zaznam:lokalita</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-N1000019</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3210">Praha-západ</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-624811">Davle</amcr:hlavni_katastr>
+      <amcr:uzivatelske_oznaceni>1 (DB kultovní)</amcr:uzivatelske_oznaceni>
+    </amcr:chranene_udaje>
+    <amcr:lokalita>
+      <amcr:igsn>10.71928/C-N1000019</amcr:igsn>
+      <amcr:typ_lokality xml:lang="cs" id="HES-001122">nemovitá památka</amcr:typ_lokality>
+      <amcr:druh xml:lang="cs" id="HES-001433">pozůstatek kultu</amcr:druh>
+      <amcr:zachovalost xml:lang="cs" id="HES-001455">nadzemní relikty</amcr:zachovalost>
+      <amcr:jistota xml:lang="cs" id="HES-001449">jisté (&gt; 95 %)</amcr:jistota>
+      <amcr:chranene_udaje>
+        <amcr:nazev>Davle - Cult Area 1 - St. John the Baptist Monastery on the Island</amcr:nazev>
+        <amcr:popis>The Benedictine Monastery of St John the Baptist was established around 1000 as the oldest male monastery in our territory. It was severely damaged at the time of the Brandenburg looting following the death of Přemysl Otakar II. (1278) and finally died after the Hussite Wars.</amcr:popis>
+        <amcr:poznamka>Navigation point: N 49°52'50.18", E 14°23'26.70" (northern edge of the monastery compound on the island).</amcr:poznamka>
+      </amcr:chranene_udaje>
+    </amcr:lokalita>
+    <amcr:historie>
+      <amcr:id>hist-1003640</amcr:id>
+      <amcr:datum_zmeny>2018-01-24T17:39:06+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-1014423</amcr:id>
+      <amcr:datum_zmeny>2024-05-06T15:38:05+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000159">U-000159</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3153314</amcr:id>
+      <amcr:datum_zmeny>2025-07-17T14:35:47.016100+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000594">U-000594</amcr:uzivatel>
+      <amcr:poznamka>připojení dokumentů</amcr:poznamka>
+      <amcr:typ_zmeny>AZ-1</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3153315</amcr:id>
+      <amcr:datum_zmeny>2025-07-17T14:36:58.275870+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000594">U-000594</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-N1000019-D01</amcr:ident_cely>
+      <amcr:pian id="P-1242-010038">P-1242-010038</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001074">lokalita</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N1000019-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000325">raný středověk 4</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000073">klášter</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000008">boj</amcr:aktivita>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-N1000019-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000327">vrcholný–pozdní středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000073">klášter</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000008">boj</amcr:aktivita>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:dokument id="C-DY-100000162">C-DY-100000162</amcr:dokument>
+    <amcr:dokument id="C-DY-100000161">C-DY-100000161</amcr:dokument>
+    <amcr:dokument id="C-DL-201101295">C-DL-201101295</amcr:dokument>
+    <amcr:dokument id="C-DL-201101296">C-DL-201101296</amcr:dokument>
+    <amcr:dokument id="C-DL-201101297">C-DL-201101297</amcr:dokument>
+    <amcr:dokument id="C-DL-201101298">C-DL-201101298</amcr:dokument>
+    <amcr:dokument id="C-DL-201101299">C-DL-201101299</amcr:dokument>
+    <amcr:dokument id="C-DL-201101300">C-DL-201101300</amcr:dokument>
+    <amcr:dokument id="C-DL-201101301">C-DL-201101301</amcr:dokument>
+    <amcr:dokument id="C-DL-201101302">C-DL-201101302</amcr:dokument>
+    <amcr:dokument id="C-DL-201101365">C-DL-201101365</amcr:dokument>
+    <amcr:dokument id="C-DL-201101366">C-DL-201101366</amcr:dokument>
+    <amcr:dokument id="C-DL-201101367">C-DL-201101367</amcr:dokument>
+    <amcr:dokument id="C-DL-201300184">C-DL-201300184</amcr:dokument>
+    <amcr:dokument id="C-DL-201300185">C-DL-201300185</amcr:dokument>
+    <amcr:dokument id="C-DL-201300186">C-DL-201300186</amcr:dokument>
+    <amcr:dokument id="C-DL-201300187">C-DL-201300187</amcr:dokument>
+    <amcr:dokument id="C-DL-201300188">C-DL-201300188</amcr:dokument>
+    <amcr:dokument id="C-DL-201300189">C-DL-201300189</amcr:dokument>
+    <amcr:dokument id="C-LD-000001513">C-LD-000001513</amcr:dokument>
+    <amcr:dokument id="C-LD-000001514">C-LD-000001514</amcr:dokument>
+    <amcr:dokument id="C-LD-000001515">C-LD-000001515</amcr:dokument>
+    <amcr:dokument id="C-LD-000001662">C-LD-000001662</amcr:dokument>
+    <amcr:dokument id="C-LD-000011371">C-LD-000011371</amcr:dokument>
+    <amcr:dokument id="C-LD-000011372">C-LD-000011372</amcr:dokument>
+    <amcr:dokument id="C-LD-000011373">C-LD-000011373</amcr:dokument>
+    <amcr:dokument id="C-LD-000011686">C-LD-000011686</amcr:dokument>
+    <amcr:dokument id="C-LD-000011687">C-LD-000011687</amcr:dokument>
+    <amcr:dokument id="C-LD-000011688">C-LD-000011688</amcr:dokument>
+    <amcr:dokument id="C-LD-000011689">C-LD-000011689</amcr:dokument>
+    <amcr:dokument id="C-LD-000012143">C-LD-000012143</amcr:dokument>
+    <amcr:dokument id="C-LD-000012144">C-LD-000012144</amcr:dokument>
+    <amcr:dokument id="C-TX-193005167">C-TX-193005167</amcr:dokument>
+    <amcr:dokument id="C-TX-194003677">C-TX-194003677</amcr:dokument>
+    <amcr:dokument id="C-TX-194003206">C-TX-194003206</amcr:dokument>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr>
+</metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

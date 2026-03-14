@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="utf-8" ?><?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-9115020A">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-9115020A</identifier>
+<datestamp>2024-07-18T23:45:34.969Z</datestamp>
+<setSpec>archeologicky_zaznam:akce</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:archeologicky_zaznam>
+    <amcr:ident_cely>C-9115020A</amcr:ident_cely>
+    <amcr:stav>3</amcr:stav>
+    <amcr:okres xml:lang="cs" id="ruian-3202">Beroun</amcr:okres>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:chranene_udaje>
+      <amcr:hlavni_katastr xml:lang="cs" id="ruian-602868">Beroun</amcr:hlavni_katastr>
+      <amcr:uzivatelske_oznaceni>ARÚ Praha 3801/1994</amcr:uzivatelske_oznaceni>
+    </amcr:chranene_udaje>
+    <amcr:akce>
+      <amcr:typ>N</amcr:typ>
+      <amcr:je_nz>false</amcr:je_nz>
+      <amcr:odlozena_nz>false</amcr:odlozena_nz>
+      <amcr:hlavni_vedouci id="OS-004723">Ježek, Martin</amcr:hlavni_vedouci>
+      <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v.v.i.</amcr:organizace>
+      <amcr:specifikace_data xml:lang="cs" id="HES-000886">přesně v letech</amcr:specifikace_data>
+      <amcr:datum_zahajeni>1993-01-01</amcr:datum_zahajeni>
+      <amcr:datum_ukonceni>1994-12-31</amcr:datum_ukonceni>
+      <amcr:hlavni_typ xml:lang="cs" id="HES-001059">plošný odkryv</amcr:hlavni_typ>
+      <amcr:chranene_udaje>
+        <amcr:lokalizace_okolnosti>Havlíčkova ulice. Stavba obytných domů na 8 parcelách v historické části města.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>Osm parcel v Havlíčkově ulici (JV část historického jádra). Systematicky zkoumány 3 parcely, zbylá plocha sondována řezy. Na ppč. 107/8 několik objektů (pec, studna, exploatační jáma, zahloubený objekt neurčité funkce) z počátku 14. stol. Předstihový záchranný výzkum JV části historického jádra města. Areál byl zkoumán na 4 větších sondách - plochách (plochy A, B, sondy a, ß), i několik menších sond bez pojmenování. Plocha A byla rozložena na parcele čp. 112. V přední části parcely, při uliční čáře byly odkryty vrstvy a objekty ze 14.-16. stol. V nitru parcely na podloží byly vrstvy 16. stol. Na profilech byly patrny stopy katastrofálních požárů Berouna, datovaných do let 1544 a 1599. Plocha B se nacházela na parcele čp. 123. Zděný objekt nalezený na této parcele byl interpretovaný jako latrína. Stavební aktivita začíná v 15. stol. a zvláště intenzivní je od 16. stol. Ze 14.s tol. pochází jenom hliník. V sondě a a ß byl nalezen komplex objektů 14. stol. Zahloubený sklep s řadami plotů, studna a pec (v české archeologii nález mimořádný). Dvěma sondami bez pojmenování byly prozkoumány mělce zahloubené základy hradební zdi. Další sondou beze jména na parcelách čp. 114, 115 a 116 byl pokus zjistit předpokládanou klášterní zahradu, bez výsledku. Také teze o německé polovině v tomto areálu středověkého města neměla ve výsledcích tohoto výzkumu žádné podklady.</amcr:souhrn_upresneni>
+      </amcr:chranene_udaje>
+    </amcr:akce>
+    <amcr:historie>
+      <amcr:id>hist-95334</amcr:id>
+      <amcr:datum_zmeny>2021-03-20T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-324824</amcr:id>
+      <amcr:datum_zmeny>2021-03-20T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ12</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-489579</amcr:id>
+      <amcr:datum_zmeny>2021-03-20T23:00:00+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>AZ23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:dokumentacni_jednotka>
+      <amcr:ident_cely>C-9115020A-D01</amcr:ident_cely>
+      <amcr:pian id="P-1241-000094">P-1241-000094</amcr:pian>
+      <amcr:typ xml:lang="cs" id="HES-001070">celek akce</amcr:typ>
+      <amcr:negativni_jednotka>false</amcr:negativni_jednotka>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9115020A-K001</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000271">pozdní středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:presna_datace>14. stol.</amcr:presna_datace>
+        <amcr:areal xml:lang="cs" id="HES-000074">město</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-89761</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000441">jáma</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000897">konstrukce dřevěná</amcr:specifikace>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41429</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000441">jáma</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41428</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000446">jáma odpadní/jímka</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41427</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000514">studna</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-89762</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000491">konstrukční prvek</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000893">konstrukce zděná</amcr:specifikace>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41430</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41432</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000520">cesta</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41431</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000530">hradba</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41426</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000477">pec</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83166</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83167</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000707">amorfní zlomek/předmět</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000988">kov</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83168</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000722">pohár/číše</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-001011">sklo</amcr:specifikace>
+          <amcr:poznamka>zlomek číše</amcr:poznamka>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9115020A-K002</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000271">pozdní středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:presna_datace>15. stol.</amcr:presna_datace>
+        <amcr:areal xml:lang="cs" id="HES-000074">město</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41433</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000441">jáma</amcr:druh>
+          <amcr:pocet>2</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41434</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000488">sklep</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83171</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83169</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000706">zlomek mazanice</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000993">mazanice</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83170</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000642">kostra</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000987">kost zvířecí</amcr:specifikace>
+          <amcr:poznamka>psa</amcr:poznamka>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9115020A-K003</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000272">přechod pozdní středověk/novověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:presna_datace>15.-16. stol.</amcr:presna_datace>
+        <amcr:areal xml:lang="cs" id="HES-000074">město</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41438</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000441">jáma</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41435</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000514">studna</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41437</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41436</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000527">ohrazení/fortifikace</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83172</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9115020A-K004</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000381">novověk 1</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:presna_datace>16. stol.</amcr:presna_datace>
+        <amcr:areal xml:lang="cs" id="HES-000074">město</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41441</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000442">jáma kůlová/sloupová</amcr:druh>
+          <amcr:pocet>xx</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41440</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000446">jáma odpadní/jímka</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41439</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000514">studna</amcr:druh>
+          <amcr:pocet>2</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-89763</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000491">konstrukční prvek</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000893">konstrukce zděná</amcr:specifikace>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83173</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9115020A-K005</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000252">novověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:presna_datace>17. stol.</amcr:presna_datace>
+        <amcr:areal xml:lang="cs" id="HES-000074">město</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41443</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000446">jáma odpadní/jímka</amcr:druh>
+          <amcr:pocet>2</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-89765</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000491">konstrukční prvek</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000893">konstrukce zděná</amcr:specifikace>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-89764</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000491">konstrukční prvek</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000897">konstrukce dřevěná</amcr:specifikace>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-89766</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000492">dláždění</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000896">konstrukce kamenná</amcr:specifikace>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41442</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000437">pohřeb v sídlištním objektu</amcr:druh>
+          <amcr:pocet>1</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83175</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83174</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000642">kostra</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000986">kost lidská</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9115020A-K006</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000252">novověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000074">město</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41444</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000477">pec</amcr:druh>
+          <amcr:pocet>3</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83176</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9115020A-K007</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000335">doba římská</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:areal xml:lang="cs" id="HES-000081">sídliště</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83177</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+      <amcr:komponenta>
+        <amcr:ident_cely>C-9115020A-K008</amcr:ident_cely>
+        <amcr:obdobi xml:lang="cs" id="HES-000328">vrcholný středověk</amcr:obdobi>
+        <amcr:jistota>true</amcr:jistota>
+        <amcr:presna_datace>pol. 13. stol.</amcr:presna_datace>
+        <amcr:areal xml:lang="cs" id="HES-000074">město</amcr:areal>
+        <amcr:aktivita xml:lang="cs" id="HES-000001">obývání</amcr:aktivita>
+        <amcr:aktivita xml:lang="cs" id="HES-000003">výroba</amcr:aktivita>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41445</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000453">vrstva/souvrství</amcr:druh>
+          <amcr:pocet>x</amcr:pocet>
+        </amcr:nalez_objekt>
+        <amcr:nalez_objekt>
+          <amcr:id>nalo-41446</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000527">ohrazení/fortifikace</amcr:druh>
+        </amcr:nalez_objekt>
+        <amcr:nalez_predmet>
+          <amcr:id>nalp-83178</amcr:id>
+          <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
+          <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
+        </amcr:nalez_predmet>
+      </amcr:komponenta>
+    </amcr:dokumentacni_jednotka>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-48648</amcr:id>
+      <amcr:ext_zdroj id="BIB-0003812">BIB-0003812</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:ext_odkaz>
+      <amcr:id>exto-92043</amcr:id>
+      <amcr:ext_zdroj id="BIB-0005719">BIB-0005719</amcr:ext_zdroj>
+    </amcr:ext_odkaz>
+    <amcr:dokument id="C-TX-199400302">C-TX-199400302</amcr:dokument>
+    <amcr:dokument id="C-TX-199407486">C-TX-199407486</amcr:dokument>
+    <amcr:dokument id="C-TX-199702104">C-TX-199702104</amcr:dokument>
+  </amcr:archeologicky_zaznam>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

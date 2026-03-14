@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?><?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-TX-202500252">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-TX-202500252</identifier>
+<datestamp>2026-01-12T10:00:10.619Z</datestamp>
+<setSpec>dokument</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:dokument>
+    <amcr:ident_cely>C-TX-202500252</amcr:ident_cely>
+    <amcr:doi>10.60585/C-TX-202500252</amcr:doi>
+    <amcr:stav>3</amcr:stav>
+    <amcr:typ_dokumentu xml:lang="cs" id="HES-001075">nálezová zpráva</amcr:typ_dokumentu>
+    <amcr:material_originalu xml:lang="cs" id="HES-000217">digitální soubor</amcr:material_originalu>
+    <amcr:rada xml:lang="cs" id="HES-000883">zprávy a hlášení</amcr:rada>
+    <amcr:autor id="OS-004708" poradi="1">Psohlavcová, Monika</amcr:autor>
+    <amcr:rok_vzniku>2023</amcr:rok_vzniku>
+    <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v. v. i.</amcr:organizace>
+    <amcr:pristupnost xml:lang="cs" id="HES-000866">badatel</amcr:pristupnost>
+    <amcr:datum_zverejneni>2029-01-12</amcr:datum_zverejneni>
+    <amcr:jazyk_dokumentu xml:lang="cs" id="HES-000167">čeština</amcr:jazyk_dokumentu>
+    <amcr:ulozeni_originalu xml:lang="cs" id="HES-001166">primárně digitální dokument</amcr:ulozeni_originalu>
+    <amcr:popis>Stará Boleslav - odvodnění  ohradní kamenné zdi v areálu baziliky sv. Václava, východně od kostela sv. Klimenta, na parc. č. 1667.</amcr:popis>
+    <amcr:licence xml:lang="cs" id="HES-001489">Creative Commons Uveďte původ-Neužívejte komerčně 4.0 Mezinárodní</amcr:licence>
+    <amcr:historie>
+      <amcr:id>hist-3026086</amcr:id>
+      <amcr:datum_zmeny>2025-03-01T10:20:26.798270+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000426">U-000426</amcr:uzivatel>
+      <amcr:typ_zmeny>D01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3026090</amcr:id>
+      <amcr:datum_zmeny>2025-03-01T10:22:42.267287+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000426">U-000426</amcr:uzivatel>
+      <amcr:poznamka>X-C-TX-000001266 -&gt; C-TX-202500252</amcr:poznamka>
+      <amcr:typ_zmeny>D12</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3276330</amcr:id>
+      <amcr:datum_zmeny>2025-12-02T17:34:06.720880+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000025">U-000025</amcr:uzivatel>
+      <amcr:poznamka>Ahoj, děkuju za přepracování NZ, ještě poprosím o pár úprav: 1) předsunout plány objektů textovým přílohám, jak je uvedeno v obsahu, 2) uložit pdf tak, aby nebyly poznat vsuvky, které jsi tam dělala (texty se zobrazují jako komentáře v rámečcích). Děkuju. Judita</amcr:poznamka>
+      <amcr:typ_zmeny>D-1</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3277128</amcr:id>
+      <amcr:datum_zmeny>2025-12-03T11:36:55.924400+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000426">U-000426</amcr:uzivatel>
+      <amcr:typ_zmeny>D12</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3303877</amcr:id>
+      <amcr:datum_zmeny>2026-01-12T10:00:08.722528+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+      <amcr:typ_zmeny>D23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:soubor>
+      <amcr:id>soub-776728</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-202500252/file/f25f5107-59f5-4578-a715-7969b7753167</amcr:path>
+      <amcr:nazev>CTX202500252.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>30</amcr:rozsah>
+      <amcr:size_mb>5.8043375015</amcr:size_mb>
+      <amcr:sha_512>a3d91037bf37eb510702b891e76e24b80829c68f6b05554d8aa80747f6f3ed89dcac927f3fa110725eef9ee19df4d19f82edf88470216ae5967d3a64af8b3016</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-202500252/file/f25f5107-59f5-4578-a715-7969b7753167</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-3277126</amcr:id>
+        <amcr:datum_zmeny>2025-12-03T11:36:01.917724+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000426">U-000426</amcr:uzivatel>
+        <amcr:poznamka>CTX202500252.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+      <amcr:historie>
+        <amcr:id>hist-3303868</amcr:id>
+        <amcr:datum_zmeny>2026-01-12T09:58:56.813559+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+        <amcr:poznamka>CTX202500252o.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:extra_data>
+      <amcr:geom_system>4326</amcr:geom_system>
+    </amcr:extra_data>
+    <amcr:dokument_cast>
+      <amcr:ident_cely>C-TX-202500252-D001</amcr:ident_cely>
+      <amcr:archeologicky_zaznam id="C-201701615A">C-201701615A</amcr:archeologicky_zaznam>
+    </amcr:dokument_cast>
+  </amcr:dokument>
+</amcr:amcr>
+</metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

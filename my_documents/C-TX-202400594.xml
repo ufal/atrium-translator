@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8" ?><?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-TX-202400594">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-TX-202400594</identifier>
+<datestamp>2026-01-15T08:26:45.834Z</datestamp>
+<setSpec>dokument</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:dokument>
+    <amcr:ident_cely>C-TX-202400594</amcr:ident_cely>
+    <amcr:doi>10.60585/C-TX-202400594</amcr:doi>
+    <amcr:stav>3</amcr:stav>
+    <amcr:typ_dokumentu xml:lang="cs" id="HES-001075">nálezová zpráva</amcr:typ_dokumentu>
+    <amcr:material_originalu xml:lang="cs" id="HES-000217">digitální soubor</amcr:material_originalu>
+    <amcr:rada xml:lang="cs" id="HES-000883">zprávy a hlášení</amcr:rada>
+    <amcr:posudek xml:lang="cs" id="HES-000604">antrakologie/xylotomie</amcr:posudek>
+    <amcr:posudek xml:lang="cs" id="HES-000620">makrozbytková analýza</amcr:posudek>
+    <amcr:posudek xml:lang="cs" id="HES-001440">osteozoologie</amcr:posudek>
+    <amcr:posudek xml:lang="cs" id="HES-000615">geochemie</amcr:posudek>
+    <amcr:posudek xml:lang="cs" id="HES-001444">mikrostratigrafie</amcr:posudek>
+    <amcr:posudek xml:lang="cs" id="HES-000629">konzervace a restaurování</amcr:posudek>
+    <amcr:autor id="OS-004713" poradi="1">Kuna, Martin</amcr:autor>
+    <amcr:rok_vzniku>2024</amcr:rok_vzniku>
+    <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v. v. i.</amcr:organizace>
+    <amcr:pristupnost xml:lang="cs" id="HES-000865">anonym</amcr:pristupnost>
+    <amcr:datum_zverejneni>2027-11-18</amcr:datum_zverejneni>
+    <amcr:jazyk_dokumentu xml:lang="cs" id="HES-000167">čeština</amcr:jazyk_dokumentu>
+    <amcr:ulozeni_originalu xml:lang="cs" id="HES-001166">primárně digitální dokument</amcr:ulozeni_originalu>
+    <amcr:popis>Roztoky u Prahy - nálezová zpráva se sedmi svazky (I: textová část s celkovými plány a vybranou dokumentací, ohlasy v tisku; II/1: popis objektů; II/2: plány objektů; II/3: řezy; III: seznamy; IV: expertní posudky; V: fotografie).</amcr:popis>
+    <amcr:licence xml:lang="cs" id="HES-001489">Creative Commons Uveďte původ-Neužívejte komerčně 4.0 Mezinárodní</amcr:licence>
+    <amcr:historie>
+      <amcr:id>hist-2956796</amcr:id>
+      <amcr:datum_zmeny>2024-11-18T17:46:58.097408+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+      <amcr:typ_zmeny>D01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-2956810</amcr:id>
+      <amcr:datum_zmeny>2024-11-18T18:22:47.320054+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+      <amcr:poznamka>X-C-TX-000000665 -&gt; C-TX-202400594</amcr:poznamka>
+      <amcr:typ_zmeny>D12</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-2956812</amcr:id>
+      <amcr:datum_zmeny>2024-11-18T18:33:39.042662+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+      <amcr:typ_zmeny>D23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-2956837</amcr:id>
+      <amcr:datum_zmeny>2024-11-18T19:39:22.910314+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000159">U-000159</amcr:uzivatel>
+      <amcr:poznamka>Archivováno předčasně, neproběhla standardní optimalizace dokumentu.</amcr:poznamka>
+      <amcr:typ_zmeny>D-1</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3300356</amcr:id>
+      <amcr:datum_zmeny>2026-01-07T19:46:35.717240+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000159">U-000159</amcr:uzivatel>
+      <amcr:typ_zmeny>D23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3300357</amcr:id>
+      <amcr:datum_zmeny>2026-01-07T19:47:19.529595+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000159">U-000159</amcr:uzivatel>
+      <amcr:poznamka>Archivace proběhla pouze za účelem přidělení DOI. Nutno standardně zpracovat a poté archivovat znovu.</amcr:poznamka>
+      <amcr:typ_zmeny>D-1</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-3307618</amcr:id>
+      <amcr:datum_zmeny>2026-01-15T08:26:43.730801+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+      <amcr:typ_zmeny>D23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:soubor>
+      <amcr:id>soub-701544</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-202400594/file/231e6bf3-af4b-48a3-abe0-b34d2bc933eb</amcr:path>
+      <amcr:nazev>CTX202400594A.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>468</amcr:rozsah>
+      <amcr:size_mb>4.1412906647</amcr:size_mb>
+      <amcr:sha_512>3c72cda7f601cb7fdf040ef58d7283b6fdd3ed8ae2826baa7efb66397713a8fd0752717be695219eb17a064761a7eea1275182bc5955de0c7bdfb803b785db44</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-202400594/file/231e6bf3-af4b-48a3-abe0-b34d2bc933eb</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2956803</amcr:id>
+        <amcr:datum_zmeny>2024-11-18T17:52:59.958380+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+        <amcr:poznamka>NZ_Roztoky_2006_2010_Cast_B1_popis_objektu.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+      <amcr:historie>
+        <amcr:id>hist-3304630</amcr:id>
+        <amcr:datum_zmeny>2026-01-12T14:23:03.526634+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+        <amcr:poznamka>CTX202400594Ao.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:soubor>
+      <amcr:id>soub-701545</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-202400594/file/20bb36fc-055a-4d0d-ad2b-7f092d6855f0</amcr:path>
+      <amcr:nazev>CTX202400594B.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>360</amcr:rozsah>
+      <amcr:size_mb>129.2778091431</amcr:size_mb>
+      <amcr:sha_512>eca6fa1becb08d98309bbded5c0588bdba34c2b0d631cd5a5523c2e2d66c3301c8715e45ba996e5843616c09386f3a283f594b1c67805f3c523603fc61e737f4</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-202400594/file/20bb36fc-055a-4d0d-ad2b-7f092d6855f0</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2956804</amcr:id>
+        <amcr:datum_zmeny>2024-11-18T17:57:56.421970+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+        <amcr:poznamka>NZ_Roztoky_2006_2010_Cast_B2_plany.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+      <amcr:historie>
+        <amcr:id>hist-3304638</amcr:id>
+        <amcr:datum_zmeny>2026-01-12T14:25:33.102693+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+        <amcr:poznamka>CTX202400594Bo.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:soubor>
+      <amcr:id>soub-701546</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-202400594/file/77f8815e-eebd-4e8e-bbed-b50adfae027b</amcr:path>
+      <amcr:nazev>CTX202400594C.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>246</amcr:rozsah>
+      <amcr:size_mb>44.1730775833</amcr:size_mb>
+      <amcr:sha_512>461e79a556698558965206c8713e2265fe87deaa29fa4218e82600a93a82401a5490c6ae9cbd5e08338c25de290d59f6a845c40c66dda8fbef55290b7d12f805</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-202400594/file/77f8815e-eebd-4e8e-bbed-b50adfae027b</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2956805</amcr:id>
+        <amcr:datum_zmeny>2024-11-18T17:59:38.727094+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+        <amcr:poznamka>NZ_Roztoky_2006_2010_Cast_B3_rezy.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+      <amcr:historie>
+        <amcr:id>hist-3304643</amcr:id>
+        <amcr:datum_zmeny>2026-01-12T14:31:42.632958+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+        <amcr:poznamka>CTX202400594Co.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:soubor>
+      <amcr:id>soub-701547</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-202400594/file/9fe9e122-3b88-45c9-b559-44e80b96d9df</amcr:path>
+      <amcr:nazev>CTX202400594D.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>339</amcr:rozsah>
+      <amcr:size_mb>5.7468852997</amcr:size_mb>
+      <amcr:sha_512>bb050aa0a4aa26449aa944c7b45111ed35c42f447374ed71e9f5b4589f35ccfe0d59e745cfead263d689c407728c29dd1824213f66a8e59e35006d128d1efcde</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-202400594/file/9fe9e122-3b88-45c9-b559-44e80b96d9df</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2956806</amcr:id>
+        <amcr:datum_zmeny>2024-11-18T18:00:14.937654+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+        <amcr:poznamka>NZ_Roztoky_2006_2010_Cast_C_seznamy.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+      <amcr:historie>
+        <amcr:id>hist-3304644</amcr:id>
+        <amcr:datum_zmeny>2026-01-12T14:32:41.160414+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+        <amcr:poznamka>CTX202400594Do.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:soubor>
+      <amcr:id>soub-701548</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-202400594/file/fec48519-0163-450e-af6f-596cd45abba0</amcr:path>
+      <amcr:nazev>CTX202400594E.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>205</amcr:rozsah>
+      <amcr:size_mb>14.7720012665</amcr:size_mb>
+      <amcr:sha_512>6a34a6ee4a2c3583dfe19337f9b1df53b7c20282c6c6e7a66cb85006475a61e7413e37a87939164b4662ba2cd2f11e7a1af52d4921b5018176449d483a48ec75</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-202400594/file/fec48519-0163-450e-af6f-596cd45abba0</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2956807</amcr:id>
+        <amcr:datum_zmeny>2024-11-18T18:01:11.311645+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+        <amcr:poznamka>NZ_Roztoky_2006_2010_Cast_D_posudky.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+      <amcr:historie>
+        <amcr:id>hist-3304649</amcr:id>
+        <amcr:datum_zmeny>2026-01-12T14:33:53.903586+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+        <amcr:poznamka>CTX202400594Eo.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:soubor>
+      <amcr:id>soub-701549</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-202400594/file/7c75cc80-801a-486b-95b1-ee03aea68103</amcr:path>
+      <amcr:nazev>CTX202400594F.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>318</amcr:rozsah>
+      <amcr:size_mb>28.2934494019</amcr:size_mb>
+      <amcr:sha_512>cb25e2c35cb532abc62ad7b780a33a33b83da12589ca9c059b5611df12d55a8b3df71383708d53e80ecb9366db5d091e4c7a078de7809cf0b9c842642875ce25</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-202400594/file/7c75cc80-801a-486b-95b1-ee03aea68103</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2956808</amcr:id>
+        <amcr:datum_zmeny>2024-11-18T18:02:15.355411+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+        <amcr:poznamka>NZ_Roztoky_2006_2010_Cast_E_fotografie.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+      <amcr:historie>
+        <amcr:id>hist-3304651</amcr:id>
+        <amcr:datum_zmeny>2026-01-12T14:34:45.576111+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+        <amcr:poznamka>CTX202400594Fo.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:soubor>
+      <amcr:id>soub-701543</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-202400594/file/8cd25b79-c27a-418c-89cf-df1ead17b4f5</amcr:path>
+      <amcr:nazev>CTX202400594.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>166</amcr:rozsah>
+      <amcr:size_mb>103.2329206467</amcr:size_mb>
+      <amcr:sha_512>8a86b3ab80a6089cf160e050ed46bc06a9e4b96ec05409dea99ede3f39966bdece89a7d7094bfc1474aeec23b7c86d632ab7c4e7c0274ba5b786456299922cc3</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-202400594/file/8cd25b79-c27a-418c-89cf-df1ead17b4f5</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2956802</amcr:id>
+        <amcr:datum_zmeny>2024-11-18T17:52:42.719813+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000302">U-000302</amcr:uzivatel>
+        <amcr:poznamka>NZ_Roztoky_2006_2010_Cast_A_text.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+      <amcr:historie>
+        <amcr:id>hist-3304626</amcr:id>
+        <amcr:datum_zmeny>2026-01-12T14:20:42.143386+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-003558">U-003558</amcr:uzivatel>
+        <amcr:poznamka>CTX202400594o.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:extra_data>
+      <amcr:geom_system>4326</amcr:geom_system>
+    </amcr:extra_data>
+    <amcr:dokument_cast>
+      <amcr:ident_cely>C-TX-202400594-D001</amcr:ident_cely>
+      <amcr:archeologicky_zaznam id="C-200913914A">C-200913914A</amcr:archeologicky_zaznam>
+    </amcr:dokument_cast>
+  </amcr:dokument>
+</amcr:amcr>
+</metadata>
+</record>
+</GetRecord>
+</OAI-PMH>

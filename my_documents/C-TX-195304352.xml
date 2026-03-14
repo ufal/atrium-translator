@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?><?xml-stylesheet type="text/xsl" href="/oai2.xsl" ?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
+<responseDate>2026-03-14T15:26:07Z</responseDate>
+<request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-TX-195304352">https://api.aiscr.cz/2.2/oai</request>
+<GetRecord>
+<record><header>
+<identifier>https://api.aiscr.cz/id/C-TX-195304352</identifier>
+<datestamp>2025-04-05T23:10:43.117Z</datestamp>
+<setSpec>dokument</setSpec>
+</header>
+<metadata>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xsi:schemaLocation="https://api.aiscr.cz/schema/amcr/2.2/ https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd">
+  <amcr:dokument>
+    <amcr:ident_cely>C-TX-195304352</amcr:ident_cely>
+    <amcr:doi>10.60585/C-TX-195304352</amcr:doi>
+    <amcr:stav>3</amcr:stav>
+    <amcr:typ_dokumentu xml:lang="cs" id="HES-001080">hlášení</amcr:typ_dokumentu>
+    <amcr:material_originalu xml:lang="cs" id="HES-000213">papír s fotografiemi</amcr:material_originalu>
+    <amcr:rada xml:lang="cs" id="HES-000883">zprávy a hlášení</amcr:rada>
+    <amcr:autor id="OS-002181" poradi="1">Horáková-Jansová, Libuše</amcr:autor>
+    <amcr:rok_vzniku>1952</amcr:rok_vzniku>
+    <amcr:organizace xml:lang="cs" id="ORG-000094">Archeologický ústav AV ČR, Praha, v.v.i.</amcr:organizace>
+    <amcr:pristupnost xml:lang="cs" id="HES-000866">badatel</amcr:pristupnost>
+    <amcr:datum_zverejneni>2017-06-01</amcr:datum_zverejneni>
+    <amcr:jazyk_dokumentu xml:lang="cs" id="HES-000167">čeština</amcr:jazyk_dokumentu>
+    <amcr:ulozeni_originalu xml:lang="cs" id="HES-001168">archiv ARÚ</amcr:ulozeni_originalu>
+    <amcr:popis>Zpráva o lokalitě na inventární kartě.</amcr:popis>
+    <amcr:licence xml:lang="cs" id="HES-001489">Creative Commons Uveďte původ-Neužívejte komerčně 4.0 Mezinárodní</amcr:licence>
+    <amcr:historie>
+      <amcr:id>hist-624087</amcr:id>
+      <amcr:datum_zmeny>2019-01-21T23:28:19+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>D01</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:historie>
+      <amcr:id>hist-826581</amcr:id>
+      <amcr:datum_zmeny>2019-01-21T23:28:19+00:00</amcr:datum_zmeny>
+      <amcr:uzivatel id="U-000322">U-000322</amcr:uzivatel>
+      <amcr:typ_zmeny>D23</amcr:typ_zmeny>
+    </amcr:historie>
+    <amcr:soubor>
+      <amcr:id>soub-100795</amcr:id>
+      <amcr:path>rest/AMCR/record/C-TX-195304352/file/be1052e3-1751-4d35-96e6-dcbbe2e46efe</amcr:path>
+      <amcr:nazev>CTX195304352.pdf</amcr:nazev>
+      <amcr:mimetype>application/pdf</amcr:mimetype>
+      <amcr:rozsah>1</amcr:rozsah>
+      <amcr:size_mb>1.7222843170</amcr:size_mb>
+      <amcr:sha_512>e77e5f1edb60efe568abc78ed0028dd1c5cfe9351e59a743a145b9b1dc72143c59b6a0abbe47ec1d07faf742d6d78fc8198eb5df89b38491155a8ec335d6a3fd</amcr:sha_512>
+      <amcr:url>https://digiarchiv.aiscr.cz/id/C-TX-195304352/file/be1052e3-1751-4d35-96e6-dcbbe2e46efe</amcr:url>
+      <amcr:historie>
+        <amcr:id>hist-2515508</amcr:id>
+        <amcr:datum_zmeny>2019-01-31T23:00:00+00:00</amcr:datum_zmeny>
+        <amcr:uzivatel id="U-000159">U-000159</amcr:uzivatel>
+        <amcr:poznamka>CTX195304352.pdf</amcr:poznamka>
+        <amcr:typ_zmeny>SBR0</amcr:typ_zmeny>
+      </amcr:historie>
+    </amcr:soubor>
+    <amcr:dokument_cast>
+      <amcr:ident_cely>C-TX-195304352-D002</amcr:ident_cely>
+      <amcr:archeologicky_zaznam id="C-9148250A">C-9148250A</amcr:archeologicky_zaznam>
+    </amcr:dokument_cast>
+    <amcr:dokument_cast>
+      <amcr:ident_cely>C-TX-195304352-D001</amcr:ident_cely>
+      <amcr:neident_akce>
+        <amcr:okres xml:lang="cs" id="ruian-3211">Příbram</amcr:okres>
+        <amcr:katastr xml:lang="cs" id="ruian-683825">Líchovy</amcr:katastr>
+        <amcr:vedouci id="OS-002181">Horáková-Jansová, Libuše</amcr:vedouci>
+        <amcr:rok_zahajeni>1952</amcr:rok_zahajeni>
+        <amcr:rok_ukonceni>1952</amcr:rok_ukonceni>
+        <amcr:lokalizace>Cca 500 m nad samotou Zrůbek. Vlevo silnice Zrůbek - Zlíchovy. Na mírném, k jihu obráceném návrší.</amcr:lokalizace>
+      </amcr:neident_akce>
+    </amcr:dokument_cast>
+  </amcr:dokument>
+</amcr:amcr></metadata>
+</record>
+</GetRecord>
+</OAI-PMH>
