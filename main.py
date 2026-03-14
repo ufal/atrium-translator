@@ -129,7 +129,7 @@ def main():
         with open(input_path, 'r', encoding='utf-8') as f:
             urls = [line.strip() for line in f if line.strip() and line.startswith('http')]
 
-        input_save_dir = Path("./my_documents")
+        input_save_dir = Path("data_samples/my_documents")
         input_save_dir.mkdir(parents=True, exist_ok=True)
 
         for url in urls:

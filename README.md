@@ -82,8 +82,8 @@ python main.py ./my_documents --alto --target_lang en
 ```
 
 Example of ALTO XML processing:
-- **Input**: [MTX201501307.alto.xml](my_documents/MTX201501307.alto.xml) 📎 
-- **Output**: [MTX201501307.alto_en.xml](translated_en/MTX201501307.alto_en.xml) 📎 
+- **Input**: [MTX201501307.alto.xml](data_samples/my_documents/MTX201501307.alto.xml) 📎 
+- **Output**: [MTX201501307.alto_en.xml](data_samples/translated_files/MTX201501307_en.alto.xml) 📎 
 
 The translation is performed in a per-`TextBlock` manner, and reconstruction of XML elements structure is
 performed on per-`TextLine` manner (Each text line has a `String` element with `CONTENT` attribute).
@@ -100,11 +100,11 @@ OR
 python main.py amcr-inputs.txt--xpaths amcr-fields.txt --target_lang en
 ```
 
-Examples of inputs files are downloaded in [my_documents](my_documents) 📂 
+Examples of inputs files are downloaded in [my_documents](data_samples/my_documents) 📂 
 and their filenames start with `C-` according to the [amcr-inputs.txt](amcr-inputs.txt) 📎 
 list of input files.
 
-Examples of output files are saved in [translated_files](translated_files) 📂
+Examples of output files are saved in [translated_files](data_samples/translated_files) 📂
 and include `.csv` log files (contain only processed lines) with `.xml` translated 
 to the target language source files.
 
