@@ -71,19 +71,19 @@ target languages, and XPath lists, ensuring consistency across different archiva
 | `master` | Stable / Integration | Merged exclusively by a human reviewer. Do not open PRs directly into `master`. |
 
 ```text
-test    ←  feature/<issue>
-test    ←  bugfix/<issue>
+test    ←  feature-<name>
+test    ←  bugfix-<name>
 master  ←  (humans only, after test stabilises)
 
 ```
 
 ### 🏷️ Branch Naming
 
-| Type             | Pattern           | Example                      |
-|------------------|-------------------|------------------------------|
-| New feature      | `feature/<issue>` | `feature/12-amcr-validation` |
-| Bug fix          | `bugfix/<issue>`  | `bugfix/18-chunk-truncation` |
-| Hotfix on master | `hotfix/<issue>`  | `hotfix/99-api-timeout`      |
+| Type             | Pattern          | Example                   |
+|------------------|------------------|---------------------------|
+| New feature      | `feature-<name>` | `feature-amcr-validation` |
+| Bug fix          | `bugfix-<name>`  | `bugfix-chunk-truncation` |
+| Hotfix on master | `hotfix-<name>`  | `hotfix-api-timeout`      |
 
 ---
 
@@ -94,7 +94,7 @@ master  ←  (humans only, after test stabilises)
 ```bash
 git checkout test
 git pull origin test
-git checkout -b feature/<issue-number>
+git checkout -b feature-<name>
 ```
 3. **Implement your changes** observing the project's code conventions.
 4. **Run the minimum tests** (see the Testing section).
@@ -113,7 +113,7 @@ Every PR must include:
 
 Use a **Draft PR** if the work is not ready for review.
 
-**Do not open PRs into `master**` — merging into `master` is exclusively the 
+**Do not open PRs into `master` — merging into `master` is exclusively the 
 maintainers' responsibility.
 
 > **Note on issue tracking:** Issues reference the commits and PRs that resolved 
@@ -151,9 +151,12 @@ Allowed types:
 
 ### Code Conventions
 
-* **Formatting:** Python code should be formatted using `black` (line length 120) and `isort`.
-* **Linting:** Ensure compliance with `flake8`.
-* **Docstrings:** Use descriptive, concrete language avoiding generic templates.
+* **Comments:** informative but short, may be LLM-generated, added when function name does 
+not explain its functionality in detail
+* **Argument types:** set default type (e.g., `int`, `list`) for function arguments
+* **Console flags:** when a new one added, provide help message for it
+* **Config files:** when set of variables changes it should be reflected in repository documentation
+* **Generated code:** always should be manually launched and checked for mistakes before pushing
 
 ### Minimum checks before every commit
 
@@ -163,34 +166,30 @@ Always run basic validation locally before pushing:
 # 1. Python compilation check
 python -m compileall -q .
 
-# 2. Pre-commit hooks (runs black, isort, flake8)
+# 2. Pre-commit hooks (runs black, isort, flake8, etc.)
 pre-commit run --all-files
+
 ```
 
-*Note: If specific translation handlers or chunking logic are updated, please run a 
-smoke-test to verify XML schema integrity and ensure the spatial coordinates 
-(`CONTENT` bounding boxes) remain unaltered.*
+> [!NOTE]
+>  If specific scripts or extraction modules are updated, please run a smoke-test 
+> against the `data_samples/` directory to verify extraction integrity.
 
 ---
 
 ## 📁 Repository Documentation Management
 
-Each documentation file has one target audience and one responsibility. Rules are not 
-repeated — cross-references are used instead.
+Each documentation file has one target audience and one responsibility. Rules are not repeated — cross-references are used instead.
 
 | File              | Audience        | Responsibility                                 |
 |-------------------|-----------------|------------------------------------------------|
 | `README.md`       | GitHub visitors | Project overview, workflow stages, quick start |
 | `CONTRIBUTING.md` | Developers      | Code conventions, branches, PRs, testing       |
 
-Rules:
-
-1. **Do not duplicate rules** — if a rule is defined in `CONTRIBUTING.md`, other files 
+* **Do not duplicate rules:** if a rule is defined in `CONTRIBUTING.md`, other files 
 reference it rather than copying it.
-2. **Single canonical source** — for each type of information, exactly one canonical 
-file exists (see table above).
-3. **When changing a rule**, update the canonical source and verify that referencing 
-files still point correctly.
+* **When changing a rule:** update the canonical source and verify that referencing files
+still point correctly.
 
 ---
 
