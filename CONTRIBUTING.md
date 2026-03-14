@@ -10,6 +10,14 @@ namespaces, or OAI-PMH envelopes.
 This document describes the project's capabilities, development workflow, code 
 conventions, and rules for contributors.
 
+## 📦 Release History
+
+| Version    | Highlights                                                                                                                                                  | Status      |
+|:-----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------|
+| **v0.2.1** | Draft version of ALTO/AMCR XML inputs only (Draft of AMCR is ready, Example of ALTO is included, Wrapped up with citation, license, and contribution draft) | Pre-release |
+| **v0.1.0** | Broad inputs support (and AMCR XML) (No logging of ALTO lines translation, AMCR XML support draft is included, No strict input format narrowing done yet)   | Pre-release |
+| **v0.0.2** | Various input formats and focus on ALTO (No AMCR XML paths config, Broad inputs optionation like txt, pdf, xml..., Working draft version)                   | Pre-release |
+
 ---
 
 ## 🏗️ Project Contributions & Capabilities
