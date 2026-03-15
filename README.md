@@ -17,6 +17,7 @@ and safely reconstructs the original XML structure.
   - [⚙️ Configuration File Support](#-configuration-file-support)
   - [⚙️ Supported Arguments](#-supported-arguments)
 - [🧠 Logic Overview](#-logic-overview)
+- [Paradata logs](#paradata-logs)
 - [🙏 Acknowledgements](#-acknowledgements)
 
 ---
@@ -25,7 +26,7 @@ and safely reconstructs the original XML structure.
 
 * 🎯 **Dedicated XML Processing**: Narrowly defined and optimized exclusively for ALTO XML and AMCR metadata to ensure universal, safe, and easy usage. 
 * 📖 **ALTO Translation Mode**: Translates only the `CONTENT` attributes natively. Tied to a simple flag (`--alto`) so users don't need to provide complex configurations.
-* 🏛️ **AMCR Metadata Mode**: Translates specific elements based on a provided list of XPaths (e.g., [amcr-fields.txt](amcr-fields.txt)), safely puts them back into the XML, and features deep recursive namespace extraction to handle OAI-PMH envelopes.
+* 🏛️ **AMCR Metadata Mode**: Translates specific elements based on a provided list of XPaths (e.g., [amcr-fields.txt](amcr-fields.txt) 📎), safely puts them back into the XML, and features deep recursive namespace extraction to handle OAI-PMH envelopes.
 * ✅ **XSD Validation**: Optionally validates AMCR outputs against an XSD schema (e.g., `https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd`) to guarantee structural integrity.
 * 📊 **Supplementary CSV Logging**: Automatically produces a supplementary QA CSV file with columns: `file, page_num, line_num, text_src, text_tgt` for easy manual checking of translations.
 * 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using **FastText** (Facebook) [^5]. If the detection confidence is low (< 0.2), it defaults to Czech (`cs`) to ensure the pipeline continues seamlessly.
@@ -60,9 +61,21 @@ lindat-wrapper/
 ├── requirements.txt        # 📦 Python dependencies
 ├── config.txt              # ⚙️ Configuration parameters
 ├── amcr-fields.txt         # 📄 List of AMCR XPath targets for XML translation
+├── amcr-inputs.txt         # 📄 List of AMCR metadata input files (XML) to be processed
 ├── processors/
 │   ├── identifier.py       # 🌍 FastText language identification (ISO 639-3 to 639-1 mapping)
 │   └── translator.py       # 🔄 LINDAT API client with space-aware chunking
+├── data_samples/
+│   ├── my_documents/       # 📂 Sample input files (ALTO XML and downloaded AMCR metadata XMLs)
+│   │   ├── MTX201501307.alto.xml # 📎 Sample ALTO XML file for testing
+│   │   └── ...
+│   └── translated_files/   # 📂 Output directory for translated XML files and their logs
+│       ├── MTX201501307_en.alto.xml # 📎 Translated ALTO XML output file
+│       ├── MTX201501307_log.csv     # 📎 Supplementary CSV log for the translated ALTO XML file
+│       └── ...
+├── paradata/
+│   ├── <date>-<time>_translator.json # 📊 Aggregated log of all translations for analysis
+│   └── ...
 └── utils.py                # 🔧 ALTO & AMCR parsing, CSV logging, XSD validation, and XML tree reconstruction
 ```
 
