@@ -4,6 +4,8 @@ import csv
 import re
 import configparser
 from pathlib import Path
+from atrium_paradata import ParadataLogger
+import configparser as _cp
 
 try:
     from tqdm import tqdm
@@ -25,6 +27,22 @@ from processors.translator import LindatTranslator
 from utils import process_alto_xml, process_amcr_xml
 import requests
 import tempfile
+
+def _build_paradata_config(args, config: _cp.ConfigParser) -> dict:
+    """Collect all run-time parameters into a JSON-serialisable dict."""
+    return {
+        "input_path":   str(args.input_path),
+        "output_dir":   str(args.output or config.get("DEFAULT", "output", fallback="")),
+        "source_lang":  str(args.source_lang or config.get("DEFAULT", "source_lang", fallback="auto")),
+        "target_lang":  str(args.target_lang or config.get("DEFAULT", "target_lang", fallback="en")),
+        "mode":         "alto" if args.alto else "amcr",
+        "xpaths_file":  str(args.xpaths or ""),
+        "xsd_url":      str(args.xsd   or ""),
+        "chunk_limit":  4000,    # hardcoded in translator.py
+        "lang_id_model": "facebook/fasttext-language-identification",
+        "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
+        "fasttext_confidence_threshold": 0.2,
+    }
 
 
 def fetch_xml_from_url(url, download_dir):
@@ -76,7 +94,7 @@ def parse_arguments():
         if args.target_lang == 'en' and 'target_lang' in defaults: args.target_lang = defaults['target_lang']
         if args.xpaths is None and 'fields' in defaults: args.xpaths = Path(defaults['fields'])
 
-    return args
+    return args, config
 
 
 def generate_output_path(input_file, base_output, args, is_batch=False):
@@ -95,7 +113,7 @@ def generate_output_path(input_file, base_output, args, is_batch=False):
 
 
 def main():
-    args = parse_arguments()
+    args, config = parse_arguments()
 
     print(f"\n{'=' * 60}\n ATRIUM XML TRANSLATOR ".center(60, "=") + f"\n{'=' * 60}")
     input_path = args.input_path
@@ -103,6 +121,14 @@ def main():
     if not input_path or (not input_path.is_dir() and not input_path.is_file()):
         print(f"[ERROR] Input path does not exist. Please provide a valid file or directory.")
         return
+
+
+    _logger = ParadataLogger(
+        program="translator",
+        config=_build_paradata_config(args, config),
+        paradata_dir="paradata",
+        output_types=["xml", "csv"],
+    )
 
     if not args.alto and not args.xpaths:
         print("[ERROR] Specify either the --alto flag or provide --xpaths file in config.")
@@ -147,31 +173,39 @@ def main():
         print(f"[WARN] No valid XML files found.")
         return
 
+    _total_inputs = len(files_to_process)
+
     is_batch = input_path.is_dir() or (input_path.suffix == '.txt')
     out_dir = args.output if args.output else Path.cwd() / f"translated_{args.target_lang}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for i, file_path in enumerate(files_to_process, 1):
-        print(f"\n[FILE {i}/{len(files_to_process)}] Processing: {file_path.name}")
-        output_file = generate_output_path(file_path, out_dir, args, is_batch=is_batch)
+    try:
+        for i, file_path in enumerate(files_to_process, 1):
+            print(f"\n[FILE {i}/{len(files_to_process)}] Processing: {file_path.name}")
+            output_file = generate_output_path(file_path, out_dir, args, is_batch=is_batch)
 
-        csv_path = output_file.with_name(f"{file_path.name.split('.')[0]}_log.csv")
-        with open(csv_path, "w", encoding="utf-8", newline="") as csv_file:
-            csv_writer = csv.writer(csv_file)
-            csv_writer.writerow(
-                ["file", "page_num", "line_num", f"text_{args.source_lang}", f"text_{args.target_lang}"])
+            csv_path = output_file.with_name(f"{file_path.name.split('.')[0]}_log.csv")
+            with open(csv_path, "w", encoding="utf-8", newline="") as csv_file:
+                csv_writer = csv.writer(csv_file)
+                csv_writer.writerow(
+                    ["file", "page_num", "line_num", f"text_{args.source_lang}", f"text_{args.target_lang}"])
 
-            try:
-                if args.alto:
-                    process_alto_xml(file_path, output_file, translator, args.source_lang, args.target_lang, csv_writer,
-                                     identifier)
-                else:
-                    process_amcr_xml(file_path, output_file, xpaths_list, translator, args.source_lang,
-                                     args.target_lang, args.xsd, csv_writer, identifier)
-            except Exception as e:
-                print(f"[ERROR] Failed processing {file_path.name}: {e}")
+                try:
+                    if args.alto:
+                        process_alto_xml(file_path, output_file, translator, args.source_lang, args.target_lang, csv_writer,
+                                         identifier)
+                    else:
+                        process_amcr_xml(file_path, output_file, xpaths_list, translator, args.source_lang,
+                                         args.target_lang, args.xsd, csv_writer, identifier)
 
-    print(f"\n{'=' * 60}\n PROCESSING COMPLETE ".center(60, "=") + f"\n{'=' * 60}\n")
+                    _logger.log_success("xml")
+                    _logger.log_success("csv")   # QA log CSV always produced
+                except Exception as e:
+                    print(f"[ERROR] Failed processing {file_path.name}: {e}")
+                    _logger.log_skip(str(file_path), str(e))
+    finally:
+        _logger.finalize(input_total=_total_inputs)
+        print(f"\n{'=' * 60}\n PROCESSING COMPLETE ".center(60, "=") + f"\n{'=' * 60}\n")
 
 
 if __name__ == "__main__":
