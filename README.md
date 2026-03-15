@@ -78,7 +78,7 @@ Use the `--alto` flag. This acts as a default setup to process ALTO files by str
 `String`'s `CONTENT` attributes.
 
 ```bash
-python main.py ./my_documents --alto --target_lang en
+python main.py ./data_samples/my_documents --alto --target_lang en
 ```
 
 Example of ALTO XML processing:
@@ -93,18 +93,18 @@ performed on per-`TextLine` manner (Each text line has a `String` element with `
 Process AMCR records by passing your list of XPaths and optionally providing an XSD URL for validation.
 
 ```bash
-python main.py amcr-inputs.txt--xpaths amcr-fields.txt --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd --target_lang en
+python main.py amcr-inputs.txt --xpaths amcr-fields.txt --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd --target_lang en
 ```
 OR
 ```bash
-python main.py amcr-inputs.txt--xpaths amcr-fields.txt --target_lang en
+python main.py amcr-inputs.txt --xpaths amcr-fields.txt --target_lang en
 ```
 
-Examples of inputs files are downloaded in [my_documents](data_samples/my_documents) 📂 
+Examples of **inputs** files are downloaded in [my_documents](data_samples/my_documents) 📂 
 and their filenames start with `C-` according to the [amcr-inputs.txt](amcr-inputs.txt) 📎 
 list of input files.
 
-Examples of output files are saved in [translated_files](data_samples/translated_files) 📂
+Examples of **output** files are saved in [translated_files](data_samples/translated_files) 📂
 and include `.csv` log files (contain only processed lines) with `.xml` translated 
 to the target language source files.
 
@@ -121,6 +121,7 @@ Example [config.txt](config.txt):
 input_path = ./my_documents
 source_lang = auto
 target_lang = en
+formats = xml,txt
 fields = amcr-fields.txt
 output = ./translated_files
 ```
@@ -131,6 +132,7 @@ output = ./translated_files
 * `--output`, `-o`: Output file path (for single file mode) or output directory (for batch mode).
 * `--source_lang`, `-src`: Source language code (e.g., `cs`, `fr`). Use `auto` to auto-detect. Default is `cs`.
 * `--target_lang`, `-tgt`: Target language code (e.g., `en`, `cs`). Default is `en`.
+* `--formats`, `-f`: Comma-separated list of file formats to process (e.g., `alto.xml,txt`). Default is `xml`.'
 * `--config`, `-c`: Path to configuration file. Settings here override console flags.
 * `--alto`: Flag to enable ALTO XML in-place translation mode.
 * `--xpaths`: Path to a `.txt` file containing XPaths for AMCR metadata translation.
@@ -149,6 +151,19 @@ output = ./translated_files
 5. **Output**: Generates the translated `.xml` file preserving all original tags/namespaces, alongside a supplementary `_log.csv` file containing the line-by-line translation data for manual QA review. Optionally validates AMCR output against an XSD schema.
 
 ---
+
+## Paradata logs
+
+The wrapper generates a supplementary CSV log file for each processed XML file, named with the pattern `<original_filename>_log.csv`. This log contains the following columns:
+- `file`: The name of the original XML file being processed.
+- `page_num`: The page number (for ALTO XML) or `N/A` for AMCR metadata.
+- `line_num`: The line number within the page (for ALTO XML) or type for AMCR metadata.
+- `text_src`: The original text extracted for translation.
+- `text_tgt`: The translated text returned by the LINDAT API.
+- `translation_status`: Status of the translation (e.g., `success`, `failed`, `skipped`).
+
+Moreover, directory [paradata](paradata) 📂 contains aggregated logs of all processed files, 
+allowing for outputs' metadata of the program run to be easily accessible for further analysis and reporting.
 
 ## 🙏 Acknowledgements
 

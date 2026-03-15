@@ -35,6 +35,7 @@ def _build_paradata_config(args, config: _cp.ConfigParser) -> dict:
         "output_dir":   str(args.output or config.get("DEFAULT", "output", fallback="")),
         "source_lang":  str(args.source_lang or config.get("DEFAULT", "source_lang", fallback="auto")),
         "target_lang":  str(args.target_lang or config.get("DEFAULT", "target_lang", fallback="en")),
+        "formats":      str(args.formats or config.get("DEFAULT", "formats", fallback="xml")),
         "mode":         "alto" if args.alto else "amcr",
         "xpaths_file":  str(args.xpaths or ""),
         "xsd_url":      str(args.xsd   or ""),
@@ -69,6 +70,7 @@ def parse_arguments():
     parser.add_argument("--output", "-o", type=Path, default=None)
     parser.add_argument("--source_lang", "-src", type=str, default="cs")
     parser.add_argument("--target_lang", "-tgt", type=str, default="en")
+    parser.add_argument("--formats", type=str, default=None, help="Comma-separated list of allowed file formats")
     parser.add_argument("--config", "-c", type=Path, default=Path("config.txt"))
     parser.add_argument("--alto", action="store_true")
     parser.add_argument("--xpaths", type=Path, default=None)
@@ -92,7 +94,12 @@ def parse_arguments():
         if args.output is None and 'output' in defaults: args.output = Path(defaults['output'])
         if args.source_lang == 'cs' and 'source_lang' in defaults: args.source_lang = defaults['source_lang']
         if args.target_lang == 'en' and 'target_lang' in defaults: args.target_lang = defaults['target_lang']
+        if args.formats is None and 'formats' in defaults: args.formats = defaults['formats']
         if args.xpaths is None and 'fields' in defaults: args.xpaths = Path(defaults['fields'])
+
+    # Fallback to standard xml if formats wasn't passed via CLI or config
+    if args.formats is None:
+        args.formats = "xml"
 
     return args, config
 
@@ -150,7 +157,9 @@ def main():
     download_dir = args.output if args.output else Path.cwd() / f"translated_{args.target_lang}"
     download_dir.mkdir(parents=True, exist_ok=True)
 
-    if input_path.is_file() and input_path.suffix == '.txt':
+    allowed_formats = [fmt.strip() for fmt in args.formats.split(',')]
+
+    if input_path.is_file() and input_path.suffix == '.txt' and "txt" in allowed_formats:
         print("[INFO] Text file detected. Reading URLs...")
         with open(input_path, 'r', encoding='utf-8') as f:
             urls = [line.strip() for line in f if line.strip() and line.startswith('http')]
@@ -164,13 +173,21 @@ def main():
             if local_file:
                 files_to_process.append(local_file)
     elif input_path.is_dir():
-        files_to_process = [f for f in input_path.rglob('*.xml') if f.is_file()]
+        for fmt in allowed_formats:
+            pattern = f"*.{fmt}" if not fmt.startswith('.') else f"*{fmt}"
+            files_to_process.extend([f for f in input_path.rglob(pattern) if f.is_file()])
+        # Remove potential duplicates if there's overlap in format parameters
+        files_to_process = list(set(files_to_process))
     else:
-        files_to_process = [input_path]
+        # For single files, ensure it matches one of our allowed formats before processing
+        if any(input_path.name.endswith(fmt) for fmt in allowed_formats):
+            files_to_process = [input_path]
+        else:
+            print(f"[WARN] Input file '{input_path.name}' does not match allowed formats: {args.formats}")
 
 
     if not files_to_process:
-        print(f"[WARN] No valid XML files found.")
+        print(f"[WARN] No valid files found matching the allowed formats ({args.formats}).")
         return
 
     _total_inputs = len(files_to_process)

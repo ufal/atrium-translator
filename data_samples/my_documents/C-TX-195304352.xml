@@ -2,7 +2,7 @@
 <OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" 
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
 xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
-<responseDate>2026-03-14T15:26:07Z</responseDate>
+<responseDate>2026-03-15T11:05:29Z</responseDate>
 <request verb="GetRecord" metadataPrefix="oai_amcr" identifier="https://api.aiscr.cz/id/C-TX-195304352">https://api.aiscr.cz/2.2/oai</request>
 <GetRecord>
 <record><header>
