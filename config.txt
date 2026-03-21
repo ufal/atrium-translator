@@ -3,7 +3,7 @@ input_path = ./data_samples/my_documents
 
 source_lang = auto
 target_lang = en
-formats = xml,txt
+formats = alto.xml,txt
 
 output = ./data_samples/translated_files
 

@@ -35,9 +35,9 @@
       <amcr:datum_ukonceni>1960-12-31</amcr:datum_ukonceni>
       <amcr:hlavni_typ xml:lang="cs" id="HES-001058">skupina/síť sond</amcr:hlavni_typ>
       <amcr:chranene_udaje>
-        <amcr:lokalizace_okolnosti>The spa area in the JV part of the municipality, the Palliardi spring, south of the Imperial Spa building. Incentive: modification of a spring.</amcr:lokalizace_okolnosti>
-        <amcr:souhrn_upresneni>A wooden structure was revealed when the spring was modified. Subsequent archaeological research has uncovered traces of hazing and multiple levels with remnants of treated and untreated wood, wooden structures, larger quantities of vegetable macro-residues (pine cones, hazelnuts), several pieces of chipped industrial, dated to the mezolite, and fragments of ceramic vessels dated to similar dustbins and the Bronze Age. The author of the research interpreted the remains of the wooden structure as the construction of a lighter cube from the late Bronze Age.
-Several independent naturalistic analyses have provided information on the shape of the surrounding landscape. The research was complicated by high levels of groundwater or mineral springs. Much of the wood elements were degraded during preservation in the laboratory.</amcr:souhrn_upresneni>
+        <amcr:lokalizace_okolnosti>Spa area in the JV part of the municipality, spring Palliardi, south of building Imperial spa. Initiative: edit spring.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>The spring edit revealed wooden structure. Subsequent archaeological research has uncovered hazing residues and multiple levels with residues of both treated and unworked wood, wooden structures, larger quantities of vegetable macro residues (cones, hazelnuts), several pieces chipped industry dated to Mesolithic and fractions of ceramic vessel_ dated to the equivalent of the ash __TERM_6 Younger___ bronze and bronze age. The author of the research interpreted the remains of the wooden construction as construction lighter dice from the late Bronze Age.
+Several independent naturalists analysis have provided information about the form surrounding landscape. The research was complicated by high groundwater levels or mineral spring. Much of the wooden elements were degraded while conservation was in the laboratory.</amcr:souhrn_upresneni>
       </amcr:chranene_udaje>
     </amcr:akce>
     <amcr:historie>
@@ -79,7 +79,7 @@ Several independent naturalistic analyses have provided information on the shape
           <amcr:id>nalo-93683</amcr:id>
           <amcr:druh xml:lang="cs" id="HES-000473">pramen</amcr:druh>
           <amcr:specifikace xml:lang="cs" id="HES-000896">konstrukce kamenná</amcr:specifikace>
-          <amcr:poznamka>Apparently, stone reinforcement of a spring.</amcr:poznamka>
+          <amcr:poznamka>Apparently a stone reinforcement spring.</amcr:poznamka>
         </amcr:nalez_objekt>
         <amcr:nalez_predmet>
           <amcr:id>nalp-165933</amcr:id>
@@ -143,7 +143,7 @@ Several independent naturalistic analyses have provided information on the shape
           <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
           <amcr:specifikace xml:lang="cs" id="HES-000981">keramika kamenina</amcr:specifikace>
           <amcr:pocet>x</amcr:pocet>
-          <amcr:poznamka>Waldenburg goods, fractions from mineral water bottles</amcr:poznamka>
+          <amcr:poznamka>Waldenburg trade good, fractions from bottle to mineral water</amcr:poznamka>
         </amcr:nalez_predmet>
       </amcr:komponenta>
       <amcr:komponenta>

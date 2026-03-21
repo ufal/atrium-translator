@@ -25,7 +25,7 @@
     <amcr:datum_zverejneni>2017-06-01</amcr:datum_zverejneni>
     <amcr:jazyk_dokumentu xml:lang="cs" id="HES-000167">čeština</amcr:jazyk_dokumentu>
     <amcr:ulozeni_originalu xml:lang="cs" id="HES-001168">archiv ARÚ</amcr:ulozeni_originalu>
-    <amcr:popis>Site report on the inventory card.</amcr:popis>
+    <amcr:popis>Report about site on the inventory card.</amcr:popis>
     <amcr:licence xml:lang="cs" id="HES-001489">Creative Commons Uveďte původ-Neužívejte komerčně 4.0 Mezinárodní</amcr:licence>
     <amcr:historie>
       <amcr:id>hist-624087</amcr:id>
@@ -68,7 +68,7 @@
         <amcr:vedouci id="OS-002181">Horáková-Jansová, Libuše</amcr:vedouci>
         <amcr:rok_zahajeni>1952</amcr:rok_zahajeni>
         <amcr:rok_ukonceni>1952</amcr:rok_ukonceni>
-        <amcr:lokalizace>Cca 500m above the solitude of Zrůbek. To the left of the road Zrůbek - Zlíchovy. On a gentle, south-facing hill.</amcr:lokalizace>
+        <amcr:lokalizace>Cca 500m above the solitude of Zrůbek. Left road View - Zlíchovy. On a gentle, south-facing hill.</amcr:lokalizace>
       </amcr:neident_akce>
     </amcr:dokument_cast>
   </amcr:dokument>

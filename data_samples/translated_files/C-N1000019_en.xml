@@ -27,8 +27,8 @@
       <amcr:zachovalost xml:lang="cs" id="HES-001455">nadzemní relikty</amcr:zachovalost>
       <amcr:jistota xml:lang="cs" id="HES-001449">jisté (&gt; 95 %)</amcr:jistota>
       <amcr:chranene_udaje>
-        <amcr:nazev>Davle - Cult Area 1 - St. John the Baptist Monastery on the Island</amcr:nazev>
-        <amcr:popis>The Benedictine Monastery of St John the Baptist was established around 1000 as the oldest male monastery in our territory. It was severely damaged at the time of the Brandenburg looting following the death of Přemysl Otakar II. (1278) and finally died after the Hussite Wars.</amcr:popis>
+        <amcr:nazev>Davle - ritual site 1 - monastery St. John the Baptist on the Island</amcr:nazev>
+        <amcr:popis>Benedictine monastery The decapitation of St. John the Baptist originated around 1000 as the oldest male monastery in our territory. It was severely damaged at the time of the Brandenburg looting following the death of Přemysl Otakar II. (1278) and finally died after the Hussite war.</amcr:popis>
         <amcr:poznamka>Navigation point: N 49°52'50.18", E 14°23'26.70" (northern edge of the monastery compound on the island).</amcr:poznamka>
       </amcr:chranene_udaje>
     </amcr:lokalita>

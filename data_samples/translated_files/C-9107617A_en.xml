@@ -31,8 +31,8 @@
       <amcr:hlavni_typ xml:lang="cs" id="HES-001057">sonda</amcr:hlavni_typ>
       <amcr:ulozeni_nalezu>M Čelákovice, př. č. 119/07.</amcr:ulozeni_nalezu>
       <amcr:chranene_udaje>
-        <amcr:lokalizace_okolnosti>Street V Ovčárně, p. p. No 25. Complaint: sewer connection for No 33.</amcr:lokalizace_okolnosti>
-        <amcr:souhrn_upresneni>A well-preserved skeleton of a horse with horseshoes at the front extremities was found in the pit. The lower part of the hind limbs was disturbed by a younger kick.</amcr:souhrn_upresneni>
+        <amcr:lokalizace_okolnosti>street V Ovčárna, p. Complaint: sewer connection for No 33.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>A well-preserved skeleton horse was found in pit with horseshoe near the forelimbs. The lower back extremities were impaired by the younger cut.</amcr:souhrn_upresneni>
       </amcr:chranene_udaje>
     </amcr:akce>
     <amcr:historie>
@@ -140,7 +140,7 @@
           <amcr:id>nalp-30171</amcr:id>
           <amcr:druh xml:lang="cs" id="HES-000642">kostra</amcr:druh>
           <amcr:specifikace xml:lang="cs" id="HES-000987">kost zvířecí</amcr:specifikace>
-          <amcr:poznamka>a horse skeleton lodged in a pit</amcr:poznamka>
+          <amcr:poznamka>skeleton horse stored in pit</amcr:poznamka>
         </amcr:nalez_predmet>
         <amcr:nalez_predmet>
           <amcr:id>nalp-33141</amcr:id>
@@ -193,7 +193,7 @@
         <amcr:nalez_objekt>
           <amcr:id>nalo-21187</amcr:id>
           <amcr:druh xml:lang="cs" id="HES-000544">místo výroby</amcr:druh>
-          <amcr:poznamka>a pit filled with lubrication</amcr:poznamka>
+          <amcr:poznamka>pit filled in daub</amcr:poznamka>
         </amcr:nalez_objekt>
         <amcr:nalez_predmet>
           <amcr:id>nalp-32244</amcr:id>

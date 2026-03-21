@@ -3,13 +3,13 @@
   "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
   "program": "translator",
   "repository": "https://github.com/ufal/atrium-translator",
-  "python_version": "3.11.0 (main, Oct 27 2022, 10:26:58) [GCC 11.3.0]",
-  "run_id": "260315-110517",
-  "start_time": "2026-03-15T11:05:17.581518+00:00",
-  "end_time": "2026-03-15T11:05:52.179090+00:00",
-  "duration_seconds": 34.598,
+  "python_version": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
+  "run_id": "260321-102451",
+  "start_time": "2026-03-21T10:24:51.203982+00:00",
+  "end_time": "2026-03-21T10:25:54.220626+00:00",
+  "duration_seconds": 63.017,
   "config": {
-    "input_path": "amcr-inputs.txt",
+    "input_path": "data_samples/my_documents",
     "output_dir": "data_samples/translated_files",
     "source_lang": "auto",
     "target_lang": "en",
@@ -17,22 +17,23 @@
     "mode": "amcr",
     "xpaths_file": "amcr-fields.txt",
     "xsd_url": "",
+    "vocabulary": "data_samples/vocabulary.csv",
     "chunk_limit": 4000,
     "lang_id_model": "facebook/fasttext-language-identification",
     "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
     "fasttext_confidence_threshold": 0.2
   },
   "statistics": {
-    "input_files_total": 15,
-    "successfully_processed": 15,
+    "input_files_total": 16,
+    "successfully_processed": 16,
     "skipped_files": 0,
     "output_counts_by_type": {
-      "xml": 15,
-      "csv": 15
+      "xml": 16,
+      "csv": 16
     },
     "performance_per_minute": {
-      "xml": 26.0134,
-      "csv": 26.0134
+      "xml": 15.2341,
+      "csv": 15.2341
     }
   },
   "skipped_files_detail": []
