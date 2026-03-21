@@ -2,13 +2,21 @@
 processors/translator.py – LINDAT Translation API client with vocabulary support.
 
 Implements the **Tag-and-Protect** strategy for vocabulary term overriding:
-  1. Lemmatise the source text via UDPipe.
-  2. Identify any surface tokens whose lemma appears in the vocabulary.
-  3. Replace those tokens with unique placeholder tags (``__TERM_N__``).
-  4. Translate the protected text; NMT models leave unknown tags untouched.
-  5. Substitute every tag with the vocabulary's target-language translation.
 
-If no vocabulary is supplied, the translator behaves exactly as before.
+  Single-word terms
+    1. Lemmatise the source text via UDPipe.
+    2. Identify surface tokens whose base form (lemma) is in the vocabulary.
+    3. Replace those tokens with unique placeholder tags (``__TERM_N__``).
+    4. Translate the protected text; NMT models leave unknown tags untouched.
+    5. Restore tags with the vocabulary's target-language translation.
+
+  Multi-word terms  (e.g. "fotografie události" from the AMCR thesaurus)
+    These cannot be reliably matched via lemmatisation of individual tokens,
+    so a secondary pass does **case-insensitive substring matching** on the
+    original source text before the lemma pass.  If an exact phrase match is
+    found it is tagged first, shrinking the search space for the lemma pass.
+
+If no vocabulary is supplied the translator behaves exactly as before.
 """
 
 import csv
@@ -30,20 +38,32 @@ from .lemmatizer import LindatLemmatizer
 class LindatTranslator:
     BASE_URL = "https://lindat.mff.cuni.cz/services/translation/api/v2"
 
-    # Regex that matches a placeholder tag such as __TERM_0__
     _TAG_RE = re.compile(r"__TERM_\d+__")
 
-    def __init__(self, vocab_path: Path | str | None = None):
+    def __init__(self, vocab_path=None):
         self.supported_models = self._fetch_models()
-        self.vocabulary: dict[str, str] = {}
-        self._lemmatizer: LindatLemmatizer | None = None
+        self.vocabulary: dict = {}
+        self._multiword_terms: list = []   # sorted longest-first
+        self._lemmatizer = None
 
         if vocab_path:
             self.vocabulary = self._load_vocabulary(Path(vocab_path))
             if self.vocabulary:
+                # Separate multi-word entries (phrase matching) from single-word
+                # entries (lemma matching). Longest phrases first to avoid
+                # partial matches shadowing longer ones.
+                self._multiword_terms = sorted(
+                    [(k, v) for k, v in self.vocabulary.items() if " " in k],
+                    key=lambda kv: len(kv[0]),
+                    reverse=True,
+                )
                 self._lemmatizer = LindatLemmatizer()
-                print(f"[INFO] Vocabulary loaded ({len(self.vocabulary)} terms). "
-                      "Tag-and-Protect mode enabled.")
+                print(
+                    f"[INFO] Vocabulary loaded ({len(self.vocabulary)} terms — "
+                    f"{len(self._multiword_terms)} multi-word, "
+                    f"{len(self.vocabulary) - len(self._multiword_terms)} single-word). "
+                    "Tag-and-Protect mode enabled."
+                )
 
     # ------------------------------------------------------------------
     # Public API
@@ -53,8 +73,7 @@ class LindatTranslator:
         """
         Translate *text* from *src_lang* to *tgt_lang*.
 
-        If a vocabulary is configured, protected placeholders are inserted
-        before translation and restored afterwards.
+        Applies vocabulary overriding when a vocabulary is configured.
         """
         if not text or not text.strip() or src_lang == tgt_lang:
             return text
@@ -65,33 +84,28 @@ class LindatTranslator:
         return self._basic_translate(text, src_lang, tgt_lang)
 
     # ------------------------------------------------------------------
-    # Vocabulary / Tag-and-Protect
+    # Vocabulary / Tag-and-Protect pipeline
     # ------------------------------------------------------------------
 
-    def _load_vocabulary(self, path: Path) -> dict[str, str]:
+    def _load_vocabulary(self, path: Path) -> dict:
         """
-        Load a two-column CSV file: ``source_lemma,target_translation``.
+        Load a two-column CSV: ``source_lemma_or_phrase,target_translation``.
 
-        • Encoding: UTF-8.
-        • First row may optionally be a header – it is skipped when the first
-          field does not look like a dictionary entry (contains spaces or is
-          longer than 60 characters).
-        • Keys are stored in lower-case for case-insensitive matching.
+        UTF-8, optional header row auto-detected, keys stored lower-case.
         """
-        vocab: dict[str, str] = {}
+        vocab: dict = {}
         try:
             with open(path, mode="r", encoding="utf-8", newline="") as fh:
                 reader = csv.reader(fh)
                 for i, row in enumerate(reader):
                     if len(row) < 2:
                         continue
-                    src_term = row[0].strip()
-                    tgt_term = row[1].strip()
-                    # Heuristic: skip a header row
-                    if i == 0 and (not tgt_term or src_term.lower() in ("source", "src", "term", "lemma")):
+                    src = row[0].strip()
+                    tgt = row[1].strip()
+                    if i == 0 and src.lower() in ("source_lemma", "source", "src", "term", "lemma", "cs"):
                         continue
-                    if src_term:
-                        vocab[src_term.lower()] = tgt_term
+                    if src:
+                        vocab[src.lower()] = tgt
             print(f"[INFO] Loaded {len(vocab)} vocabulary entries from '{path}'.")
         except FileNotFoundError:
             print(f"[WARN] Vocabulary file not found: '{path}'. Continuing without vocabulary.")
@@ -101,75 +115,75 @@ class LindatTranslator:
 
     def _translate_with_vocabulary(self, text: str, src_lang: str, tgt_lang: str) -> str:
         """
-        Full Tag-and-Protect pipeline:
+        Full Tag-and-Protect pipeline.
 
-        1. Ask UDPipe for ``(word, lemma)`` pairs.
-        2. For every token whose lemma is in the vocabulary, replace the first
-           occurrence of that token in *text* with ``__TERM_N__`` and record
-           the mapping ``tag → target_term``.
-        3. Translate the tagged text.
-        4. Restore tags with the vocabulary translations.
+        Pass 1 – multi-word phrase matching (case-insensitive substring).
+        Pass 2 – single-word lemma matching via UDPipe.
+        Pass 3 – translate the tagged text.
+        Pass 4 – restore tags with vocabulary translations.
         """
-        word_lemma_pairs = self._lemmatizer.get_lemmas(text, lang=src_lang)
+        protected_text = text
+        protected_map: dict = {}   # tag → target translation
+
+        # ── Pass 1: multi-word phrases ─────────────────────────────────
+        for phrase, translation in self._multiword_terms:
+            pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+            if pattern.search(protected_text):
+                tag = f"__TERM_{len(protected_map)}__"
+                protected_map[tag] = translation
+                protected_text = pattern.sub(tag, protected_text, count=1)
+
+        # ── Pass 2: single-word lemma matching ─────────────────────────
+        word_lemma_pairs = self._lemmatizer.get_lemmas(protected_text, lang=src_lang)
 
         if not word_lemma_pairs:
-            # UDPipe unavailable – fall back gracefully
-            print("[WARN] UDPipe returned no lemmas; translating without vocabulary protection.")
-            return self._basic_translate(text, src_lang, tgt_lang)
-
-        protected_text = text
-        protected_map: dict[str, str] = {}   # tag → target translation
-
-        for word, lemma in word_lemma_pairs:
-            lemma_key = lemma.lower()
-            if lemma_key not in self.vocabulary:
-                continue
-            # Avoid creating a duplicate tag for the very same surface word
-            # if it has already been tagged earlier in this sentence.
-            if re.search(rf"\b{re.escape(word)}\b", protected_text):
-                tag = f"__TERM_{len(protected_map)}__"
-                protected_map[tag] = self.vocabulary[lemma_key]
-                # Replace only the *first* remaining occurrence to handle
-                # repeated words independently.
-                protected_text = re.sub(
-                    rf"\b{re.escape(word)}\b",
-                    tag,
-                    protected_text,
-                    count=1,
-                )
+            print("[WARN] UDPipe returned no lemmas; translating without lemma protection.")
+        else:
+            for word, lemma in word_lemma_pairs:
+                # Skip placeholder tokens injected in Pass 1
+                if self._TAG_RE.search(word):
+                    continue
+                lemma_key = lemma.lower()
+                if lemma_key not in self.vocabulary:
+                    continue
+                if re.search(rf"\b{re.escape(word)}\b", protected_text):
+                    tag = f"__TERM_{len(protected_map)}__"
+                    protected_map[tag] = self.vocabulary[lemma_key]
+                    protected_text = re.sub(
+                        rf"\b{re.escape(word)}\b",
+                        tag,
+                        protected_text,
+                        count=1,
+                    )
 
         if not protected_map:
-            # No vocabulary matches – skip the extra round-trip
             return self._basic_translate(text, src_lang, tgt_lang)
 
+        # ── Pass 3: translate ──────────────────────────────────────────
         translated = self._basic_translate(protected_text, src_lang, tgt_lang)
 
-        # Restore tags.  The NMT model should have preserved them; if it
-        # mutated a tag (e.g. added spaces inside), try a fuzzy restore.
+        # ── Pass 4: restore ────────────────────────────────────────────
         translated = self._restore_tags(translated, protected_map)
 
         return translated
 
     @staticmethod
-    def _restore_tags(translated: str, protected_map: dict[str, str]) -> str:
+    def _restore_tags(translated: str, protected_map: dict) -> str:
         """
-        Replace every ``__TERM_N__`` placeholder in *translated* with its
-        vocabulary translation.  Also handles cases where the NMT model
-        introduced spaces inside the tag (``__ TERM_0 __``).
+        Replace every ``__TERM_N__`` placeholder with its vocabulary translation.
+        A fuzzy pattern handles NMT-introduced spaces inside tags.
         """
         result = translated
         for tag, replacement in protected_map.items():
             if tag in result:
                 result = result.replace(tag, replacement)
             else:
-                # Fuzzy fallback: collapse internal spaces and retry
-                fuzzy_tag = re.sub(r"\s+", "", tag)
                 fuzzy_pattern = re.sub(r"_", r"_\\s*", re.escape(tag))
                 result = re.sub(fuzzy_pattern, replacement, result)
         return result
 
     # ------------------------------------------------------------------
-    # Core translation (unchanged from original)
+    # Core translation
     # ------------------------------------------------------------------
 
     def _basic_translate(self, text: str, src_lang: str, tgt_lang: str) -> str:
@@ -179,11 +193,11 @@ class LindatTranslator:
         if self.supported_models and model_name not in self.supported_models:
             print(f"[WARN] Model '{model_name}' not available; falling back to 'cs-en'.")
             model_name = "cs-en"
-            src_lang = "cs"
-            tgt_lang = "en"
+            src_lang   = "cs"
+            tgt_lang   = "en"
 
         chunks = self._chunk_text(text)
-        translated_chunks: list[str] = []
+        translated_chunks = []
         chunk_iter = tqdm(chunks, desc="Translating chunks", leave=False) if len(chunks) > 1 else chunks
 
         for chunk in chunk_iter:
@@ -207,7 +221,7 @@ class LindatTranslator:
 
         return "\n".join(translated_chunks)
 
-    def _fetch_models(self) -> list[str]:
+    def _fetch_models(self) -> list:
         try:
             resp = requests.get(f"{self.BASE_URL}/models", timeout=10)
             resp.raise_for_status()
@@ -222,11 +236,9 @@ class LindatTranslator:
             return ["fr-en", "cs-en", "de-en", "uk-en", "ru-en", "pl-en"]
 
     @staticmethod
-    def _chunk_text(text: str, chunk_size: int = 4000) -> list[str]:
-        """
-        Space-aware chunking: never cuts a token in the middle.
-        """
-        chunks: list[str] = []
+    def _chunk_text(text: str, chunk_size: int = 4000) -> list:
+        """Space-aware chunking: never cuts a token in the middle."""
+        chunks = []
         while len(text) > chunk_size:
             split_idx = text.rfind(" ", 0, chunk_size)
             if split_idx == -1:
