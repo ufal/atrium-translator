@@ -9,3 +9,9 @@ output = ./data_samples/translated_files
 
 fields = amcr-fields.txt
 
+# Optional: path to a vocabulary CSV file (source_lemma,target_translation).
+# When provided, the Tag-and-Protect strategy is activated:
+# source terms are matched by lemma (via UDPipe), replaced with placeholder
+# tags before translation, and restored with the vocabulary translations
+# in the output.  Leave blank or comment out to disable.
+vocabulary = data_samples/vocabulary.csv
