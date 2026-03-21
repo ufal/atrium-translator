@@ -32,8 +32,9 @@ backed by **UDPipe lemmatisation** [^6], and safely reconstructs the original XM
 * 🏛️ **AMCR Metadata Mode**: Translates specific elements based on a provided list of XPaths (e.g., [amcr-fields.txt](amcr-fields.txt) 📎), safely puts them back into the XML, 
 and features deep recursive namespace extraction to handle OAI-PMH envelopes.
 * ✅ **XSD Validation**: Optionally validates AMCR outputs against an XSD schema (e.g., `https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd`) to guarantee structural integrity.
-* 📊 **Supplementary CSV Logging**: Automatically produces a supplementary QA CSV file with columns: `file, page_num, line_num, text_src, text_tgt` 
-for easy manual checking of translations.
+* 📊 **Supplementary CSV Logging**: Automatically produces a supplementary QA CSV file with columns:
+  `file, page_num, line_num, text_<source_lang>, text_<target_lang>`
+  for easy manual checking of translations.
 * 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using **FastText** (Facebook) [^5]. If the detection confidence is 
 below `0.2`, it defaults to Czech (`cs`) to ensure the pipeline continues seamlessly.
 * 🔤 **Tag-and-Protect Vocabulary Overriding**: When a vocabulary CSV is supplied, domain-specific terms are protected before translation using unique placeholder tags. 
@@ -63,6 +64,12 @@ cd atrium-translator
 pip install -r requirements.txt
 ```
 
+> **Note on `fasttext`:** The upstream package requires a C++ compiler at build time.
+> If your environment lacks build tools, install the pre-built wheel instead:
+> ```bash
+> pip install fasttext-wheel
+> ```
+
 ---
 
 ## 📂 Project Structure
@@ -77,6 +84,7 @@ atrium-translator/
 ├── amcr-fields.txt            # 📄 List of AMCR XPath targets for XML translation
 ├── amcr-inputs.txt            # 📄 List of AMCR metadata input files (XML) to be processed
 ├── processors/
+│   ├── __init__.py            # 📦 Package marker
 │   ├── identifier.py          # 🌍 FastText language identification (ISO 639-3 to 639-1 mapping)
 │   ├── lemmatizer.py          # 🔤 UDPipe-based lemmatizer for vocabulary term matching
 │   └── translator.py          # 🔄 LINDAT API client with Tag-and-Protect vocabulary support
@@ -103,19 +111,19 @@ Run the wrapper from the command line. The default target language is English (`
 
 ### 📖 ALTO XML Mode
 
-Use the `--alto` flag. This acts as a default setup to process ALTO files by strictly targeting their
-`String`'s `CONTENT` attributes.
+Use the `--alto` flag together with `--formats alto.xml` (or set `formats = alto.xml` in
+`config.txt`). This processes ALTO files by strictly targeting their `String` `CONTENT` attributes.
 
 ```bash
-python main.py ./data_samples/my_documents --alto --target_lang en
+python main.py ./data_samples/my_documents --alto --formats alto.xml --target_lang en
 ```
 
 Example of ALTO XML processing:
 - **Input**: [MTX201501307.alto.xml](data_samples/my_documents/MTX201501307.alto.xml) 📎 
-- **Output**: [MTX201501307.alto_en.xml](data_samples/translated_files/MTX201501307_en.alto.xml) 📎 
+- **Output**: [MTX201501307_en.alto.xml](data_samples/translated_files/MTX201501307_en.alto.xml) 📎 
 
-The translation is performed in a per-`TextBlock` manner, and reconstruction of XML elements structure is
-performed on per-`TextLine` manner (each text line has a `String` element with a `CONTENT` attribute).
+The translation is performed per `TextBlock`, and the translated words are redistributed back into the
+individual `CONTENT` attributes of each `String` element within a `TextLine`.
 
 ### 🏛️ AMCR Metadata Mode
 
@@ -186,8 +194,9 @@ precedence over TEATER on key collision).
 ### ⚙️ Configuration File Support
 
 Instead of passing all arguments via the command line, you can use a configuration 
-file `config.txt` to define default paths and parameters. Console arguments take precedence 
-and will override config file parameters.
+file `config.txt` to define default paths and parameters. **CLI arguments always take
+precedence over config file values** — the config file supplies defaults only for
+arguments that are not explicitly passed on the command line.
 
 Example [config.txt](config.txt):
 ```ini
@@ -208,10 +217,10 @@ vocabulary = data_samples/vocabulary.csv
 
 * `input_path`: Path to a single source file, a directory containing XML files, or a `.txt` file listing URLs.
 * `--output`, `-o`: Output file path (for single-file mode) or output directory (for batch mode).
-* `--source_lang`, `-src`: Source language code (e.g., `cs`, `fr`). Use `auto` to auto-detect. Default is `cs`.
-* `--target_lang`, `-tgt`: Target language code (e.g., `en`, `cs`). Default is `en`.
-* `--formats`, `-f`: Comma-separated list of file formats to process (e.g., `alto.xml,txt`). Default is `xml`.
-* `--config`, `-c`: Path to configuration file. Settings here override console flags.
+* `--source_lang`, `-src`: Source language code (e.g., `cs`, `fr`). Use `auto` to auto-detect. Default: `cs`.
+* `--target_lang`, `-tgt`: Target language code (e.g., `en`, `cs`). Default: `en`.
+* `--formats`: Comma-separated list of file extensions to process (e.g., `alto.xml,txt` or `xml,txt`). Default: `xml`.
+* `--config`, `-c`: Path to the configuration file (default: `config.txt`).
 * `--alto`: Flag to enable ALTO XML in-place translation mode.
 * `--xpaths`: Path to a `.txt` file containing XPaths for AMCR metadata translation.
 * `--xsd`: Optional URL or local path to an XSD file for AMCR output validation.
@@ -234,16 +243,23 @@ vocabulary = data_samples/vocabulary.csv
 
 ## Paradata logs
 
-The wrapper generates a supplementary CSV log file for each processed XML file, named with the pattern `<original_filename>_log.csv`. This log contains the following columns:
-- `file`: The name of the original XML file being processed.
-- `page_num`: The page number (for ALTO XML) or `N/A` for AMCR metadata.
-- `line_num`: The line number within the page (for ALTO XML) or the XPath type for AMCR metadata.
-- `text_src`: The original text extracted for translation.
-- `text_tgt`: The translated text returned by the LINDAT API.
-- `translation_status`: Status of the translation (e.g., `success`, `failed`, `skipped`).
+The wrapper generates a supplementary CSV log file for each processed XML file, named with the
+pattern `<original_filename>_log.csv`. This log contains the following columns:
 
-Moreover, the [paradata](paradata) 📂 directory contains aggregated logs of all processed files,
-allowing outputs' metadata from each program run to be easily accessible for further analysis and reporting.
+| Column               | ALTO value              | AMCR value             |
+|----------------------|-------------------------|------------------------|
+| `file`               | source filename (stem)  | source filename (stem) |
+| `page_num`           | page index (1-based)    | *(empty)*              |
+| `line_num`           | `TextLine` element ID   | full XPath expression  |
+| `text_<source_lang>` | original `CONTENT` text | original element text  |
+| `text_<target_lang>` | translated text         | translated text        |
+
+The column names for the source and target text are dynamic: they reflect the actual language
+codes in use (e.g., `text_auto` / `text_en` when running with `--source_lang auto --target_lang en`).
+
+Moreover, the [paradata](paradata) 📂 directory contains aggregated JSON logs of all processed
+files, allowing run-level metadata (timing, counts, skipped files) to be queried for analysis
+and reporting.
 
 ## 🙏 Acknowledgements
 

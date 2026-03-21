@@ -3,7 +3,11 @@ input_path = ./data_samples/my_documents
 
 source_lang = auto
 target_lang = en
-formats = alto.xml,txt
+
+# Use "xml,txt"  (default) to process both AMCR .xml files and URL-list .txt files.
+# Use "alto.xml,txt" when the input directory contains ALTO XML files and URL lists.
+# Use "alto.xml"  when the input directory contains only ALTO XML files.
+formats = xml,txt
 
 output = ./data_samples/translated_files
 
