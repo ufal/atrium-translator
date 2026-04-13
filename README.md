@@ -1,3 +1,15 @@
+<p align="center">
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.8+-blue.svg" title="Python Version"></a>
+  <a href="https://lindat.mff.cuni.cz/services/translation/"><img src="https://img.shields.io/badge/API-LINDAT%20Translation-0055A4.svg" title="LINDAT Translation API"></a>
+  <a href="https://lindat.mff.cuni.cz/services/udpipe/"><img src="https://img.shields.io/badge/API-UDPipe2-0055A4.svg" title="UDPipe2"></a>
+  <a href="https://huggingface.co/facebook/fasttext-language-identification"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20HF-fasttext--langID-yellow.svg" title="FastText Language Identification"></a>
+  <a href="https://opensource.org/license/mit/"><img src="https://img.shields.io/github/license/ufal/atrium-translator" title="MIT License"></a>
+  <a href="https://atrium-research.eu/"><img src="https://img.shields.io/badge/funded%20by-ATRIUM-8A2BE2.svg" title="ATRIUM Project"></a>
+</p>
+
+---
+
+
 # 🏛️ ATRIUM - LINDAT Translation Wrapper 🌍
 
 A modular Python wrapper specifically designed for the **LINDAT Translation API** [^1].
