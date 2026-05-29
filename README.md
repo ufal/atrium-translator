@@ -467,6 +467,7 @@ The [paradata](paradata)📁 directory accumulates one JSON per run; each file i
 - **Translation API**: LINDAT/CLARIAH-CZ Translation Service [^1] 🔗
 - **Lemmatisation API**: LINDAT/CLARIAH-CZ UDPipe Service [^6] 🔗
 - **Language Identification**: Facebook FastText [^5] 🔗
+- **Vocabulary Sources**: AMCR OAI-PMH API [^7] 🔗, TEATER GraphQL API [^8] 🔗
 
 **©️ 2026 UFAL & ATRIUM**
 
