@@ -14,6 +14,10 @@ Corrections applied:
   - Removed the redundant second mkdir for out_dir (was created twice)
   - Raised exceptions from process_*_xml so that the per-file error handler in
     main() receives them (utils.py now re-raises after printing)
+  - Added per-document Tag-and-Protect statistics: the number of vocabulary
+    terms protected in each input file is collected and attached to the
+    paradata config snapshot under "vocabulary_protected_terms" (the shared
+    atrium_paradata.py logger is left untouched).
 """
 
 import argparse
@@ -242,6 +246,11 @@ def main():
         translator = LindatTranslator(vocab_path=args.vocabulary)
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
 
+        # Per-document Tag-and-Protect statistics: {doc_name: protected_terms}.
+        # Only meaningful when a vocabulary is loaded; collected here and folded
+        # into the paradata config snapshot just before finalize().
+        protected_by_doc: dict[str, int] = {}
+
         # Load XPath targets for AMCR mode
         xpaths_list: list[str] = []
         if args.xpaths and args.xpaths.exists():
@@ -311,6 +320,9 @@ def main():
                 file_path, out_dir, args, is_batch=is_batch
             )
 
+            # Reset the per-document protected-term tally before this file.
+            translator.reset_protected_count()
+
             # CSV log lives beside the translated XML, named <stem>_log.csv
             csv_log_path = output_file.with_name(
                 f"{file_path.name.split('.')[0]}_log.csv"
@@ -357,6 +369,23 @@ def main():
                 except Exception as e:
                     print(f"[ERROR] Failed processing '{file_path.name}': {e}")
                     _logger.log_skip(str(file_path), str(e))
+
+            # Record how many vocabulary terms were protected in this document.
+            if translator.vocabulary:
+                doc_name = file_path.name.split(".")[0]
+                protected = translator.protected_count
+                protected_by_doc[doc_name] = protected
+                print(f"[INFO] Tag-and-Protect: {protected} term(s) protected in {file_path.name}")
+
+        # Attach per-document Tag-and-Protect statistics to the paradata
+        # config snapshot (the shared logger module is intentionally untouched).
+        if protected_by_doc:
+            self_cfg = getattr(_logger, "config", None)
+            if isinstance(self_cfg, dict):
+                self_cfg["vocabulary_protected_terms"] = dict(protected_by_doc)
+                self_cfg["vocabulary_protected_terms_total"] = sum(
+                    protected_by_doc.values()
+                )
 
         # Explicit finalize with the correct input count; the context manager
         # __exit__ will no-op because _finalised is already True.

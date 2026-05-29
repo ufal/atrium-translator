@@ -239,6 +239,8 @@ calls are made, no lemmatization is performed - just the basic translation prese
 
 #### Vocabulary CSV format
 
+
+
 The vocabulary file must be a UTF-8 encoded CSV with two columns:
 
 ```
@@ -248,10 +250,17 @@ pohřebiště,burial ground
 fotografie události,photograph of event
 ```
 
+
 | Column               | Content                                                                                                                                                                                                              |
 |----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `source_lemma`       | The **lemmatised (dictionary) form** of the source term. For single-word terms this must match what UDPipe returns for the source language (see table below).  For multi-word phrases, any surface form is accepted. |
 | `target_translation` | The canonical translation — typically the preferred English term from a controlled vocabulary or thesaurus.                                                                                                          |
+
+
+> [!IMPORTANT]
+> Single-word vocabulary entries should be provided as lemmas (singular/infinitive); 
+> matching is lemma-based and number-neutral.
+
 
 **How to determine the correct lemma form by language**
 

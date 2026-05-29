@@ -14,6 +14,17 @@ Boundary priority (identical to translator._chunk_text):
   3. Clause-level punctuation + space
   4. Word boundary (space)
   5. Hard cut – last resort
+
+Morphological features (v0.5.2+)
+--------------------------------
+``_parse_conllu`` / ``get_lemmas`` remain unchanged and return ``(word, lemma)``
+pairs.  A parallel pair of methods, ``_parse_conllu_with_features`` /
+``get_lemmas_with_features``, additionally surfaces the CoNLL-U ``Number``
+feature (``"Sing"`` / ``"Plur"`` / ``""``) as a third tuple element.  The
+translator uses this to avoid freezing a singular vocabulary translation onto a
+plural source token (which breaks English number agreement, e.g. "several
+feature").  The original 2-tuple API is preserved so existing callers and tests
+are unaffected.
 """
 
 import requests
@@ -95,6 +106,33 @@ class LindatLemmatizer:
         model = self.MODELS.get(lang, self.DEFAULT_MODEL)
         all_lemmas: list[tuple[str, str]] = []
 
+        for conllu in self._request_conllu_chunks(text, model):
+            all_lemmas.extend(self._parse_conllu(conllu))
+
+        return all_lemmas
+
+    def get_lemmas_with_features(
+        self, text: str, lang: str = "cs"
+    ) -> list[tuple[str, str, str]]:
+        """
+        Like :meth:`get_lemmas` but each item is ``(word, lemma, number)`` where
+        *number* is ``"Sing"``, ``"Plur"`` or ``""`` (unknown / not applicable),
+        read from the CoNLL-U FEATS column.
+
+        Used by the translator to decide whether protecting a token with a
+        singular vocabulary translation is safe (singular source) or would break
+        agreement (plural source).
+        """
+        model = self.MODELS.get(lang, self.DEFAULT_MODEL)
+        all_items: list[tuple[str, str, str]] = []
+
+        for conllu in self._request_conllu_chunks(text, model):
+            all_items.extend(self._parse_conllu_with_features(conllu))
+
+        return all_items
+
+    def _request_conllu_chunks(self, text: str, model: str):
+        """Yield raw CoNLL-U strings for each sentence-aware chunk of *text*."""
         for chunk in self._chunk_text(text):
             if not chunk:
                 continue
@@ -118,15 +156,12 @@ class LindatLemmatizer:
                     )
                     continue
 
-                conllu = resp.json().get("result", "")
-                all_lemmas.extend(self._parse_conllu(conllu))
+                yield resp.json().get("result", "")
 
             except requests.exceptions.Timeout:
                 print("[WARN] UDPipe request timed out; skipping lemmatisation for chunk.")
             except Exception as e:
                 print(f"[WARN] Lemmatisation failed: {e}")
-
-        return all_lemmas
 
     @staticmethod
     def _parse_conllu(conllu: str) -> list[tuple[str, str]]:
@@ -141,4 +176,35 @@ class LindatLemmatizer:
             word  = parts[1]
             lemma = parts[2]
             results.append((word, lemma))
+        return results
+
+    @staticmethod
+    def _parse_conllu_with_features(conllu: str) -> list[tuple[str, str, str]]:
+        """
+        Parse CoNLL-U into ``(word, lemma, number)`` triples.
+
+        *number* is extracted from the FEATS column (index 5): ``Number=Sing`` ->
+        ``"Sing"``, ``Number=Plur`` -> ``"Plur"``; absent / malformed -> ``""``.
+        Token-filtering rules match ``_parse_conllu`` exactly (MWT range lines
+        and empty-node lines are skipped).
+        """
+        results: list[tuple[str, str, str]] = []
+        for line in conllu.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 3 or "-" in parts[0] or "." in parts[0]:
+                continue
+            word  = parts[1]
+            lemma = parts[2]
+
+            number = ""
+            if len(parts) >= 6 and parts[5] and parts[5] != "_":
+                for feat in parts[5].split("|"):
+                    if feat.startswith("Number="):
+                        number = feat.split("=", 1)[1]
+                        break
+
+            results.append((word, lemma, number))
         return results
