@@ -190,6 +190,9 @@ def parse_arguments():
         if vocab_candidate.exists():
             args.vocabulary = vocab_candidate
 
+    if not args.alto and "alto.xml" in args.formats.lower():
+        args.alto = True
+
     return args, config
 
 
@@ -228,11 +231,16 @@ def main():
 
     # Use the logger as a context manager so finalize() is always called,
     # even on early returns or unexpected exceptions.
+    # Resolve output dir BEFORE the logger so paradata lands in the output data,
+    # not in the repo. (Mirrors the later out_dir computation; kept in sync.)
+    out_dir = args.output or Path.cwd() / f"translated_{args.target_lang}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     with ParadataLogger(
-        program="translator",
-        config=_build_paradata_config(args, config),
-        paradata_dir="paradata",
-        output_types=["xml", "csv"],
+            program="translator",
+            config=_build_paradata_config(args, config),
+            paradata_dir=str(out_dir / "paradata"),
+            output_types=["xml", "csv"],
     ) as _logger:
 
         if not args.alto and not args.xpaths:
@@ -245,6 +253,15 @@ def main():
         # Build translator and (optionally) language identifier
         translator = LindatTranslator(vocab_path=args.vocabulary)
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
+
+        # Record which licensed components this run actually exercises so the
+        # effective output license is computed correctly (see para_config.txt).
+        _logger.log_component("lindat_cubbitt")  # translation API is always hit
+        if translator.vocabulary:  # vocab → UDPipe lemmatiser + models
+            _logger.log_component("udpipe2_engine")
+            _logger.log_component("udpipe2_models")
+            _logger.log_component("amcr_vocab")
+            _logger.log_component("teater_data")
 
         # Per-document Tag-and-Protect statistics: {doc_name: protected_terms}.
         # Only meaningful when a vocabulary is loaded; collected here and folded
@@ -265,8 +282,8 @@ def main():
         files_to_process: list[Path] = []
         allowed_formats = [fmt.strip() for fmt in args.formats.split(",")]
 
-        out_dir = args.output or Path.cwd() / f"translated_{args.target_lang}"
-        out_dir.mkdir(parents=True, exist_ok=True)
+        # out_dir = args.output or Path.cwd() / f"translated_{args.target_lang}"
+        # out_dir.mkdir(parents=True, exist_ok=True)
 
         if input_path.is_file() and input_path.suffix == ".txt" and "txt" in allowed_formats:
             print("[INFO] Text file detected – reading URLs …")

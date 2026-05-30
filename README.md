@@ -407,40 +407,75 @@ C-TX-202500252,,//amcr:amcr/amcr:dokument/amcr:popis,"Stará Boleslav - odvodně
 
 ## 🗄️ Paradata JSON Logs
 
-The wrapper generates a **run-level** JSON provenance record after every execution.
-These records are written to the [paradata](paradata)📁 directory (created automatically) and
-are named with the pattern `YYMMDD-HHmmss_translator.json`.
+The wrapper generates a **run-level** JSON provenance record after every execution, named
+`YYMMDD-HHmmss_translator.json`. It is written to the run's **output directory** alongside the
+translated files (the in-repo [paradata](data_samples%2Ftranslated_files%2Fparadata) 📁 directory 
+holds only example logs for development).
 
-They are separate from the per-document translation CSV logs above: CSV logs capture
-what was translated line by line; paradata JSONs capture *how the run was configured
-and what it produced in aggregate*.
+They are separate from the per-document translation CSV logs above: CSV logs capture what was
+translated line by line; paradata JSONs capture *how the run was configured and what it produced in
+aggregate*.
+
+For single-file workflows, where one input passes through several tools or repositories, the
+per-tool logs can be fused into one record per input file via `merge_paradata_files()`; the merged
+record re-derives the end-to-end license from the union of all components used.
 
 <details>
 <summary>Paradata fields and Example paradata JSON structure 👀</summary>
 
 ### Fields of the paradata JSON
 
-| Key                                 | Description                                                |
-|-------------------------------------|------------------------------------------------------------|
-| `program`                           | Always `"translator"`                                      |
-| `run_id`                            | Timestamp-based unique run identifier                      |
-| `start_time` / `end_time`           | ISO 8601 UTC timestamps                                    |
-| `duration_seconds`                  | Wall-clock runtime                                         |
-| `config`                            | Snapshot of all CLI / config-file parameters used          |
-| `statistics.input_files_total`      | Number of input files submitted                            |
-| `statistics.successfully_processed` | Number of files that produced output                       |
-| `statistics.skipped_files`          | Number of files skipped due to errors                      |
-| `statistics.output_counts_by_type`  | Per-type file counts (`xml`, `csv`)                        |
-| `statistics.performance_per_minute` | Files produced per minute per output type                  |
-| `skipped_files_detail`              | List of `{file, reason, timestamp}` objects for every skip |
+| Key                                 | Description                                                                                                 |
+|-------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| `schema_version`                    | Paradata schema version (currently `"2.0"`)                                                                 |
+| `program`                           | Always `"translator"`                                                                                       |
+| `tool_version`                      | Tool version tag, from `para_config.txt` (e.g. `v0.5.2`)                                                    |
+| `repository`                        | Runner repository; resolved dynamically (`ATRIUM_RUNNER_REPO` env if set)                                   |
+| `runner_ref`                        | Git ref/SHA the running container was built from (`ATRIUM_RUNNER_REF`)                                      |
+| `docker_image`                      | Running container image (`ATRIUM_RUNNER_IMAGE`); empty placeholder if unset                                 |
+| `run_id`                            | Timestamp-based unique run identifier                                                                       |
+| `license`                           | Effective output license, **computed** from the components actually used                                    |
+| `license_url`                       | Canonical URL for the effective license                                                                     |
+| `license_detail`                    | Resolution breakdown: per-component licenses, `is_non_commercial`, `is_share_alike`, `determined_by`, notes |
+| `start_time` / `end_time`           | ISO 8601 UTC timestamps                                                                                     |
+| `duration_seconds`                  | Wall-clock runtime                                                                                          |
+| `config`                            | Snapshot of all CLI / config-file parameters used                                                           |
+| `statistics.input_files_total`      | Number of input files submitted                                                                             |
+| `statistics.successfully_processed` | Number of files that produced output                                                                        |
+| `statistics.skipped_files`          | Number of files skipped due to errors                                                                       |
+| `statistics.output_counts_by_type`  | Per-type file counts (`xml`, `csv`)                                                                         |
+| `statistics.performance_per_minute` | Files produced per minute per output type                                                                   |
+| `skipped_files_detail`              | List of `{file, reason, timestamp}` objects for every skip                                                  |
 
+> **Note on licensing:** the license is no longer a fixed value. It is the most restrictive license
+> among the components used in the run. A run that exercises the LINDAT translation models and the
+> UDPipe linguistic models resolves to **CC BY-NC-SA 4.0** (non-commercial, share-alike); the
+> component→license mapping lives in this repository's [para_config.txt](para_config.txt) 📎.
 
 ### Example paradata JSON structure
 
 ```json
 {
+  "schema_version": "2.0",
   "program": "translator",
+  "tool_version": "v0.5.2",
+  "repository": "https://github.com/ufal/atrium-translator",
+  "runner_ref": "a1b2c3d",
+  "docker_image": "ghcr.io/ufal/atrium-translator:v0.5.2",
   "run_id": "260321-102451",
+  "license": "CC BY-NC-SA 4.0",
+  "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "license_detail": {
+    "effective_license": "CC BY-NC-SA 4.0",
+    "is_non_commercial": true,
+    "is_share_alike": true,
+    "determined_by": ["lindat_cubbitt", "udpipe2_models"],
+    "components": [
+      { "name": "fasttext",       "license": "CC BY-NC 4.0" },
+      { "name": "lindat_cubbitt", "license": "CC BY-NC-SA 4.0" },
+      { "name": "udpipe2_models", "license": "CC BY-NC-SA 4.0" }
+    ]
+  },
   "duration_seconds": 63.017,
   "config": {
     "source_lang": "auto",
@@ -460,9 +495,10 @@ and what it produced in aggregate*.
 ```
 </details>
 
-
-The [paradata](paradata)📁 directory accumulates one JSON per run; each file is written by the
-[atrium_paradata.py](atrium_paradata.py)📎 logger (shared across all ATRIUM pipeline repositories).
+The logger is written by [atrium_paradata.py](atrium_paradata.py) 📎 (shared across all ATRIUM
+pipeline repositories), which reads this repository's [para_config.txt](para_config.txt) 📎 for the
+tool version and the component→license table, and resolves the effective license via
+[para_licenses.py](para_licenses.py) 📎.
 
 ---
 

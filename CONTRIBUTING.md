@@ -14,6 +14,7 @@ conventions, and rules for contributors.
 
 | Version    | Highlights                                                                                                                                                  | Status      |
 |:-----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------|
+| **v0.5.0** | Paradata logging updated (added separate config), licenses resolution implemented                                                                           | Pre-release |
 | **v0.4.1** | Pytest added for main functionality (Tests added to the repository)                                                                                         | Pre-release |
 | **v0.4.0** | Vocabulary added and overall enhancement (Added examples of updated files)                                                                                  | Pre-release |
 | **v0.3.0** | AMCR samples added + documentation expanded + paradata (Added paradata of outputs logging)                                                                  | Pre-release |
