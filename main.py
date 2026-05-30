@@ -184,13 +184,14 @@ def parse_arguments():
         args.formats = defaults.get("formats", "xml")
     if args.xpaths is None and "fields" in defaults:
         args.xpaths = Path(defaults["fields"])
-    # Vocabulary: CLI flag takes precedence; fall back to config entry.
+
     if args.vocabulary is None and "vocabulary" in defaults:
         vocab_candidate = Path(defaults["vocabulary"])
         if vocab_candidate.exists():
             args.vocabulary = vocab_candidate
 
-    if not args.alto and "alto.xml" in args.formats.lower():
+    # NEW: Automatically enable ALTO processing mode if 'alto.xml' is specified in config/formats
+    if not args.alto and args.formats and "alto.xml" in args.formats.lower():
         args.alto = True
 
     return args, config

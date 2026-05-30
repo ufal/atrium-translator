@@ -219,6 +219,10 @@ class TestProcessAmcrXml:
 # process_alto_xml
 # ════════════════════════════════════════════════════════════════════════════
 
+# ════════════════════════════════════════════════════════════════════════════
+# process_alto_xml
+# ════════════════════════════════════════════════════════════════════════════
+
 class TestProcessAltoXml:
     """
     Tests for process_alto_xml(input_path, output_path, translator,
@@ -227,24 +231,30 @@ class TestProcessAltoXml:
 
     # ── translation ──────────────────────────────────────────────────────────
 
-    def test_translator_called_once_per_text_line(self, alto_xml_file, tmp_path, mock_translator):
-        """sample.alto.xml has 2 TextLines with content → 2 translate() calls."""
-        out = tmp_path / "out.xml"
-        process_alto_xml(alto_xml_file, out, mock_translator, "cs", "en")
-        assert mock_translator.translate.call_count == 2
-
-    def test_concatenated_line_text_passed_to_translator(self, alto_xml_file, tmp_path, mock_translator):
-        """CONTENT attrs of all Strings on L1 must be joined into a single string."""
+    def test_translator_called_once_per_text_block(self, alto_xml_file, tmp_path, mock_translator):
+        """
+        sample.alto.xml has 1 TextBlock containing 2 TextLines.
+        Due to the Dual-Pass architecture, it will call translate():
+        1 time for the block + 2 times for the lines = 3 calls total.
+        """
         out = tmp_path / "out.xml"
         process_alto_xml(alto_xml_file, out, mock_translator, "cs", "en")
 
-        # First call argument: concatenated CONTENT of L1 ("Dobrý den")
+        # 1 block call + 2 line calls = 3 total translations
+        assert mock_translator.translate.call_count == 3
+
+    def test_concatenated_block_text_passed_to_translator(self, alto_xml_file, tmp_path, mock_translator):
+        """CONTENT attrs of all Strings in the TextBlock must be joined into a single string."""
+        out = tmp_path / "out.xml"
+        process_alto_xml(alto_xml_file, out, mock_translator, "cs", "en")
+
+        # First call argument: concatenated CONTENT of the whole block (both lines)
         first_call_text = mock_translator.translate.call_args_list[0][0][0]
         assert "Dobrý" in first_call_text
         assert "den" in first_call_text
 
     def test_translated_words_written_back_to_string_content(self, tmp_path):
-        """Words from translated text must be distributed across <String CONTENT=...>."""
+        """Words from translated text must be distributed across <String CONTENT=...> sequentially."""
         alto_xml = (
             f'<?xml version="1.0" encoding="UTF-8"?>'
             f'<alto xmlns="{ALTO_NS}"><Layout><Page ID="P1" WIDTH="100" HEIGHT="100">'
@@ -266,10 +276,10 @@ class TestProcessAltoXml:
         contents = [s.get("CONTENT") for s in root.findall(f".//{{{ALTO_NS}}}String")]
         assert contents == ["alpha", "beta", "gamma"]
 
-    def test_more_words_than_strings_distributes_remainder(self, tmp_path):
+    def test_greedy_token_redistribution_crams_remainder_in_last_element(self, tmp_path):
         """
         If 3 translated words are distributed across 2 Strings:
-        first String gets 2 words, second gets 1 (remainder logic).
+        first String gets 1 word, second (last) gets the remainder (2 words).
         """
         alto_xml = (
             f'<?xml version="1.0" encoding="UTF-8"?>'
@@ -289,9 +299,32 @@ class TestProcessAltoXml:
 
         root = etree.parse(str(dst)).getroot()
         contents = [s.get("CONTENT") for s in root.findall(f".//{{{ALTO_NS}}}String")]
-        # words_per_string = 3//2 = 1, remainder = 1
-        # S1 gets 1+1=2 words → "one two", S2 gets 1+0=1 word → "three"
-        assert contents == ["one two", "three"]
+        # S1 gets "one", S2 gets "two three"
+        assert contents == ["one", "two three"]
+
+    def test_empty_string_elements_when_translation_is_shorter(self, tmp_path):
+        """If there are more Strings than translated words, remaining Strings become empty."""
+        alto_xml = (
+            f'<?xml version="1.0" encoding="UTF-8"?>'
+            f'<alto xmlns="{ALTO_NS}"><Layout><Page ID="P1" WIDTH="100" HEIGHT="100">'
+            f'<PrintSpace><TextBlock ID="TB1"><TextLine ID="L1">'
+            f'<String ID="S1" CONTENT="x" />'
+            f'<String ID="S2" CONTENT="y" />'
+            f'<String ID="S3" CONTENT="z" />'
+            f'</TextLine></TextBlock></PrintSpace></Page></Layout></alto>'
+        )
+        src = tmp_path / "three.xml"
+        dst = tmp_path / "three_out.xml"
+        src.write_text(alto_xml, encoding="utf-8")
+
+        t = MagicMock()
+        t.translate.return_value = "one"
+        process_alto_xml(src, dst, t, "cs", "en")
+
+        root = etree.parse(str(dst)).getroot()
+        contents = [s.get("CONTENT") for s in root.findall(f".//{{{ALTO_NS}}}String")]
+        # S1 gets "one", S2 gets "", S3 gets ""
+        assert contents == ["one", "", ""]
 
     # ── CSV logging ───────────────────────────────────────────────────────────
 
@@ -322,14 +355,14 @@ class TestProcessAltoXml:
 
     # ── language detection ────────────────────────────────────────────────────
 
-    def test_auto_src_lang_invokes_identifier(
+    def test_auto_src_lang_invokes_identifier_per_block(
         self, alto_xml_file, tmp_path, mock_translator, mock_identifier
     ):
-        """With src_lang='auto', identifier.detect() must be called for each line."""
+        """With src_lang='auto', identifier.detect() must be called for each TextBlock."""
         out = tmp_path / "out.xml"
         process_alto_xml(alto_xml_file, out, mock_translator, "auto", "en",
                          identifier=mock_identifier)
-        assert mock_identifier.detect.call_count == 2  # one call per TextLine
+        assert mock_identifier.detect.call_count == 1  # one call per TextBlock
 
     # ── edge case ─────────────────────────────────────────────────────────────
 
