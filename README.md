@@ -27,6 +27,12 @@ optionally overrides domain-specific terms using a **Tag-and-Protect vocabulary*
 strategy backed by **UDPipe lemmatisation** [^6], and safely reconstructs the original
 XML structure without altering tags, namespaces, or OAI-PMH envelopes.
 
+For ALTO documents the reconstruction is non-trivial: the spatial `String`
+coordinates must be preserved while their `CONTENT` is replaced with fluent
+translated text whose word count rarely matches the source. The wrapper solves
+this with a **dual-pass block/line translation** followed by a **similarity-based
+token-alignment** step (see [🧠 Logic Overview](#-logic-overview)).
+
 ## 📚 Table of Contents
 
 - [✨ Features](#-features)
@@ -40,6 +46,7 @@ XML structure without altering tags, namespaces, or OAI-PMH envelopes.
   - [⚙️ Configuration File Support](#-configuration-file-support)
   - [⚙️ Supported Arguments](#-supported-arguments)
 - [🧠 Logic Overview](#-logic-overview)
+  - [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction)
 - [📊 Translation CSV Logs](#-translation-csv-logs)
 - [🗄️ Paradata JSON Logs](#-paradata-json-logs)
 - [🙏 Acknowledgements](#-acknowledgements)
@@ -50,8 +57,9 @@ XML structure without altering tags, namespaces, or OAI-PMH envelopes.
 
 * 🎯 **Dedicated XML Processing**: Narrowly defined and optimised exclusively for ALTO XML and structured metadata 
 records, ensuring safe, universal usage without tag or namespace corruption.
-* 📖 **ALTO Translation Mode**: Translates only the `CONTENT` attributes natively. Tied to a simple flag (`--alto`) 
-so users do not need complex configuration.
+* 📖 **ALTO Translation Mode (Dual-Pass)**: Translates only the `CONTENT` attributes natively. Tied to a simple flag (`--alto`).
+Each `TextBlock` is translated **twice** — once as a whole block (for semantic quality) and once line-by-line (as structural
+anchors) — and the block translation is then realigned to the physical line/`String` layout (see [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction)).
 * 📄 **XML Metadata Mode**: Translates specific elements based on a user-provided list of XPaths (e.g., 
 [amcr-fields.txt](amcr-fields.txt) 📎), safely reconstructs the document tree, and handles deep recursive 
 namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, not only AMCR [^7] records.
@@ -62,13 +70,13 @@ namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, 
 * 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts, 
 configuration snapshot) to the [paradata](paradata)📁 directory for auditing and performance reporting.
 * 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using 
-**FastText** (Facebook) [^5]. If the detection confidence is below `0.2`, it defaults to Czech (`cs`) to 
-ensure the pipeline continues seamlessly.
+**FastText** (Facebook) [^5]. In AMCR mode, if the detection confidence is below `0.2`, it defaults to Czech (`cs`);
+in ALTO mode detection is performed **once per `TextBlock`** so that all lines in a block share a consistent source language.
 * ✂️ **Sentence-Aware Chunking**: Long texts are split at sentence boundaries (`\n`, `. `, `! `, `? `) before being 
 sent to the translation API, preserving sentence context and improving NMT quality. Word and clause boundaries serve 
 as secondary fallbacks.
 * 🔤 **Tag-and-Protect Vocabulary Overriding**: When a vocabulary CSV is supplied, domain-specific terms are protected
-before translation using unique placeholder tags. Single-word terms are matched by lemma via the **LINDAT UDPipe API** [^6]; 
+before translation using NMT-safe placeholder sentinels. Single-word terms are matched by lemma via the **LINDAT UDPipe API** [^6]; 
 multi-word phrases use case-insensitive substring matching (longest match first). Vocabulary translations are restored 
 after the NMT call, ensuring controlled terminology is never garbled.
 * 🗂️ **Automated Vocabulary Harvesting**: The bundled [load_vocab.py](load_vocab.py)📎 script downloads Czech→English term pairs from 
@@ -130,7 +138,7 @@ atrium-translator/
 ├── paradata/
 │   ├── <date>-<time>_translator.json  # 🗄️ Run-level provenance JSON log
 │   └── ...
-└── utils.py                   # 🔧 ALTO & XML metadata parsing, CSV logging, XSD validation
+└── utils.py                   # 🔧 ALTO & XML metadata parsing, dual-pass alignment, CSV logging, XSD validation
 ```
 
 ---
@@ -148,12 +156,17 @@ Use the `--alto` flag together with `--formats alto.xml` (or set `formats = alto
 python main.py ./data_samples/my_documents --alto --formats alto.xml --target_lang en
 ```
 
+> **Tip:** Specifying `alto.xml` in `formats` (CLI or config) now **auto-enables** ALTO
+> mode even without the explicit `--alto` flag.
+
 Example of ALTO XML processing:
 - **Input**: [MTX201501307.alto.xml](data_samples/my_documents/MTX201501307.alto.xml) 📎
 - **Output**: [MTX201501307_en.alto.xml](data_samples/translated_files/MTX201501307_en.alto.xml) 📎
 
-The translation is performed per `TextBlock`, and the translated words are redistributed back into the
-individual `CONTENT` attributes of each `String` element within a `TextLine`.
+Translation is driven at the `TextBlock` level for semantic quality, but the resulting
+words are **realigned and redistributed back into the individual `CONTENT` attributes**
+of each `String` within each `TextLine`, so the original spatial layout is preserved.
+See [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction) for the full algorithm.
 
 ---
 
@@ -225,21 +238,27 @@ vocabulary = data_samples/vocabulary.csv
 #### How it works
 
 1. **Multi-word phrase pass** – phrases containing spaces (e.g. `fotografie události`)
-   are matched case-insensitively, longest match first, and replaced with
-   `__TERM_N__` placeholder tags.
+   are matched case-insensitively, longest match first, and replaced with NMT-safe
+   placeholder sentinels.
 2. **Single-word lemma pass** – the remaining text is lemmatised via the LINDAT UDPipe
    API [^6].  Tokens whose base form appears in the vocabulary are similarly tagged.
+   A **number-agreement guard** protects only singular / number-neutral occurrences;
+   plural source tokens are left for the NMT to inflect, preventing broken English
+   agreement (e.g. "several feature").
 3. **Translation** – the tagged text is sent to the LINDAT Translation API.  NMT models
-   leave unrecognised tokens untouched.
-4. **Restoration** – all `__TERM_N__` tags in the translated output are replaced with
-   the corresponding vocabulary translations.
+   leave the alphabetic sentinels untouched.
+4. **Restoration** – every sentinel in the translated output is replaced with the
+   corresponding vocabulary translation. Restoration is tolerant of stray spaces the
+   NMT may inject, and any unrecoverable sentinel debris is scrubbed before output.
 
 If no vocabulary file is provided, the translator behaves exactly as before (no UDPipe
 calls are made, no lemmatization is performed - just the basic translation preserving input file structure).
 
+> **Note on placeholders:** Earlier versions wrapped terms in `__TERM_N__`. Because NMT
+> models frequently mangled the underscores/digits, the protected sentinel is now a
+> purely alphabetic marker of the form `Xtermzzz<N>z`, which NMT models pass through intact.
+
 #### Vocabulary CSV format
-
-
 
 The vocabulary file must be a UTF-8 encoded CSV with two columns:
 
@@ -296,7 +315,7 @@ merges them into a single CSV:
 | Source           | Endpoint                                 | Method                                                         |
 |------------------|------------------------------------------|----------------------------------------------------------------|
 | **AMCR** [^7]    | `https://api.aiscr.cz/2.2/oai?set=heslo` | OAI-PMH `ListRecords` with resumption token paging             |
-| **TEATER**  [^8] | `https://teater.aiscr.cz/api/export`     | GraphQL introspection → `exportAll` or `search`-based fallback |
+| **TEATER**  [^8] | `https://teater.aiscr.cz/api/graphql`    | GraphQL introspection → `exportAll` or `search`-based fallback |
 
 ```bash
 # Full harvest (both sources):
@@ -329,7 +348,7 @@ Example [config.txt](config.txt)📎:
 input_path = ./data_samples/my_documents
 source_lang = auto
 target_lang = en
-formats = xml,txt
+formats = alto.xml
 fields = amcr-fields.txt
 output = ./data_samples/translated_files
 
@@ -337,6 +356,9 @@ output = ./data_samples/translated_files
 # Leave blank or comment out to disable.
 vocabulary = data_samples/vocabulary.csv
 ```
+
+> **Note:** Setting `formats = alto.xml` (or including `alto.xml` in a comma-separated
+> `formats` list) automatically enables ALTO mode, so the `--alto` flag becomes optional.
 
 ---
 
@@ -348,7 +370,7 @@ vocabulary = data_samples/vocabulary.csv
 * `--target_lang`, `-tgt`: Target language code (e.g., `en`, `cs`). Default: `en`.
 * `--formats`: Comma-separated list of file extensions to process (e.g., `alto.xml,txt` or `xml,txt`). Default: `xml`.
 * `--config`, `-c`: Path to the configuration file (default: `config.txt`).
-* `--alto`: Flag to enable ALTO XML in-place translation mode.
+* `--alto`: Flag to enable ALTO XML in-place translation mode (auto-enabled when `formats` contains `alto.xml`).
 * `--xpaths`: Path to a `.txt` file containing XPaths for XML metadata translation (works with any XML schema).
 * `--xsd`: Optional URL or local path to an XSD file for output validation.
 * `--vocabulary`: Path to a CSV vocabulary file (`source_lemma,target_translation`) to activate Tag-and-Protect term overriding.
@@ -357,24 +379,75 @@ vocabulary = data_samples/vocabulary.csv
 
 ## 🧠 Logic Overview
 
-1. **Routing**: The script determines if it is running in ALTO mode (`--alto`) or XML Metadata mode (`--xpaths`).
+1. **Routing**: The script determines if it is running in ALTO mode (`--alto`, or `formats`
+   containing `alto.xml`) or XML Metadata mode (`--xpaths`).
 2. **Extraction & Translation**:
-   * **ALTO**: Iterates through `Page` → `TextLine` → `String`. Extracts the `CONTENT` attribute, reconstructs the
-   entire line for contextual API translation, and perfectly redistributes the translated words back into the `CONTENT` attributes.
+   * **ALTO**: Iterates `Page` → `TextBlock` → `TextLine` → `String`, and reconstructs each
+     line's text from its `String` `CONTENT` attributes. Each block is translated with a
+     **dual-pass** strategy and the result is **realigned** to the physical line/`String`
+     layout — see [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction).
    * **XML Metadata**: Uses deep recursive namespace extraction (essential for OAI-PMH envelopes and custom schema 
    wrappers). Finds elements matching the user-provided XPaths, translates their text content, and replaces it in the tree.  
    Compatible with any well-formed XML.
-3. **Language Identification**: The text is analysed by **FastText** [^5] to determine the source language. 
-If the confidence score is below `0.2`, the system automatically defaults to Czech🇨🇿 (`cs`).
+3. **Language Identification**: Source text is analysed by **FastText** [^5].
+   In AMCR mode, if the confidence is below `0.2` the system falls back to Czech 🇨🇿 (`cs`);
+   in ALTO mode detection is performed **once per `TextBlock`** and applied to every line in that block.
 4. **Vocabulary Overriding** *(optional)*: When a vocabulary CSV is loaded, the **Tag-and-Protect** strategy 
-is applied before the NMT call.  Multi-word phrases are matched first (longest-first substring), then single-word 
-terms are matched via **UDPipe lemmatisation** [^6].  Matched terms are replaced with `__TERM_N__` placeholders, 
-translated safely through the API, and then restored with the controlled vocabulary translations.
+   is applied before each NMT call.  Multi-word phrases are matched first (longest-first substring), then single-word 
+   terms are matched via **UDPipe lemmatisation** [^6] (with a singular/plural number-agreement guard).  Matched terms
+   are replaced with NMT-safe sentinels, translated, and then restored with the controlled vocabulary translations.
 5. **Sentence-Aware Chunking**: Texts longer than 4,000 characters are split at sentence 
-boundaries (`\n`, `. `, `! `, `? `), falling back to clause and word boundaries. This preserves sentence context 
-for the NMT model, improving translation quality compared to raw word-boundary splitting.
+   boundaries (`\n`, `. `, `! `, `? `), falling back to clause and word boundaries. This preserves sentence context 
+   for the NMT model, improving translation quality compared to raw word-boundary splitting.
 6. **Output**: Generates the translated `.xml` file preserving all original tags and namespaces, 
-alongside a per-document `_log.csv` file for manual QA review.  Optionally validates against an XSD schema.
+   alongside a per-document `_log.csv` file for manual QA review.  Optionally validates against an XSD schema.
+
+---
+
+### 🧩 ALTO Dual-Pass Reconstruction
+
+ALTO stores text spatially: each `TextLine` holds a sequence of `String` elements, and each
+`String` carries one token in its `CONTENT` attribute (plus its position). Translating naively
+line-by-line loses cross-line context and produces poor NMT output; translating only the whole
+block produces fluent text but discards the line/`String` structure that must be preserved.
+
+The wrapper resolves this tension per `TextBlock` in six stages (implemented in
+`process_alto_xml` and `_align_tokens_to_lines` in `utils.py`):
+
+1. **Gather** — for every `TextLine` in the block, collect its `String` elements and
+   reconstruct the original line text by joining their `CONTENT` values.
+2. **Aggregate** — concatenate all line texts into a single block-level string.
+3. **Detect language** — run FastText **once for the whole block** (when `--source_lang auto`),
+   so every line in the block is translated with a consistent source language.
+4. **Pass 1 — block translation** — translate the full block text in a single API call.
+   This is the **high-quality semantic translation** whose tokens are written back to the document.
+5. **Pass 2 — line translations** — translate each non-empty line **individually**. These
+   per-line translations are *not* written to the output; they serve only as **structural
+   anchors** that tell the aligner roughly how many words each physical line should receive.
+6. **Alignment + redistribution**:
+   * `_align_tokens_to_lines` partitions the Pass-1 block tokens into one bucket per line.
+     For each line (except the last) it searches a sliding window of ±50 % around the line's
+     expected word count and picks the split point that maximises
+     `difflib.SequenceMatcher` similarity against that line's Pass-2 anchor translation.
+     The final line receives all remaining tokens.
+   * Within each line, the bucket's tokens are distributed across that line's `String`
+     elements with a **greedy 1-to-1 mapping**: each `String` except the last gets one token
+     (empty string if the bucket is exhausted), and the **last `String` of the line absorbs
+     all remaining tokens**.
+
+This guarantees that translated words never cross line boundaries, that every `String`
+element retains its original position, and that no token from the block translation is lost.
+
+> **Per-block API cost:** A block with *N* non-empty lines triggers **1 + N** translation
+> calls (one block pass + one per line). With a vocabulary loaded, each of those calls also
+> runs the Tag-and-Protect pipeline.
+
+> **Edge cases:**
+> * A block with a **single line** skips the alignment search — all block tokens go to that line.
+> * Lines whose original text is empty receive an empty bucket (and no anchor translation).
+> * If Pass 1 yields **fewer** tokens than there are `String` elements in a line, the trailing
+>   `String` elements are set to empty `CONTENT`; if it yields **more**, the surplus is crammed
+>   into the line's last `String`.
 
 ---
 
@@ -384,13 +457,17 @@ The wrapper generates a **per-document** CSV log for every processed XML file, n
 `<original_filename>_log.csv` (e.g., [MTX201501307_log.csv](data_samples/translated_files/MTX201501307_log.csv)📎). These logs are written to the same output directory
 as the translated XML files and are intended for **line-by-line manual QA review**.
 
-| Column               | ALTO value              | XML Metadata value     |
-|----------------------|-------------------------|------------------------|
-| `file`               | source filename (stem)  | source filename (stem) |
-| `page_num`           | page index (1-based)    | *(empty)*              |
-| `line_num`           | `TextLine` element ID   | full XPath expression  |
-| `text_<source_lang>` | original `CONTENT` text | original element text  |
-| `text_<target_lang>` | translated text         | translated text        |
+| Column               | ALTO value                                        | XML Metadata value     |
+|----------------------|---------------------------------------------------|------------------------|
+| `file`               | source filename (stem)                            | source filename (stem) |
+| `page_num`           | page index (1-based)                              | *(empty)*              |
+| `line_num`           | `TextLine` element ID                             | full XPath expression  |
+| `text_<source_lang>` | original `CONTENT` text of the line               | original element text  |
+| `text_<target_lang>` | translated text **as redistributed to that line** | translated text        |
+
+> **Note (ALTO):** Because the target column reflects the tokens *aligned and redistributed*
+> to each physical line (not a standalone re-translation), it shows exactly what was written
+> into that line's `String` elements — making the CSV a faithful audit of the reconstruction.
 
 The column names for the source and target text are dynamic: they reflect the actual
 language codes in use (e.g., `text_auto` / `text_en` when running with
@@ -429,7 +506,7 @@ record re-derives the end-to-end license from the union of all components used.
 |-------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | `schema_version`                    | Paradata schema version (currently `"2.0"`)                                                                 |
 | `program`                           | Always `"translator"`                                                                                       |
-| `tool_version`                      | Tool version tag, from `para_config.txt` (e.g. `v0.5.2`)                                                    |
+| `tool_version`                      | Tool version tag, from `para_config.txt` (e.g. `v0.5.0`)                                                    |
 | `repository`                        | Runner repository; resolved dynamically (`ATRIUM_RUNNER_REPO` env if set)                                   |
 | `runner_ref`                        | Git ref/SHA the running container was built from (`ATRIUM_RUNNER_REF`)                                      |
 | `docker_image`                      | Running container image (`ATRIUM_RUNNER_IMAGE`); empty placeholder if unset                                 |
@@ -439,7 +516,7 @@ record re-derives the end-to-end license from the union of all components used.
 | `license_detail`                    | Resolution breakdown: per-component licenses, `is_non_commercial`, `is_share_alike`, `determined_by`, notes |
 | `start_time` / `end_time`           | ISO 8601 UTC timestamps                                                                                     |
 | `duration_seconds`                  | Wall-clock runtime                                                                                          |
-| `config`                            | Snapshot of all CLI / config-file parameters used                                                           |
+| `config`                            | Snapshot of all CLI / config-file parameters used (incl. `vocabulary_protected_terms` when a vocab is used) |
 | `statistics.input_files_total`      | Number of input files submitted                                                                             |
 | `statistics.successfully_processed` | Number of files that produced output                                                                        |
 | `statistics.skipped_files`          | Number of files skipped due to errors                                                                       |
@@ -458,10 +535,10 @@ record re-derives the end-to-end license from the union of all components used.
 {
   "schema_version": "2.0",
   "program": "translator",
-  "tool_version": "v0.5.2",
+  "tool_version": "v0.5.0",
   "repository": "https://github.com/ufal/atrium-translator",
   "runner_ref": "a1b2c3d",
-  "docker_image": "ghcr.io/ufal/atrium-translator:v0.5.2",
+  "docker_image": "ghcr.io/ufal/atrium-translator:v0.5.0",
   "run_id": "260321-102451",
   "license": "CC BY-NC-SA 4.0",
   "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
@@ -481,7 +558,7 @@ record re-derives the end-to-end license from the union of all components used.
     "source_lang": "auto",
     "target_lang": "en",
     "vocabulary": "data_samples/vocabulary.csv",
-    "mode": "amcr"
+    "mode": "alto"
   },
   "statistics": {
     "input_files_total": 16,
