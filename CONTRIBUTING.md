@@ -1,4 +1,3 @@
-
 # 🤝 Contributing to the LINDAT Translation Wrapper of the ATRIUM project
 
 Welcome! Thank you for your interest in contributing. This repository [^2] provides a 
@@ -12,16 +11,27 @@ conventions, and rules for contributors.
 
 ## 📦 Release History
 
-| Version    | Highlights                                                                                                                                                  | Status      |
-|:-----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------|
-| **v0.5.0** | Paradata logging updated (added separate config), licenses resolution implemented                                                                           | Pre-release |
-| **v0.4.1** | Pytest added for main functionality (Tests added to the repository)                                                                                         | Pre-release |
-| **v0.4.0** | Vocabulary added and overall enhancement (Added examples of updated files)                                                                                  | Pre-release |
-| **v0.3.0** | AMCR samples added + documentation expanded + paradata (Added paradata of outputs logging)                                                                  | Pre-release |
-| **v0.2.1** | Draft version of ALTO/AMCR XML inputs only (Draft of AMCR is ready, Example of ALTO is included, Wrapped up with citation, license, and contribution draft) | Pre-release |
-| **v0.1.0** | Broad inputs support (and AMCR XML) (No logging of ALTO lines translation, AMCR XML support draft is included, No strict input format narrowing done yet)   | Pre-release |
-| **v0.0.2** | Various input formats and focus on ALTO (No AMCR XML paths config, Broad inputs optionation like txt, pdf, xml..., Working draft version)                   | Pre-release |
+| Version    | Highlights                                                                                                                                                                                            | Status      |
+|:-----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------|
+| **v0.5.0** | Dual-pass ALTO reconstruction (block + line translation with similarity-based token alignment); NMT-safe vocabulary sentinels + number-agreement guard; per-run license resolution & paradata logging | Pre-release |
+| **v0.4.1** | Pytest added for main functionality (Tests added to the repository)                                                                                                                                   | Pre-release |
+| **v0.4.0** | Vocabulary added and overall enhancement (Added examples of updated files)                                                                                                                            | Pre-release |
+| **v0.3.0** | AMCR samples added + documentation expanded + paradata (Added paradata of outputs logging)                                                                                                            | Pre-release |
+| **v0.2.1** | Draft version of ALTO/AMCR XML inputs only (Draft of AMCR is ready, Example of ALTO is included, Wrapped up with citation, license, and contribution draft)                                           | Pre-release |
+| **v0.1.0** | Broad inputs support (and AMCR XML) (No logging of ALTO lines translation, AMCR XML support draft is included, No strict input format narrowing done yet)                                             | Pre-release |
+| **v0.0.2** | Various input formats and focus on ALTO (No AMCR XML paths config, Broad inputs optionation like txt, pdf, xml..., Working draft version)                                                             | Pre-release |
 
+> **v0.5.0 — translation logic & structure preservation (detail).** ALTO documents are
+> no longer translated with a single per-block pass. Each `TextBlock` is now translated
+> **twice**: once as a whole block (the high-quality tokens that are written back) and
+> once line-by-line (anchors only). `_align_tokens_to_lines` then partitions the block
+> tokens into one bucket per physical `TextLine` using a ±50 % sliding-window
+> `difflib.SequenceMatcher` search against each line anchor, and the tokens are
+> redistributed across each line's `String` `CONTENT` attributes (greedy 1-to-1, last
+> `String` absorbs the remainder). This preserves the original spatial layout while
+> improving translation fluency. The change is covered by `tests/test_alignment.py`
+> (token conservation, bucket count, clean-signal splits, edge cases) and the existing
+> dual-pass assertions in `tests/test_utils.py`.
 
 ---
 
@@ -36,7 +46,10 @@ The pipeline allows archives to safely translate structured documents without al
 spatial coordinates or metadata schemas.
 
 * **ALTO XML Handling:** Specifically targets and translates only the `CONTENT` 
-attributes within `TextBlock` and `TextLine` elements natively.
+attributes within `TextBlock` and `TextLine` elements natively. Reconstruction uses a
+dual-pass block/line translation plus similarity-based token alignment so that the
+original `String` positions are preserved (see the main
+[README → ALTO Dual-Pass Reconstruction](README.md#-alto-dual-pass-reconstruction)).
 * **AMCR Metadata Handling:** Uses deep recursive namespace extraction to parse specific 
 elements based on custom XPaths and safely replace the text content.
 
@@ -44,11 +57,11 @@ elements based on custom XPaths and safely replace the text content.
 
 Archive managers can choose processing modes based on their specific document types and workflows:
 
-| Mode                      | Best For...               | Key Feature                                                                              |
-|---------------------------|---------------------------|------------------------------------------------------------------------------------------|
-| **ALTO XML Mode**         | Scanned document archives | Perfect redistribution of translated words back into exact spatial `CONTENT` attributes. |
-| **AMCR Mode**             | Highly nested metadata    | Safely handles OAI-PMH envelopes and translates specific targeted XPath fields.          |
-| **Batch & URL Ingestion** | Large-scale collections   | Scans entire directories or downloads/sanitizes XMLs directly from REST URLs.            |
+| Mode                      | Best For...               | Key Feature                                                                                                              |
+|---------------------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| **ALTO XML Mode**         | Scanned document archives | Dual-pass translation + token alignment redistributes translated words back into the exact spatial `CONTENT` attributes. |
+| **AMCR Mode**             | Highly nested metadata    | Safely handles OAI-PMH envelopes and translates specific targeted XPath fields.                                          |
+| **Batch & URL Ingestion** | Large-scale collections   | Scans entire directories or downloads/sanitizes XMLs directly from REST URLs.                                            |
 
 ### 3. Automated Language & Quality Controls
 
@@ -56,7 +69,8 @@ A core contribution of this project is minimizing manual preprocessing and provi
 
 * **Language Identification:** Source text is automatically analyzed using 
 **FastText** [^5]. If the confidence score is low (< 0.2), the system safely defaults
-to Czech (`cs`) to keep the pipeline moving.
+to Czech (`cs`) to keep the pipeline moving. In ALTO mode, detection runs once per
+`TextBlock` so every line in a block shares a consistent source language.
 * **Space-Aware Chunking:** Intelligently chunks long texts at word boundaries (max 
 4,000 characters) before sending them to the translation API, preventing mid-word 
 truncation errors.
@@ -223,12 +237,15 @@ tests/
 
 **Per-repo targets:**
 
-| Repository                | Test file           | Primary targets                                                                                                                                    |
-|---------------------------|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `atrium-nlp-enrich`       | `test_keywords.py`  | `_extract_surface_text`, `_extract_lemmas`, `_extract_legacy`, `extract_keywords`, `_sort_csv_file`                                                |
-| `atrium-alto-postprocess` | `test_text_util.py` | Density/ratio helpers, detectors, `pre_filter_line`, `parse_line_splits`, `categorize_line` (ppl passed directly, no GPU), `compute_quality_score` |
-| `atrium-alto-postprocess` | `test_utils.py`     | `directory_scraper`, `dataframe_results` (Top-1 and Top-N), `collect_images`                                                                       |
-| `atrium-translator`       | `test_utils.py`     | `_resolve_namespaces`, `validate_xml_with_xsd`, `process_alto_xml`, `process_amcr_xml` (mock translator injected)                                  |
+| Repository                | Test file            | Primary targets                                                                                                                                                  |
+|---------------------------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `atrium-nlp-enrich`       | `test_keywords.py`   | `_extract_surface_text`, `_extract_lemmas`, `_extract_legacy`, `extract_keywords`, `_sort_csv_file`                                                              |
+| `atrium-alto-postprocess` | `test_text_util.py`  | Density/ratio helpers, detectors, `pre_filter_line`, `parse_line_splits`, `categorize_line` (ppl passed directly, no GPU), `compute_quality_score`               |
+| `atrium-alto-postprocess` | `test_utils.py`      | `directory_scraper`, `dataframe_results` (Top-1 and Top-N), `collect_images`                                                                                     |
+| `atrium-translator`       | `test_utils.py`      | `_resolve_namespaces`, `validate_xml_with_xsd`, `process_alto_xml` (incl. dual-pass call counts & redistribution), `process_amcr_xml` (mock translator injected) |
+| `atrium-translator`       | `test_alignment.py`  | `_align_tokens_to_lines` — token conservation, bucket-per-line count, clean-signal splits, empty-block / single-line / empty-anchor edge cases                   |
+| `atrium-translator`       | `test_translator.py` | `_chunk_text`, `_restore_tags`, `_load_vocabulary`, `_translate_with_vocabulary`, number-agreement guard                                                         |
+| `atrium-translator`       | `test_lemmatizer.py` | `_parse_conllu` (and `_parse_conllu_with_features`)                                                                                                              |
 
 **Slow tests** — any test loading a model checkpoint, calling an external API, or requiring a GPU must be decorated with `@pytest.mark.slow`. Document in the PR description which resource it requires and how to enable it locally.
 
