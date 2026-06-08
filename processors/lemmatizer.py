@@ -8,7 +8,11 @@ dispatched to the API, mirroring the approach used by the NLP-enrichment
 pipeline (atrium-nlp-enrich).  This prevents mid-sentence cuts that would
 confuse UDPipe's tokeniser and produce incorrect lemmas near chunk boundaries.
 
-Boundary priority (identical to translator._chunk_text):
+The splitting logic now lives in the shared ``processors/chunking.chunk_text``
+helper (also used by the translator), so the two sites cannot drift apart and
+the documented boundary priority is genuinely enforced.
+
+Boundary priority (identical to the translator):
   1. Newline (OCR-line / paragraph boundary)
   2. Sentence-terminal punctuation + space
   3. Clause-level punctuation + space
@@ -29,6 +33,8 @@ are unaffected.
 
 import requests
 
+from .chunking import chunk_text
+
 
 class LindatLemmatizer:
     URL = "https://lindat.mff.cuni.cz/services/udpipe/api/process"
@@ -45,62 +51,16 @@ class LindatLemmatizer:
     }
     DEFAULT_MODEL = "czech-pdt-ud-2.15-241121"
 
-    # Sentence / clause boundaries, same priority as translator._chunk_text
-    _SEPS: list[tuple[str, int]] = [
-        ("\n",  0),
-        (". ",  1),
-        ("! ",  1),
-        ("? ",  1),
-        ("; ",  1),
-        (", ",  1),
-    ]
-
     def _chunk_text(self, text: str, chunk_size: int = 4000) -> list[str]:
         """
         Split *text* at sentence boundaries so that UDPipe receives complete
         sentences and produces correct lemmas across chunk edges.
 
-        Boundary priority:
-          1. ``\\n``  – paragraph / OCR-line boundary
-          2. Sentence-terminal punctuation + space
-          3. Clause-level punctuation + space
-          4. Word boundary
-          5. Hard cut (last resort)
+        Thin wrapper around :func:`processors.chunking.chunk_text` (shared with
+        the translator); retained as an instance method to preserve the
+        ``self._chunk_text(...)`` call site in ``_request_conllu_chunks``.
         """
-        if not text or not text.strip():
-            return []
-        text = text.strip()
-        if len(text) <= chunk_size:
-            return [text]
-
-        _MIN_SPLIT = chunk_size // 4
-
-        chunks: list[str] = []
-        remaining = text
-
-        while len(remaining) > chunk_size:
-            window = remaining[:chunk_size]
-            best = -1
-
-            for sep, keep in self._SEPS:
-                pos = window.rfind(sep)
-                if pos > _MIN_SPLIT:
-                    candidate = pos + keep
-                    if candidate > best:
-                        best = candidate
-
-            # Fallback: word boundary
-            if best <= _MIN_SPLIT:
-                pos = window.rfind(" ")
-                best = pos if pos > 0 else chunk_size
-
-            chunks.append(remaining[:best].strip())
-            remaining = remaining[best:].lstrip()
-
-        if remaining.strip():
-            chunks.append(remaining.strip())
-
-        return [c for c in chunks if c]
+        return chunk_text(text, chunk_size)
 
     def get_lemmas(self, text: str, lang: str = "cs") -> list[tuple[str, str]]:
         model = self.MODELS.get(lang, self.DEFAULT_MODEL)

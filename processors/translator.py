@@ -6,7 +6,8 @@ Implements the **Tag-and-Protect** strategy for vocabulary term overriding.
 Chunking strategy (v0.5+)
 --------------------------
 Text longer than ``chunk_size`` characters is split at the highest-priority
-boundary found within the window:
+boundary found within the window, with the priority order **actually enforced**
+(see ``processors/chunking.chunk_text``):
 
   1. Newline  – paragraph / OCR-line boundary; best context preservation.
   2. Sentence-terminal punctuation + space (``'. '``, ``'! '``, ``'? '``).
@@ -14,8 +15,12 @@ boundary found within the window:
   4. Any space – word boundary; same as the previous behaviour.
   5. Hard cut at ``chunk_size`` – last resort for oversized single tokens.
 
-Splitting at sentence (rather than word) boundaries sends complete thoughts
-to the NMT model, which improves translation quality for longer field values.
+The chunker is shared with ``processors/lemmatizer.py`` so the two sites cannot
+drift apart.  Splitting at sentence (rather than word) boundaries sends complete
+thoughts to the NMT model, which improves translation quality for longer field
+values.  (Earlier revisions documented this tiered priority but kept the
+rightmost candidate across *all* separators, so a later comma could override an
+earlier period; the shared helper fixes that.)
 
 Placeholder design (v0.5.1+)
 ----------------------------
@@ -58,6 +63,7 @@ except ImportError:
         for item in iterable:
             yield item
 
+from .chunking import chunk_text
 from .lemmatizer import LindatLemmatizer
 
 
@@ -96,19 +102,6 @@ class LindatTranslator:
     # Orphaned guard-letter clusters (e.g. a stray "zzz") that may remain after
     # the main fragment is removed.
     _GUARD_DEBRIS_RE = re.compile(r"\bz{2,}\b", re.IGNORECASE)
-
-    # Sentence / clause boundary separators used by _chunk_text, listed in
-    # descending priority.  The second element is the number of characters to
-    # include from the separator in the *left* chunk (i.e. keep the terminal
-    # punctuation, discard the following space / newline).
-    _SPLIT_SEPS: list[tuple[str, int]] = [
-        ("\n",  0),   # newline: exclude from both sides
-        (". ",  1),   # keep "." with left chunk
-        ("! ",  1),
-        ("? ",  1),
-        ("; ",  1),
-        (", ",  1),
-    ]
 
     def __init__(self, vocab_path=None):
         self.supported_models = self._fetch_models()
@@ -360,58 +353,9 @@ class LindatTranslator:
         """
         Split *text* into chunks no longer than *chunk_size* characters.
 
-        Boundaries are tried in priority order so that whole sentences are
-        kept together wherever possible, preserving NMT translation quality:
-
-          1. ``\\n``  – newline / paragraph break
-          2. ``'. '``, ``'! '``, ``'? '``  – sentence-terminal punctuation
-          3. ``'; '``, ``', '``             – clause-level punctuation
-          4. ``' '``                        – word boundary (fallback)
-          5. hard cut at *chunk_size*       – last resort for oversized tokens
-
-        The search for a boundary is only accepted when the candidate split
-        point is at least 25 % into the current window, which prevents
-        pathological behaviour on texts that begin with very long sentences.
+        Thin wrapper around :func:`processors.chunking.chunk_text` (shared with
+        the lemmatizer) so the boundary-priority logic lives in exactly one
+        place.  Retained as a static method to preserve the
+        ``LindatTranslator._chunk_text(...)`` call/test API.
         """
-        if not text or not text.strip():
-            return []
-        text = text.strip()
-        if len(text) <= chunk_size:
-            return [text]
-
-        _SEPS: list[tuple[str, int]] = [
-            ("\n",  0),
-            (". ",  1),
-            ("! ",  1),
-            ("? ",  1),
-            ("; ",  1),
-            (", ",  1),
-        ]
-        _MIN_SPLIT = chunk_size // 4  # never split in the first 25 % of the window
-
-        chunks: list[str] = []
-        remaining = text
-
-        while len(remaining) > chunk_size:
-            window = remaining[:chunk_size]
-            best = -1
-
-            for sep, keep in _SEPS:
-                pos = window.rfind(sep)
-                if pos > _MIN_SPLIT:
-                    candidate = pos + keep  # include terminal punct, exclude separator
-                    if candidate > best:
-                        best = candidate
-
-            # Fallback: word boundary
-            if best <= _MIN_SPLIT:
-                pos = window.rfind(" ")
-                best = pos if pos > 0 else chunk_size  # hard cut as last resort
-
-            chunks.append(remaining[:best].strip())
-            remaining = remaining[best:].lstrip()
-
-        if remaining.strip():
-            chunks.append(remaining.strip())
-
-        return [c for c in chunks if c]
+        return chunk_text(text, chunk_size)

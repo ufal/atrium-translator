@@ -6,7 +6,7 @@
   "runner_ref": "",
   "docker_image": "",
   "python_version": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
-  "run_id": "260530-114454",
+  "run_id": "260608-121118",
   "license": "CC BY-NC-SA 4.0",
   "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
   "license_detail": {
@@ -59,16 +59,16 @@
     "unknown_licenses": [],
     "notes": "Effective output license is CC BY-NC-SA 4.0, the most restrictive among 6 component(s) used. Outputs are NON-COMMERCIAL: downstream commercial use is not permitted while this component is in the pipeline. SHARE-ALIKE applies: derivatives must be licensed under the same terms."
   },
-  "start_time": "2026-05-30T11:44:54.764183+00:00",
-  "end_time": "2026-05-30T11:45:52.384515+00:00",
-  "duration_seconds": 57.62,
+  "start_time": "2026-06-08T12:11:18.406778+00:00",
+  "end_time": "2026-06-08T12:12:04.858451+00:00",
+  "duration_seconds": 46.452,
   "config": {
     "input_path": "data_samples/my_documents",
     "output_dir": "data_samples/translated_files",
     "source_lang": "auto",
     "target_lang": "en",
-    "formats": "xml,txt",
-    "mode": "amcr",
+    "formats": "xml",
+    "mode": "metadata",
     "xpaths_file": "amcr-fields.txt",
     "xsd_url": "",
     "vocabulary": "data_samples/vocabulary.csv",
@@ -81,7 +81,6 @@
       "C-DT-100003326": 4,
       "C-9141192A": 11,
       "C-N1000019": 5,
-      "MTX201501307": 0,
       "C-N9000112": 10,
       "C-TX-195304352": 2,
       "C-9107617A": 8,
@@ -92,6 +91,7 @@
       "C-9100725A": 15,
       "C-TX-202500252": 3,
       "C-N9007794": 3,
+      "MTX201501307_anon": 0,
       "C-TX-202400594": 4
     },
     "vocabulary_protected_terms_total": 113
@@ -105,8 +105,8 @@
       "csv": 16
     },
     "performance_per_minute": {
-      "xml": 16.6608,
-      "csv": 16.6608
+      "xml": 20.6666,
+      "csv": 20.6666
     }
   },
   "skipped_files_detail": []

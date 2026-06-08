@@ -50,8 +50,9 @@ attributes within `TextBlock` and `TextLine` elements natively. Reconstruction u
 dual-pass block/line translation plus similarity-based token alignment so that the
 original `String` positions are preserved (see the main
 [README → ALTO Dual-Pass Reconstruction](README.md#-alto-dual-pass-reconstruction)).
-* **AMCR Metadata Handling:** Uses deep recursive namespace extraction to parse specific 
-elements based on custom XPaths and safely replace the text content.
+* **XML Metadata Handling:** Uses deep recursive namespace extraction to parse specific 
+elements based on custom XPaths and safely replace the text content. Works with any
+well-formed XML (AMCR/OAI-PMH or custom schemas).
 
 ### 2. Multi-Mode Translation Execution
 
@@ -60,7 +61,7 @@ Archive managers can choose processing modes based on their specific document ty
 | Mode                      | Best For...               | Key Feature                                                                                                              |
 |---------------------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | **ALTO XML Mode**         | Scanned document archives | Dual-pass translation + token alignment redistributes translated words back into the exact spatial `CONTENT` attributes. |
-| **AMCR Mode**             | Highly nested metadata    | Safely handles OAI-PMH envelopes and translates specific targeted XPath fields.                                          |
+| **XML Metadata Mode**     | Highly nested metadata    | Safely handles OAI-PMH envelopes and translates specific targeted XPath fields in any well-formed XML.                   |
 | **Batch & URL Ingestion** | Large-scale collections   | Scans entire directories or downloads/sanitizes XMLs directly from REST URLs.                                            |
 
 ### 3. Automated Language & Quality Controls
@@ -71,12 +72,15 @@ A core contribution of this project is minimizing manual preprocessing and provi
 **FastText** [^5]. If the confidence score is low (< 0.2), the system safely defaults
 to Czech (`cs`) to keep the pipeline moving. In ALTO mode, detection runs once per
 `TextBlock` so every line in a block shares a consistent source language.
-* **Space-Aware Chunking:** Intelligently chunks long texts at word boundaries (max 
-4,000 characters) before sending them to the translation API, preventing mid-word 
-truncation errors.
+* **Sentence-Aware Chunking:** Long texts are split at the highest-priority boundary found
+in each window, tried in strict order — newline (`\n`) → sentence-terminal punctuation
+(`. `, `! `, `? `) → clause-level punctuation (`; `, `, `) → word boundary — before being sent
+to the translation API. Keeping whole sentences together preserves NMT context; the word
+boundary is a fallback and a hard cut is the last resort, so mid-word truncation never occurs.
+The same shared chunker (`processors/chunking.py`) feeds the UDPipe lemmatiser.
 * **QA Logging:** Automatically produces a supplementary CSV file (`file, page_num, 
 line_num, text_src, text_tgt`) for easy line-by-line manual QA review.
-* **Schema Validation:** Optionally validates AMCR outputs against an XSD schema to 
+* **Schema Validation:** Optionally validates metadata outputs against an XSD schema to 
 guarantee post-translation structural integrity.
 
 ### 4. Seamless API & Configuration Integration
@@ -87,6 +91,10 @@ The project includes streamlined interfaces for reproducible archival processing
 API (v2) [^1].
 * **Standardized Configs:** Support for `config.txt` to define default input paths, 
 target languages, and XPath lists, ensuring consistency across different archival teams.
+
+> **Future work:** the LINDAT translation backend may eventually be supplemented or
+> replaced by an alternative open-source / locally hosted NMT model. This is **not** in
+> scope for the current contribution and is recorded here only as a planned direction.
 
 ---
 
@@ -237,15 +245,15 @@ tests/
 
 **Per-repo targets:**
 
-| Repository                | Test file            | Primary targets                                                                                                                                                  |
-|---------------------------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `atrium-nlp-enrich`       | `test_keywords.py`   | `_extract_surface_text`, `_extract_lemmas`, `_extract_legacy`, `extract_keywords`, `_sort_csv_file`                                                              |
-| `atrium-alto-postprocess` | `test_text_util.py`  | Density/ratio helpers, detectors, `pre_filter_line`, `parse_line_splits`, `categorize_line` (ppl passed directly, no GPU), `compute_quality_score`               |
-| `atrium-alto-postprocess` | `test_utils.py`      | `directory_scraper`, `dataframe_results` (Top-1 and Top-N), `collect_images`                                                                                     |
-| `atrium-translator`       | `test_utils.py`      | `_resolve_namespaces`, `validate_xml_with_xsd`, `process_alto_xml` (incl. dual-pass call counts & redistribution), `process_amcr_xml` (mock translator injected) |
-| `atrium-translator`       | `test_alignment.py`  | `_align_tokens_to_lines` — token conservation, bucket-per-line count, clean-signal splits, empty-block / single-line / empty-anchor edge cases                   |
-| `atrium-translator`       | `test_translator.py` | `_chunk_text`, `_restore_tags`, `_load_vocabulary`, `_translate_with_vocabulary`, number-agreement guard                                                         |
-| `atrium-translator`       | `test_lemmatizer.py` | `_parse_conllu` (and `_parse_conllu_with_features`)                                                                                                              |
+| Repository                | Test file            | Primary targets                                                                                                                                                      |
+|---------------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `atrium-nlp-enrich`       | `test_keywords.py`   | `_extract_surface_text`, `_extract_lemmas`, `_extract_legacy`, `extract_keywords`, `_sort_csv_file`                                                                  |
+| `atrium-alto-postprocess` | `test_text_util.py`  | Density/ratio helpers, detectors, `pre_filter_line`, `parse_line_splits`, `categorize_line` (ppl passed directly, no GPU), `compute_quality_score`                   |
+| `atrium-alto-postprocess` | `test_utils.py`      | `directory_scraper`, `dataframe_results` (Top-1 and Top-N), `collect_images`                                                                                         |
+| `atrium-translator`       | `test_utils.py`      | `_resolve_namespaces`, `validate_xml_with_xsd`, `process_alto_xml` (incl. dual-pass call counts & redistribution), `process_metadata_xml` (mock translator injected) |
+| `atrium-translator`       | `test_alignment.py`  | `_align_tokens_to_lines` — token conservation, bucket-per-line count, clean-signal splits, empty-block / single-line / empty-anchor edge cases                       |
+| `atrium-translator`       | `test_translator.py` | `_chunk_text`, `_restore_tags`, `_load_vocabulary`, `_translate_with_vocabulary`, number-agreement guard, boundary-priority chunking                                 |
+| `atrium-translator`       | `test_lemmatizer.py` | `_parse_conllu` (and `_parse_conllu_with_features`), shared `_chunk_text` delegation                                                                                 |
 
 **Slow tests** — any test loading a model checkpoint, calling an external API, or requiring a GPU must be decorated with `@pytest.mark.slow`. Document in the PR description which resource it requires and how to enable it locally.
 

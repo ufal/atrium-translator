@@ -50,6 +50,55 @@ class TestChunkText:
         chunks = LindatTranslator._chunk_text(text, chunk_size=20)
         assert " ".join(chunks).split() == text.split()
 
+    # ── Boundary-priority regression tests (issue #3) ─────────────────────────
+    # These pin the fix to the priority bug: the original implementation kept
+    # the rightmost candidate across ALL separators, so a later, lower-priority
+    # separator could override an earlier, higher-priority one. The corrected
+    # shared helper enforces the tier order (newline > sentence > clause > word).
+
+    def test_sentence_terminal_wins_over_later_comma(self):
+        """THE bug guard: a period must beat a later comma in the same window.
+
+        Fails on the pre-fix code (it would split at '...word,'); passes after
+        the tiered-priority fix (splits right after 'Short start.').
+        """
+        text = "Short start. word word word word word, tail"
+        chunks = LindatTranslator._chunk_text(text, chunk_size=40)
+        assert chunks[0] == "Short start."
+
+    def test_sentence_boundary_preferred_over_later_comma_simple(self):
+        """Sentence punctuation beats a clause comma sitting further right."""
+        text = "One sentence here. then some, more clause text follows on"
+        chunks = LindatTranslator._chunk_text(text, chunk_size=40)
+        assert chunks[0] == "One sentence here."
+
+    def test_newline_preferred_and_excluded_keep_zero(self):
+        """A newline (keep=0) outranks a later period and is itself dropped."""
+        text = "First line here\nthen a sentence. and yet more words after that"
+        chunks = LindatTranslator._chunk_text(text, chunk_size=40)
+        # newline wins -> first chunk is the text before it, with no trailing '\n'
+        assert chunks[0] == "First line here"
+        assert "\n" not in chunks[0]
+
+    def test_clause_preferred_over_later_bare_space(self):
+        """A clause comma (tier 3) beats a plain word space (fallback tier)."""
+        text = "alpha beta, gamma delta epsilon zeta eta theta iota"
+        chunks = LindatTranslator._chunk_text(text, chunk_size=30)
+        # comma kept with the left chunk; the later spaces do not override it
+        assert chunks[0] == "alpha beta,"
+
+    def test_lossless_reassembly_with_mixed_punctuation(self):
+        """No token is lost or duplicated across mixed-punctuation splits.
+
+        Compare on word sets, not exact strings: chunking strips the separator
+        whitespace between chunks.
+        """
+        text = ("Intro clause, with comma. A second sentence here! And a third "
+                "one? plus a tail\nafter newline and more and more words again")
+        chunks = LindatTranslator._chunk_text(text, chunk_size=40)
+        assert len(chunks) > 1
+        assert " ".join(chunks).split() == text.split()
+
 class TestRestoreTags:
     def test_single_tag_replaced(self):
         tag = LindatTranslator._make_tag(0)
@@ -123,15 +172,12 @@ class TestNumberAgreementGuard:
     """A plural Czech surface form must NOT be protected with a singular term."""
 
     def test_plural_surface_form_is_not_protected(self, vocab_translator):
-        # "nálezů" is plural; lemma "nález" is in vocab → must be left for the NMT
         vocab_translator._lemmatizer.get_lemmas_with_features.return_value = [
             ("nálezů", "nález", "Plur")
         ]
         vocab_translator._basic_translate.side_effect = lambda text, src, tgt: text
         result = vocab_translator.translate("Popis nálezů.", "cs", "en")
-        # vocabulary translation "find" must NOT have been forced in
         assert "find" not in result
-        # and _basic_translate received the ORIGINAL text (no placeholder)
         vocab_translator._basic_translate.assert_called_once_with("Popis nálezů.", "cs", "en")
 
     def test_singular_surface_form_is_still_protected(self, vocab_translator):
@@ -143,7 +189,6 @@ class TestNumberAgreementGuard:
         assert "find" in result
 
     def test_number_neutral_token_is_protected(self, vocab_translator):
-        """Empty Number feature (unknown) defaults to protect."""
         vocab_translator._lemmatizer.get_lemmas_with_features.return_value = [
             ("nález", "nález", "")
         ]
@@ -152,13 +197,12 @@ class TestNumberAgreementGuard:
         assert "find" in result
 
     def test_legacy_lemmatizer_without_features_still_works(self, tmp_path, vocab_csv):
-        """A lemmatizer exposing only get_lemmas (no features) must not crash."""
         from unittest.mock import MagicMock, patch
         from processors.translator import LindatTranslator
         with patch.object(LindatTranslator, "_fetch_models", return_value=["cs-en"]):
             t = LindatTranslator(vocab_path=str(vocab_csv))
 
-        class LegacyLemmatizer:  # only the old 2-tuple API
+        class LegacyLemmatizer:
             def get_lemmas(self, text, lang="cs"):
                 return [("nálezu", "nález")]
 

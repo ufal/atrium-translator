@@ -48,7 +48,7 @@ except ImportError:
 from atrium_paradata import ParadataLogger
 from processors.identifier import LanguageIdentifier
 from processors.translator import LindatTranslator
-from utils import process_alto_xml, process_amcr_xml
+from utils import process_alto_xml, process_metadata_xml
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         "source_lang":                   str(args.source_lang),
         "target_lang":                   str(args.target_lang),
         "formats":                       str(args.formats),
-        "mode":                          "alto" if args.alto else "amcr",
+        "mode":                          "alto" if args.alto else "metadata",
         "xpaths_file":                   str(args.xpaths or ""),
         "xsd_url":                       str(args.xsd or ""),
         "vocabulary":                    str(args.vocabulary or ""),
@@ -269,7 +269,7 @@ def main():
         # into the paradata config snapshot just before finalize().
         protected_by_doc: dict[str, int] = {}
 
-        # Load XPath targets for AMCR mode
+        # Load XPath targets for metadata mode
         xpaths_list: list[str] = []
         if args.xpaths and args.xpaths.exists():
             with open(args.xpaths, "r", encoding="utf-8") as f:
@@ -369,7 +369,7 @@ def main():
                             identifier,
                         )
                     else:
-                        process_amcr_xml(
+                        process_metadata_xml(
                             file_path,
                             output_file,
                             xpaths_list,

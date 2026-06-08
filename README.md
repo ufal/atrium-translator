@@ -70,11 +70,12 @@ namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, 
 * 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts, 
 configuration snapshot) to the [paradata](paradata)📁 directory for auditing and performance reporting.
 * 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using 
-**FastText** (Facebook) [^5]. In AMCR mode, if the detection confidence is below `0.2`, it defaults to Czech (`cs`);
+**FastText** (Facebook) [^5]. In XML Metadata mode, if the detection confidence is below `0.2`, it defaults to Czech (`cs`);
 in ALTO mode detection is performed **once per `TextBlock`** so that all lines in a block share a consistent source language.
-* ✂️ **Sentence-Aware Chunking**: Long texts are split at sentence boundaries (`\n`, `. `, `! `, `? `) before being 
-sent to the translation API, preserving sentence context and improving NMT quality. Word and clause boundaries serve 
-as secondary fallbacks.
+* ✂️ **Sentence-Aware Chunking**: Long texts are split at the highest-priority boundary found in each window, tried in
+strict order — newline (`\n`) → sentence-terminal punctuation (`. `, `! `, `? `) → clause-level punctuation (`; `, `, `) →
+word boundary — before being sent to the translation API. Keeping whole sentences together preserves NMT context and
+improves quality; the word boundary is a fallback and a hard cut is the last resort for oversized single tokens.
 * 🔤 **Tag-and-Protect Vocabulary Overriding**: When a vocabulary CSV is supplied, domain-specific terms are protected
 before translation using NMT-safe placeholder sentinels. Single-word terms are matched by lemma via the **LINDAT UDPipe API** [^6]; 
 multi-word phrases use case-insensitive substring matching (longest match first). Vocabulary translations are restored 
@@ -123,6 +124,7 @@ atrium-translator/
 ├── amcr-inputs.txt            # 📄 List of AMCR metadata input files (XML) to be processed
 ├── processors/
 │   ├── __init__.py            # 📦 Package marker
+│   ├── chunking.py            # ✂️ Shared sentence-aware text chunker (priority-ordered)
 │   ├── identifier.py          # 🌍 FastText language identification (ISO 639-3 to 639-1 mapping)
 │   ├── lemmatizer.py          # 🔤 UDPipe-based lemmatizer for vocabulary term matching
 │   └── translator.py          # 🔄 LINDAT API client with Tag-and-Protect vocabulary support
@@ -390,15 +392,17 @@ vocabulary = data_samples/vocabulary.csv
    wrappers). Finds elements matching the user-provided XPaths, translates their text content, and replaces it in the tree.  
    Compatible with any well-formed XML.
 3. **Language Identification**: Source text is analysed by **FastText** [^5].
-   In AMCR mode, if the confidence is below `0.2` the system falls back to Czech 🇨🇿 (`cs`);
+   In XML Metadata mode, if the confidence is below `0.2` the system falls back to Czech 🇨🇿 (`cs`);
    in ALTO mode detection is performed **once per `TextBlock`** and applied to every line in that block.
 4. **Vocabulary Overriding** *(optional)*: When a vocabulary CSV is loaded, the **Tag-and-Protect** strategy 
    is applied before each NMT call.  Multi-word phrases are matched first (longest-first substring), then single-word 
    terms are matched via **UDPipe lemmatisation** [^6] (with a singular/plural number-agreement guard).  Matched terms
    are replaced with NMT-safe sentinels, translated, and then restored with the controlled vocabulary translations.
-5. **Sentence-Aware Chunking**: Texts longer than 4,000 characters are split at sentence 
-   boundaries (`\n`, `. `, `! `, `? `), falling back to clause and word boundaries. This preserves sentence context 
-   for the NMT model, improving translation quality compared to raw word-boundary splitting.
+5. **Sentence-Aware Chunking**: Texts longer than 4,000 characters are split at the highest-priority boundary available
+   in each window, in strict order: newline (`\n`) → sentence-terminal punctuation (`. `, `! `, `? `) → clause-level
+   punctuation (`; `, `, `) → word boundary, with a hard cut as the last resort. The priority is now actually enforced
+   (the highest tier with a match wins), so whole sentences are kept together for the NMT model, improving translation
+   quality compared to raw word-boundary splitting.
 6. **Output**: Generates the translated `.xml` file preserving all original tags and namespaces, 
    alongside a per-document `_log.csv` file for manual QA review.  Optionally validates against an XSD schema.
 

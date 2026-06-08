@@ -1,5 +1,5 @@
 """
-utils.py – ALTO and AMCR XML processing utilities for the ATRIUM translation pipeline.
+utils.py – ALTO and metadata XML processing utilities for the ATRIUM translation pipeline.
 """
 
 from lxml import etree
@@ -38,7 +38,7 @@ def validate_xml_with_xsd(xml_tree, xsd_url_or_path):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# AMCR XML processing
+# Metadata XML processing
 # ──────────────────────────────────────────────────────────────────────────────
 
 _AMCR_NS_FALLBACK = "https://api.aiscr.cz/schema/amcr/2.2/"
@@ -67,7 +67,7 @@ def _resolve_namespaces(root) -> dict:
     return xpath_ns
 
 
-def process_amcr_xml(
+def process_metadata_xml(
     input_path, output_path, xpaths, translator, src_lang, tgt_lang,
     xsd_url=None, csv_writer=None, identifier=None
 ):
@@ -120,10 +120,10 @@ def process_amcr_xml(
             xml_declaration=True,
             pretty_print=True,
         )
-        print(f"[SUCCESS] Saved AMCR translation → {output_path}")
+        print(f"[SUCCESS] Saved metadata translation → {output_path}")
 
     except Exception as e:
-        print(f"[ERROR] Failed to process AMCR XML '{input_path}': {e}")
+        print(f"[ERROR] Failed to process metadata XML '{input_path}': {e}")
         raise
 
 # ──────────────────────────────────────────────────────────────────────────────

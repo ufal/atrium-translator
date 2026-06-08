@@ -1,10 +1,13 @@
 """
 tests/test_lemmatizer.py
 ========================
-Unit tests for processors/lemmatizer.py — LindatLemmatizer._parse_conllu.
+Unit tests for processors/lemmatizer.py — LindatLemmatizer._parse_conllu and the
+shared sentence-aware chunker delegation (_chunk_text).
 
 ``_parse_conllu`` is a pure static method that converts raw CoNLL-U text into
-``(word, lemma)`` pairs.  No network, no ML, no file I/O.
+``(word, lemma)`` pairs.  ``_chunk_text`` is a thin instance-method wrapper over
+``processors.chunking.chunk_text`` (also used by the translator).  No network,
+no ML, no file I/O.
 """
 
 import pytest
@@ -56,48 +59,58 @@ class TestParseConllu:
         assert LindatLemmatizer._parse_conllu("") == []
 
     def test_comment_lines_are_excluded(self):
-        """Lines beginning with '#' must not appear in the output."""
         result = LindatLemmatizer._parse_conllu(TWO_SENTENCES)
         words = [w for w, _ in result]
         assert all(not w.startswith("#") for w in words)
 
     def test_blank_lines_between_sentences_are_ignored(self):
-        """Blank sentence separators must not cause extra entries."""
         result = LindatLemmatizer._parse_conllu(TWO_SENTENCES)
-        # Only actual token lines contribute; blank lines do not
         assert all(isinstance(w, str) and w for w, _ in result)
 
     def test_word_and_lemma_extracted_from_correct_columns(self):
-        """CoNLL-U col-2 (FORM) and col-3 (LEMMA) must be read in order."""
         result = LindatLemmatizer._parse_conllu(TWO_SENTENCES)
-        assert result[0] == ("Dobrý", "dobrý")   # first token of sentence 1
-        assert result[2] == (".", ".")            # punctuation token
+        assert result[0] == ("Dobrý", "dobrý")
+        assert result[2] == (".", ".")
 
     def test_all_tokens_from_two_sentences_collected(self):
-        """3 tokens in s1 + 4 tokens in s2 = 7 total (punctuation included)."""
         result = LindatLemmatizer._parse_conllu(TWO_SENTENCES)
         assert len(result) == 7
 
     def test_multiword_token_range_line_skipped(self):
-        """
-        A MWT line (ID contains '-', e.g. '1-2') must be omitted;
-        only the individual component lines ('1', '2') are kept.
-        """
         result = LindatLemmatizer._parse_conllu(WITH_MULTIWORD_TOKEN)
         ids_seen = [w for w, _ in result]
         assert len(result) == 2
         assert ids_seen == ["vánoční", "den"]
 
     def test_empty_node_line_skipped(self):
-        """
-        An enhanced-UD empty node (ID contains '.', e.g. '1.1') must be omitted.
-        """
         result = LindatLemmatizer._parse_conllu(WITH_EMPTY_NODE)
         assert len(result) == 1
         assert result[0] == ("slovo", "slovo")
 
     def test_line_with_fewer_than_three_tab_columns_skipped(self):
-        """Malformed / incomplete lines must not raise; they are silently skipped."""
         malformed = "1\tonly_two_cols\n"
         result = LindatLemmatizer._parse_conllu(malformed)
         assert result == []
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# LindatLemmatizer._chunk_text — shared sentence-aware chunker delegation
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestLemmatizerChunkText:
+    """The lemmatizer must delegate to the same priority-correct chunker as the
+    translator. LindatLemmatizer.__init__ is network-free, so this is hermetic."""
+
+    def test_short_text_is_single_chunk(self):
+        lem = LindatLemmatizer()
+        assert lem._chunk_text("hello world", chunk_size=100) == ["hello world"]
+
+    def test_sentence_terminal_wins_over_later_comma(self):
+        """Same boundary-priority guarantee the translator relies on: the period
+        beats a later comma (would fail under the old rightmost-wins logic)."""
+        lem = LindatLemmatizer()
+        text = "Short start. word word word word word, tail"
+        chunks = lem._chunk_text(text, chunk_size=40)
+        assert chunks[0] == "Short start."
+        # and nothing is lost across the split
+        assert " ".join(chunks).split() == text.split()
