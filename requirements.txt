@@ -1,6 +1,6 @@
 requests
 huggingface-hub
-fasttext
+fasttext-wheel
 numpy<2.0
 lxml
 tqdm

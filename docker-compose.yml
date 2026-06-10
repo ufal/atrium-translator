@@ -1,0 +1,20 @@
+services:
+  translator:
+    image: ghcr.io/ufal/atrium-translator:${ATRIUM_VERSION:-dev}
+    build:
+      context: .
+      args:
+        ATRIUM_RUNNER_IMAGE: ghcr.io/ufal/atrium-translator:${ATRIUM_VERSION:-dev}
+        ATRIUM_RUNNER_REPO: https://github.com/ufal/atrium-translator
+        ATRIUM_RUNNER_REF: ${ATRIUM_RUNNER_REF:-dev}
+    environment:
+      ATRIUM_RUNNER_IMAGE: ghcr.io/ufal/atrium-translator:${ATRIUM_VERSION:-dev}
+      ATRIUM_RUNNER_REPO: https://github.com/ufal/atrium-translator
+      ATRIUM_RUNNER_REF: ${ATRIUM_RUNNER_REF:-dev}
+      HF_HOME: /cache/huggingface
+    volumes:
+      - ./data:/data
+      - hf-cache:/cache/huggingface
+      - ./config.txt:/app/config.txt:ro
+volumes:
+  hf-cache:
