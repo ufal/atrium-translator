@@ -13,6 +13,7 @@ conventions, and rules for contributors.
 
 | Version    | Highlights                                                                                                                                                                                            | Status      |
 |:-----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------|
+| **v0.5.1** | Docker wrapper and small dependencies swap - fasttext-wheel                                                                                                                                           |             |
 | **v0.5.0** | Dual-pass ALTO reconstruction (block + line translation with similarity-based token alignment); NMT-safe vocabulary sentinels + number-agreement guard; per-run license resolution & paradata logging | Pre-release |
 | **v0.4.1** | Pytest added for main functionality (Tests added to the repository)                                                                                                                                   | Pre-release |
 | **v0.4.0** | Vocabulary added and overall enhancement (Added examples of updated files)                                                                                                                            | Pre-release |
