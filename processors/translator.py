@@ -16,24 +16,33 @@ boundary found within the window, with the priority order **actually enforced**
   5. Hard cut at ``chunk_size`` – last resort for oversized single tokens.
 
 The chunker is shared with ``processors/lemmatizer.py`` so the two sites cannot
-drift apart.  Splitting at sentence (rather than word) boundaries sends complete
-thoughts to the NMT model, which improves translation quality for longer field
-values.  (Earlier revisions documented this tiered priority but kept the
-rightmost candidate across *all* separators, so a later comma could override an
-earlier period; the shared helper fixes that.)
+drift apart.
+
+Network failure handling (fix for review finding #1)
+----------------------------------------------------
+Earlier revisions appended ``"[Network Error: …]"`` / ``"[Translation Failed:
+HTTP …]"`` strings *into* the translated text on failure.  Those strings were
+then written into the ALTO ``String`` ``CONTENT`` attributes and the QA CSV, and
+because no exception propagated, ``main.py`` still counted the file as
+``successfully_processed`` — silent corruption of archival output.
+
+This module now:
+  * retries transient failures (network errors, HTTP 429/5xx) with bounded
+    exponential back-off, and
+  * **raises** ``TranslationError`` when a chunk cannot be translated, so the
+    per-file handler in ``main.py`` logs a skip and the broken file is never
+    written.
+
+Rate limiting (fix for review finding #4)
+-----------------------------------------
+An optional minimum inter-request interval throttles the shared public LINDAT
+endpoint.  It is configured via the ``LINDAT_MIN_INTERVAL_S`` environment
+variable (default ``0`` = disabled).  Setting e.g. ``LINDAT_MIN_INTERVAL_S=0.1``
+keeps the dual-pass ALTO mode (1 + N calls per block) from flooding the API.
 
 Placeholder design (v0.5.1+)
 ----------------------------
-Earlier versions wrapped protected terms in ``__TERM_N__`` placeholders.  In
-practice the LINDAT NMT models treat the underscores and digits as ordinary
-sub-word units and frequently mangle them: the trailing ``__`` is dropped,
-spaces are injected (``__TERM_6 Younger__``), adjacent numbers merge
-(``78 a_78 n``) or the token is shredded entirely (``TEu____``).  When that
-happens the placeholder can no longer be matched and the broken fragment leaks
-into both the translated XML and the QA CSV log (e.g. ``V: __TERM_6_)``).
-
-To make placeholders robust we now use an **all-alphabetic sentinel** with no
-internal punctuation::
+Protected terms use an **all-alphabetic sentinel** with no internal punctuation::
 
     __TERM_3__   →   Xtermzzz3z
 
@@ -51,7 +60,10 @@ KNOWN LIMITATIONS:
 """
 
 import csv
+import os
+import random
 import re
+import time
 from pathlib import Path
 
 import requests
@@ -65,6 +77,41 @@ except ImportError:
 
 from .chunking import chunk_text
 from .lemmatizer import LindatLemmatizer
+
+
+# ── failure / retry / throttle configuration ──────────────────────────────────
+
+class TranslationError(RuntimeError):
+    """Raised when a chunk cannot be translated after all retries.
+
+    Propagates up through ``translate`` → ``process_*_xml`` → ``main`` so the
+    offending file is logged as a skip instead of being written with corrupt
+    content.
+    """
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, "") or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, "") or default)
+    except (TypeError, ValueError):
+        return default
+
+
+# Minimum seconds between outbound LINDAT requests (0 = disabled).
+_MIN_INTERVAL_S = _env_float("LINDAT_MIN_INTERVAL_S", 0.0)
+# Retries on transient failure (network error, HTTP 429/5xx).
+_MAX_RETRIES = _env_int("LINDAT_MAX_RETRIES", 4)
+# Base for exponential back-off (seconds): sleep = base * 2**attempt + jitter.
+_BACKOFF_BASE_S = _env_float("LINDAT_BACKOFF_BASE_S", 1.0)
+# HTTP status codes worth retrying.
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 
 class LindatTranslator:
@@ -94,10 +141,11 @@ class LindatTranslator:
 
     # Catches any *leftover* sentinel debris (a fragment that could not be
     # mapped back), so it can be scrubbed from the final output and the CSV.
-    # Matches the recognisable "Xterm…" stem plus any trailing run of the
-    # guard letter 'z' / digits the model may have left stranded nearby.
+    # NOTE (finding #14): keyed off the FULL sentinel stem ("Xtermzzz"), not the
+    # broad 5-char "Xterm" prefix, so legitimate source text that merely begins
+    # with "Xterm" can never be eaten.
     _TAG_FRAGMENT_RE = re.compile(
-        rf"{_TAG_PREFIX[:5]}[A-Za-z0-9]*z*\d*z*", re.IGNORECASE
+        rf"{_TAG_PREFIX}[A-Za-z0-9]*z*\d*z*", re.IGNORECASE
     )
     # Orphaned guard-letter clusters (e.g. a stray "zzz") that may remain after
     # the main fragment is removed.
@@ -113,6 +161,9 @@ class LindatTranslator:
         # main.py resets this per input file (reset_protected_count) and reads
         # it afterwards (protected_count) to record per-document statistics.
         self._protected_count: int = 0
+
+        # Monotonic timestamp of the last outbound request (for throttling).
+        self._last_call_ts: float = 0.0
 
         if vocab_path:
             self.vocabulary = self._load_vocabulary(Path(vocab_path))
@@ -288,7 +339,7 @@ class LindatTranslator:
         fragment must not surface in the translated XML or the QA CSV, so it is
         deleted here and surrounding whitespace is tidied.
         """
-        if not text or cls._TAG_PREFIX[:5].lower() not in text.lower():
+        if not text or cls._TAG_PREFIX.lower() not in text.lower():
             return text
 
         cleaned = cls._TAG_FRAGMENT_RE.sub("", text)
@@ -299,6 +350,60 @@ class LindatTranslator:
         cleaned = re.sub(r"\s+([)\].,;:!?])", r"\1", cleaned)
         cleaned = re.sub(r"\(\s+", "(", cleaned)
         return cleaned.strip(" ") if cleaned.strip() else text
+
+    # ── HTTP with throttle + retry/back-off ───────────────────────────────────
+
+    def _throttle(self) -> None:
+        """Enforce an optional minimum interval between outbound requests."""
+        if _MIN_INTERVAL_S <= 0:
+            return
+        now = time.monotonic()
+        wait = self._last_call_ts + _MIN_INTERVAL_S - now
+        if wait > 0:
+            time.sleep(wait)
+        self._last_call_ts = time.monotonic()
+
+    def _post_with_retry(self, url: str, data: dict) -> str:
+        """
+        POST *data* to *url*, returning the response text on HTTP 200.
+
+        Retries network errors and HTTP 429/5xx with bounded exponential
+        back-off.  Raises :class:`TranslationError` on a non-retryable status or
+        once retries are exhausted, so the caller fails loudly instead of
+        embedding an error string in the document.
+        """
+        last_reason = "unknown error"
+        for attempt in range(_MAX_RETRIES + 1):
+            self._throttle()
+            try:
+                response = requests.post(url, data=data, timeout=60)
+            except requests.exceptions.RequestException as e:
+                last_reason = f"network error: {e}"
+            else:
+                if response.status_code == 200:
+                    response.encoding = "utf-8"
+                    return response.text.strip()
+                if response.status_code in _RETRYABLE_STATUS:
+                    last_reason = f"HTTP {response.status_code}"
+                else:
+                    # 4xx (other than 429) will not recover on retry.
+                    raise TranslationError(
+                        f"LINDAT translation failed: HTTP {response.status_code} "
+                        f"from {url}"
+                    )
+
+            if attempt < _MAX_RETRIES:
+                sleep_s = _BACKOFF_BASE_S * (2 ** attempt) + random.uniform(0, 0.25)
+                print(
+                    f"[WARN] LINDAT call failed ({last_reason}); retrying in "
+                    f"{sleep_s:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})."
+                )
+                time.sleep(sleep_s)
+
+        raise TranslationError(
+            f"LINDAT translation failed after {_MAX_RETRIES} retries "
+            f"({last_reason})."
+        )
 
     # ── core translation (chunked) ────────────────────────────────────────────
 
@@ -316,22 +421,12 @@ class LindatTranslator:
             else chunks
         )
 
+        url = f"{self.BASE_URL}/models/{model_name}?src={src_lang}&tgt={tgt_lang}"
         for chunk in chunk_iter:
-            try:
-                response = requests.post(
-                    f"{self.BASE_URL}/models/{model_name}?src={src_lang}&tgt={tgt_lang}",
-                    data={"input_text": chunk},
-                    timeout=60,
-                )
-                if response.status_code == 200:
-                    response.encoding = "utf-8"
-                    translated_chunks.append(response.text.strip())
-                else:
-                    translated_chunks.append(
-                        f"[Translation Failed: HTTP {response.status_code}]"
-                    )
-            except requests.exceptions.RequestException as e:
-                translated_chunks.append(f"[Network Error: {e}]")
+            # _post_with_retry raises TranslationError on unrecoverable failure;
+            # we deliberately do NOT catch it here so the per-file handler in
+            # main.py can skip the file instead of writing corrupt content.
+            translated_chunks.append(self._post_with_retry(url, {"input_text": chunk}))
 
         return "\n".join(translated_chunks)
 
@@ -349,7 +444,7 @@ class LindatTranslator:
             return ["fr-en", "cs-en", "de-en", "uk-en", "ru-en", "pl-en"]
 
     @staticmethod
-    def _chunk_text(text: str, chunk_size: int = 4000) -> list[str]:
+    def _chunk_text(text: str, chunk_size: int = None) -> list[str]:
         """
         Split *text* into chunks no longer than *chunk_size* characters.
 
@@ -358,4 +453,6 @@ class LindatTranslator:
         place.  Retained as a static method to preserve the
         ``LindatTranslator._chunk_text(...)`` call/test API.
         """
+        if chunk_size is None:
+            return chunk_text(text)
         return chunk_text(text, chunk_size)

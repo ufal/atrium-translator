@@ -12,7 +12,11 @@ import sys
 import time
 import urllib.parse
 from pathlib import Path
-from xml.etree import ElementTree as ET
+
+from lxml import etree
+_SECURE_PARSER = etree.XMLParser(
+    resolve_entities=False, no_network=True, load_dtd=False, huge_tree=False,
+)
 
 import requests
 
@@ -48,8 +52,8 @@ def harvest_amcr(delay: float = DEFAULT_DELAY) -> dict[str, str]:
             break
 
         try:
-            root = ET.fromstring(resp.content)
-        except ET.ParseError as exc:
+            root = etree.fromstring(resp.content, parser=_SECURE_PARSER)
+        except etree.XMLSyntaxError as exc:
             print(f"  [AMCR] XML parse error on page {page}: {exc}")
             break
 

@@ -5,3 +5,7 @@
 .venv
 .env
 data/
+data_samples/translated_files/*.xml
+data_samples/translated_files/*.csv
+data_samples/translated_files/paradata/*.json
+downloaded_inputs/

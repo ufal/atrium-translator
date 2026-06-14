@@ -2,7 +2,7 @@ name: docker
 on:
   pull_request:
   push:
-    branches: ["claude/intelligent-newton-15qba6", test, master]
+    branches: [test, master]
     tags: ["v*"]
   release:
     types: [published]

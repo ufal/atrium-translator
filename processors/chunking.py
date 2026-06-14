@@ -31,6 +31,10 @@ behaviour on texts that begin with a very long sentence.
 
 from __future__ import annotations
 
+# Single source of truth for the default chunk size, shared by the translator,
+# the lemmatizer, and the paradata config snapshot in main.py (finding #13).
+DEFAULT_CHUNK_SIZE: int = 4000
+
 # Separators grouped into priority *tiers*.  The first tier (scanned in order)
 # that yields any acceptable split point wins; lower-priority tiers are not
 # consulted once a higher tier matches.  The second element of each pair is the
@@ -43,7 +47,7 @@ _SEP_TIERS: list[list[tuple[str, int]]] = [
 ]
 
 
-def chunk_text(text: str, chunk_size: int = 4000) -> list[str]:
+def chunk_text(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
     """
     Split *text* into chunks no longer than *chunk_size* characters, keeping
     whole sentences together wherever possible.

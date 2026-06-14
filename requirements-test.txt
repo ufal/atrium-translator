@@ -1,4 +1,4 @@
-pytest>=8.0
-pytest-cov
-lxml
-requests
+pytest==8.3.4
+pytest-cov==6.0.0
+lxml==5.3.0
+requests==2.32.3

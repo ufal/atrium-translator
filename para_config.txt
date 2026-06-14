@@ -4,14 +4,19 @@
 
 [tool]
 program = translator
-version = v0.5.0
+version = v0.5.1
 repository_fallback = https://github.com/ufal/atrium-translator
 
 [components]
 # name = <license> ; <always|conditional> ; <role>
 # "always"      -> component is part of every run (worst-case baseline)
 # "conditional" -> only counts toward the license when log_component() is called
-fasttext       = CC BY-NC 4.0    ; always      ; FastText language identification weights
+#
+# fasttext is now CONDITIONAL: the language-ID model is only loaded in auto-detect
+# mode, so main.py logs it via log_component() only when an identifier is built
+# (review finding #6). This keeps the component list accurate for explicit
+# --source_lang runs that never touch FastText.
+fasttext       = CC BY-NC 4.0    ; conditional ; FastText language identification weights
 lindat_cubbitt = CC BY-NC-SA 4.0 ; conditional ; LINDAT translation API/models
 udpipe2_engine = MPL 2.0         ; conditional ; UDPipe2 lemmatiser engine
 udpipe2_models = CC BY-NC-SA 4.0 ; conditional ; UDPipe2 linguistic models

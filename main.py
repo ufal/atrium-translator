@@ -16,8 +16,20 @@ Corrections applied:
     main() receives them (utils.py now re-raises after printing)
   - Added per-document Tag-and-Protect statistics: the number of vocabulary
     terms protected in each input file is collected and attached to the
-    paradata config snapshot under "vocabulary_protected_terms" (the shared
-    atrium_paradata.py logger is left untouched).
+    paradata config snapshot under "vocabulary_protected_terms"
+
+Review-fix corrections (this revision):
+  - Component provenance now reflects ACTUAL usage (finding #6): fasttext is
+    logged only when auto-detection is used; the translation / UDPipe / vocab
+    components are logged on the first SUCCESSFULLY processed file rather than
+    unconditionally before the loop.
+  - URL-ingested inputs are no longer written to a hardcoded repo path
+    (finding #7): they go under the resolved output directory, overridable with
+    --download-dir.
+  - chunk_limit in the paradata snapshot is sourced from the shared
+    DEFAULT_CHUNK_SIZE constant (finding #13).
+  - New --fast-align flag selects the anchor-free ALTO alignment (finding #4),
+    which skips the per-line translation calls.
 """
 
 import argparse
@@ -46,6 +58,7 @@ except ImportError:
         print()
 
 from atrium_paradata import ParadataLogger
+from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
 from processors.translator import LindatTranslator
 from utils import process_alto_xml, process_metadata_xml
@@ -67,7 +80,7 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         "xpaths_file":                   str(args.xpaths or ""),
         "xsd_url":                       str(args.xsd or ""),
         "vocabulary":                    str(args.vocabulary or ""),
-        "chunk_limit":                   4000,
+        "chunk_limit":                   DEFAULT_CHUNK_SIZE,
         "lang_id_model":                 "facebook/fasttext-language-identification",
         "translation_api":               "https://lindat.mff.cuni.cz/services/translation/api/v2/",
         "fasttext_confidence_threshold": 0.2,
@@ -166,6 +179,16 @@ def parse_arguments():
         "--vocabulary", type=Path, default=None,
         help="Path to a CSV vocabulary file (source_lemma,target_translation).",
     )
+    parser.add_argument(
+        "--download-dir", type=Path, default=None,
+        help="Directory for URL-ingested inputs (default: <output>/downloaded_inputs).",
+    )
+    parser.add_argument(
+        "--fast-align", action="store_true",
+        help="ALTO only: distribute block tokens by source word count instead of "
+             "translating each line as an anchor. Far fewer API calls; slightly "
+             "coarser line splits.",
+    )
 
     args = parser.parse_args()
     config = _read_config(args.config)
@@ -190,7 +213,7 @@ def parse_arguments():
         if vocab_candidate.exists():
             args.vocabulary = vocab_candidate
 
-    # NEW: Automatically enable ALTO processing mode if 'alto.xml' is specified in config/formats
+    # Automatically enable ALTO processing mode if 'alto.xml' is specified in config/formats
     if not args.alto and args.formats and "alto.xml" in args.formats.lower():
         args.alto = True
 
@@ -230,10 +253,8 @@ def main():
         print("[ERROR] Input path does not exist. Provide a valid file or directory.")
         return
 
-    # Use the logger as a context manager so finalize() is always called,
-    # even on early returns or unexpected exceptions.
     # Resolve output dir BEFORE the logger so paradata lands in the output data,
-    # not in the repo. (Mirrors the later out_dir computation; kept in sync.)
+    # not in the repo.
     out_dir = args.output or Path.cwd() / f"translated_{args.target_lang}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -255,18 +276,17 @@ def main():
         translator = LindatTranslator(vocab_path=args.vocabulary)
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
 
-        # Record which licensed components this run actually exercises so the
-        # effective output license is computed correctly (see para_config.txt).
-        _logger.log_component("lindat_cubbitt")  # translation API is always hit
-        if translator.vocabulary:  # vocab → UDPipe lemmatiser + models
-            _logger.log_component("udpipe2_engine")
-            _logger.log_component("udpipe2_models")
-            _logger.log_component("amcr_vocab")
-            _logger.log_component("teater_data")
+        # Provenance: FastText only constrains the output license when auto
+        # detection is actually used (finding #6).
+        if identifier is not None:
+            _logger.log_component("fasttext")
+
+        # The translation / UDPipe / vocabulary components are logged on the
+        # first SUCCESSFULLY processed file (see the loop), so a run that
+        # produces nothing does not claim those components were exercised.
+        _components_logged = False
 
         # Per-document Tag-and-Protect statistics: {doc_name: protected_terms}.
-        # Only meaningful when a vocabulary is loaded; collected here and folded
-        # into the paradata config snapshot just before finalize().
         protected_by_doc: dict[str, int] = {}
 
         # Load XPath targets for metadata mode
@@ -283,9 +303,6 @@ def main():
         files_to_process: list[Path] = []
         allowed_formats = [fmt.strip() for fmt in args.formats.split(",")]
 
-        # out_dir = args.output or Path.cwd() / f"translated_{args.target_lang}"
-        # out_dir.mkdir(parents=True, exist_ok=True)
-
         if input_path.is_file() and input_path.suffix == ".txt" and "txt" in allowed_formats:
             print("[INFO] Text file detected – reading URLs …")
             with open(input_path, "r", encoding="utf-8") as f:
@@ -295,12 +312,14 @@ def main():
                     if line.strip() and line.startswith("http")
                 ]
 
-            input_save_dir = Path("data_samples/my_documents")
-            input_save_dir.mkdir(parents=True, exist_ok=True)
+            # Downloaded inputs land under the output dir (or --download-dir),
+            # never in a hardcoded repo path (finding #7).
+            download_dir = args.download_dir or (out_dir / "downloaded_inputs")
+            download_dir.mkdir(parents=True, exist_ok=True)
 
             for url in urls:
                 print(f"[INFO] Downloading: {url}")
-                local_file = fetch_xml_from_url(url, input_save_dir)
+                local_file = fetch_xml_from_url(url, download_dir)
                 if local_file:
                     files_to_process.append(local_file)
 
@@ -367,6 +386,7 @@ def main():
                             args.target_lang,
                             csv_writer,
                             identifier,
+                            line_anchors=not args.fast_align,
                         )
                     else:
                         process_metadata_xml(
@@ -383,6 +403,20 @@ def main():
 
                     _logger.log_success("xml")
                     _logger.log_success("csv")
+
+                    # Record licensed components on first real success so the
+                    # effective output license reflects actual usage.
+                    if not _components_logged:
+                        _logger.log_component("lindat_cubbitt")
+                        if translator.vocabulary:
+                            for comp in (
+                                "udpipe2_engine",
+                                "udpipe2_models",
+                                "amcr_vocab",
+                                "teater_data",
+                            ):
+                                _logger.log_component(comp)
+                        _components_logged = True
 
                 except Exception as e:
                     print(f"[ERROR] Failed processing '{file_path.name}': {e}")
