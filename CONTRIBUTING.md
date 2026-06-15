@@ -11,16 +11,68 @@ conventions, and rules for contributors.
 
 ## 📦 Release History
 
-| Version    | Highlights                                                                                                                                                                                            | Status      |
-|:-----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------|
-| **v0.5.1** | Docker wrapper and small dependencies swap - fasttext-wheel                                                                                                                                           |             |
-| **v0.5.0** | Dual-pass ALTO reconstruction (block + line translation with similarity-based token alignment); NMT-safe vocabulary sentinels + number-agreement guard; per-run license resolution & paradata logging | Pre-release |
-| **v0.4.1** | Pytest added for main functionality (Tests added to the repository)                                                                                                                                   | Pre-release |
-| **v0.4.0** | Vocabulary added and overall enhancement (Added examples of updated files)                                                                                                                            | Pre-release |
-| **v0.3.0** | AMCR samples added + documentation expanded + paradata (Added paradata of outputs logging)                                                                                                            | Pre-release |
-| **v0.2.1** | Draft version of ALTO/AMCR XML inputs only (Draft of AMCR is ready, Example of ALTO is included, Wrapped up with citation, license, and contribution draft)                                           | Pre-release |
-| **v0.1.0** | Broad inputs support (and AMCR XML) (No logging of ALTO lines translation, AMCR XML support draft is included, No strict input format narrowing done yet)                                             | Pre-release |
-| **v0.0.2** | Various input formats and focus on ALTO (No AMCR XML paths config, Broad inputs optionation like txt, pdf, xml..., Working draft version)                                                             | Pre-release |
+
+Here is the summary of the review changes formatted as release notes and a history table row.
+
+## Release v0.6.0 Notes
+
+### **Major Features & Enhancements**
+
+* **Robust Error Handling:** The system now raises a `TranslationError` upon unrecoverable network failures or exhausted retries, stopping corrupt outputs from being written to XML or CSV files. A bounded exponential back-off strategy was also added for HTTP 429/5xx and network errors.
+
+
+* **XML Security Hardening:** Switched to a secure lxml parser (`_SECURE_PARSER`) that disables external entity resolution, network DTDs, and caps the tree size for all untrusted inputs to prevent XXE vulnerabilities. The trusted `--xsd` schema utilizes `_XSD_PARSER` which allows network access but keeps entities off.
+
+
+* **Rate Limiting Knobs:** Introduced new environment variables for client-side rate limiting: `LINDAT_MIN_INTERVAL_S` (throttles dual-pass ALTO mode), `LINDAT_MAX_RETRIES`, and `LINDAT_BACKOFF_BASE_S`.
+
+
+* **Fast ALTO Alignment:** Added a new `--fast-align` CLI flag that provides opt-in, anchor-free alignment, drastically reducing ALTO API calls from `1+N` per block down to `1`.
+
+
+* **Dependency Management:** All dependencies are now strictly pinned in `requirements.txt` and `requirements-test.txt`.
+
+
+
+### **Minor Fixes & Adjustments**
+
+* **Output Directories:** URL-ingested inputs are now saved to an overridable `<output>/downloaded_inputs` directory instead of a hardcoded path.
+
+
+* **KeyError Fix:** Pre-seeded `trans_line_text` to prevent KeyErrors during CSV logging when processing a `<TextLine>` with zero `<String>` children.
+
+
+* **Whitespace Preservation:** Disabled `pretty_print` (`pretty_print=False`) during metadata XML processing to prevent mixed-content whitespace from being reflowed.
+
+
+* **Default Fallbacks:** The ALTO `auto` mode now defaults to `cs` when no identifier is present, matching the metadata path.
+
+
+* **Scrubbing Logic:** The scrub early-out key now specifically targets the full `Xtermzzz` stem to prevent source text starting with "Xterm" from being accidentally eaten.
+
+
+* **Logging Improvements:** UDPipe/vocab and `lindat_cubbitt` components are now logged only on the first successful file.
+
+
+* **Documentation & CI:** Removed the stale `claude` branch from Docker workflows, updated the Python badge to `3.11+`, corrected canonical repository URLs, and updated `.gitignore` to exclude generated translation outputs.
+
+
+
+---
+
+## Releases History Table
+
+| Version    | Release Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Key Features & Fixes |
+|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| **v0.6.0** | **Security:** Hardened XML parsing with lxml `_SECURE_PARSER` to prevent XXE. **Reliability:** Raised `TranslationError` with exponential back-off instead of logging corrupt output strings. Pinned all dependencies. **Performance:** Added `--fast-align` CLI flag to reduce ALTO API calls and `LINDAT_*` env vars for rate limiting. **Fixes:** Fixed empty-line KeyErrors, whitespace reflow issues in metadata, and improved file-saving directories for URL downloads. | Pre-release          |
+| **v0.5.1** | Docker wrapper and small dependencies swap - fasttext-wheel                                                                                                                                                                                                                                                                                                                                                                                                                    | Pre-release          |
+| **v0.5.0** | Dual-pass ALTO reconstruction (block + line translation with similarity-based token alignment); NMT-safe vocabulary sentinels + number-agreement guard; per-run license resolution & paradata logging                                                                                                                                                                                                                                                                          | Pre-release          |
+| **v0.4.1** | Pytest added for main functionality (Tests added to the repository)                                                                                                                                                                                                                                                                                                                                                                                                            | Pre-release          |
+| **v0.4.0** | Vocabulary added and overall enhancement (Added examples of updated files)                                                                                                                                                                                                                                                                                                                                                                                                     | Pre-release          |
+| **v0.3.0** | AMCR samples added + documentation expanded + paradata (Added paradata of outputs logging)                                                                                                                                                                                                                                                                                                                                                                                     | Pre-release          |
+| **v0.2.1** | Draft version of ALTO/AMCR XML inputs only (Draft of AMCR is ready, Example of ALTO is included, Wrapped up with citation, license, and contribution draft)                                                                                                                                                                                                                                                                                                                    | Pre-release          |
+| **v0.1.0** | Broad inputs support (and AMCR XML) (No logging of ALTO lines translation, AMCR XML support draft is included, No strict input format narrowing done yet)                                                                                                                                                                                                                                                                                                                      | Pre-release          |
+| **v0.0.2** | Various input formats and focus on ALTO (No AMCR XML paths config, Broad inputs optionation like txt, pdf, xml..., Working draft version)                                                                                                                                                                                                                                                                                                                                      | Pre-release          |
 
 > **v0.5.0 — translation logic & structure preservation (detail).** ALTO documents are
 > no longer translated with a single per-block pass. Each `TextBlock` is now translated
