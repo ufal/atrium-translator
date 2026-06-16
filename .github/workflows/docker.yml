@@ -11,13 +11,7 @@ on:
 
 jobs:
   build:
-    # Point this to the main branch of the central project repo (e.g., @master or @test depending on deployment state)
-    uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@test
+    uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@main
     secrets: inherit
     with:
       image-name: ufal/atrium-translator
-      apt-packages: ""
-      pre-install-torch: ""
-      requirements: requirements.txt requirements-test.txt
-      hf-model-cache: false
-      build-targets: '["base"]'
