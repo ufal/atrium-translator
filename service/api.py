@@ -43,11 +43,12 @@ app = FastAPI(
 )
 
 # Single CORS registration with env allow-list
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")]
+# A wildcard origin must not be combined with credentials (browsers reject it).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=ALLOWED_ORIGINS != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -61,7 +62,7 @@ async def translate_document(
         target_lang: str = "en",
         is_alto: bool = True
 ):
-    if not file.filename.endswith(".xml"):
+    if not file.filename or not file.filename.endswith(".xml"):
         raise HTTPException(status_code=400, detail="Only XML files are supported.")
 
     content = await file.read()

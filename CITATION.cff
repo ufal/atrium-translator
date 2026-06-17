@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "ATRIUM's XMLs translator: in-place translation of ALTO XMLs text contents and AMCR XMLs metadata fields."
-version: "0.5.1"
+version: "0.6.1"
 date-released: "2026-03-02"
 authors:
   - family-names: "Lutsai"
