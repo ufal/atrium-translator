@@ -1,7 +1,95 @@
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 import pytest
-from processors.translator import LindatTranslator
+from unittest.mock import patch, MagicMock
+from requests.exceptions import RequestException
+
+from processors.translator import LindatTranslator, TranslationError
+import processors.translator as translator_module
+
+
+@patch("processors.translator.requests.post")
+def test_post_with_retry_success_after_429(mock_post):
+    """Verify that a 429 Too Many Requests triggers a retry and succeeds."""
+    mock_resp_429 = MagicMock()
+    mock_resp_429.status_code = 429
+    mock_resp_429.raise_for_status.side_effect = RequestException("429 Too Many Requests")
+
+    mock_resp_200 = MagicMock()
+    mock_resp_200.status_code = 200
+    mock_resp_200.text = "Success"
+
+    mock_post.side_effect = [mock_resp_429, mock_resp_200]
+
+    translator = LindatTranslator(vocab_path=None)
+    # Bypass the throttle mechanism and speed up the backoff for fast testing
+    translator._throttle = MagicMock()
+    translator_module._BACKOFF_BASE_S = 0.01
+
+    result = translator._post_with_retry("http://fake-api.cz", data={"text": "test"})
+
+    assert result == "Success"
+    assert mock_post.call_count == 2
+
+
+@patch("processors.translator.requests.post")
+def test_post_with_retry_max_retries_exceeded(mock_post):
+    """Verify the translator gives up after max retries on persistent 5xx errors."""
+    mock_resp_500 = MagicMock()
+    mock_resp_500.status_code = 500
+    mock_resp_500.raise_for_status.side_effect = RequestException("500 Internal Server Error")
+
+    mock_post.side_effect = [mock_resp_500] * 5  # Persistently fail
+
+    translator = LindatTranslator(vocab_path=None)
+    translator._throttle = MagicMock()
+    translator_module._BACKOFF_BASE_S = 0.01
+
+    with pytest.raises(TranslationError):
+        translator._post_with_retry("http://fake-api.cz", data={"text": "test"})
+
+    assert mock_post.call_count == 5  # 1 initial attempt + 4 retries
+
+
+def test_homonym_single_word_lemma_protection():
+    """
+    Regression test: Ensure single-word homonyms are correctly matched via UDPipe
+    lemma and protected without capturing adjacent punctuation.
+    """
+    translator = LindatTranslator(vocab_path=None)
+    translator.vocabulary = {"zamek": "castle"}
+    translator._multiword_terms = []
+
+    # Mock the lemmatizer to force a match
+    mock_lemmatizer = MagicMock()
+    mock_lemmatizer.get_lemmas_with_features.return_value = [
+        ("Přijeli", "přijet", ""), ("jsme", "být", ""), ("k", "k", ""),
+        ("zámku", "zamek", "Sing"), (".", ".", "")
+    ]
+    translator._lemmatizer = mock_lemmatizer
+
+    # Intercept the NMT call so we can inspect the placeholder insertion
+    captured_nmt_input = []
+
+    def mock_basic_translate(text, src, tgt):
+        captured_nmt_input.append(text)
+        return text  # Act as an identity translation
+
+    translator._basic_translate = mock_basic_translate
+
+    source_text = "Přijeli jsme k zámku."
+
+    # Run the full pipeline
+    final_text = translator.translate(source_text, src_lang="cs", tgt_lang="en")
+
+    # Assert NMT received the Tag
+    assert len(captured_nmt_input) == 1
+    assert "Xtermzzz" in captured_nmt_input[0]
+    assert "zámku" not in captured_nmt_input[0]
+    assert translator.protected_count == 1
+
+    # Assert the Tag was properly swapped out in the final output
+    assert "castle" in final_text
+
 
 @pytest.fixture
 def bare_translator():

@@ -27,7 +27,34 @@ They focus on the guarantees the reconstruction relies on:
 import pytest
 
 from utils import _align_tokens_to_lines
+from utils import _align_tokens_proportional
 
+
+def test_align_tokens_proportional_exact_match():
+    """Tokens divide perfectly into the physical line capacities."""
+    # The function expects a list of original source lines to count word lengths
+    source_lines = ["word word", "word word word", "word"]
+    # And a single string output from the translator
+    translated_text = "The quick brown fox jumps over"
+
+    aligned = _align_tokens_proportional(translated_text, source_lines)
+
+    assert len(aligned) == 3
+    assert aligned[0] == ["The", "quick"]
+    assert aligned[1] == ["brown", "fox", "jumps"]
+    assert aligned[2] == ["over"]
+
+def test_align_tokens_proportional_overflow():
+    """Ensures no tokens are lost if the translation yields more words than the source."""
+    source_lines = ["word word", "word word"]
+    translated_text = "This is a much longer sentence"
+
+    aligned = _align_tokens_proportional(translated_text, source_lines)
+
+    assert len(aligned) == 2
+    assert aligned[0] == ["This", "is", "a"]
+    assert aligned[1] == ["much", "longer", "sentence"]
+    assert sum(len(line) for line in aligned) == len(translated_text.split())
 
 # ════════════════════════════════════════════════════════════════════════════
 # Token conservation — the central invariant

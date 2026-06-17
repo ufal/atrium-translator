@@ -2,7 +2,6 @@
 FROM python:3.11-slim AS base
 
 # Provenance: build-time ARGs -> ENV, read by atrium_paradata.py
-# (ATRIUM_RUNNER_IMAGE/REPO/REF -> docker_image / repository / runner_ref).
 ARG ATRIUM_RUNNER_IMAGE=""
 ARG ATRIUM_RUNNER_REPO="https://github.com/ufal/atrium-translator"
 ARG ATRIUM_RUNNER_REF=""
@@ -15,10 +14,11 @@ ENV ATRIUM_RUNNER_IMAGE=${ATRIUM_RUNNER_IMAGE} \
 
 WORKDIR /app
 
-# Deps first for layer caching. fasttext-wheel + lxml ship manylinux binaries,
-# so NO system build toolchain is required.
+# Install all requirements including the new service dependencies
 COPY requirements.txt requirements-test.txt ./
-RUN pip install -r requirements.txt -r requirements-test.txt
+COPY service/requirements.txt ./service/requirements.txt
+RUN pip install -r requirements.txt -r requirements-test.txt -r service/requirements.txt
+
 COPY . .
 
 # Non-root runtime user owning app, HF cache, and the data mountpoint.

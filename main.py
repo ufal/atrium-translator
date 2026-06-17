@@ -1,35 +1,5 @@
 """
 main.py – Entry point for the ATRIUM LINDAT Translation Wrapper.
-
-Corrections applied:
-  - Removed duplicate `import configparser` (was imported twice)
-  - Replaced fragile regex-based config preprocessing with native configparser
-    read; a [DEFAULT] header is prepended only when the file lacks one,
-    preventing bracket characters in values from being silently stripped
-  - Fixed source_lang / target_lang default handling: argparse defaults are now
-    None so that config-file values are never shadowed by the parser's own
-    fallback string
-  - ParadataLogger is now used as a context manager so finalize() is guaranteed
-    to run on every exit path (including early returns and uncaught exceptions)
-  - Removed the redundant second mkdir for out_dir (was created twice)
-  - Raised exceptions from process_*_xml so that the per-file error handler in
-    main() receives them (utils.py now re-raises after printing)
-  - Added per-document Tag-and-Protect statistics: the number of vocabulary
-    terms protected in each input file is collected and attached to the
-    paradata config snapshot under "vocabulary_protected_terms"
-
-Review-fix corrections (this revision):
-  - Component provenance now reflects ACTUAL usage (finding #6): fasttext is
-    logged only when auto-detection is used; the translation / UDPipe / vocab
-    components are logged on the first SUCCESSFULLY processed file rather than
-    unconditionally before the loop.
-  - URL-ingested inputs are no longer written to a hardcoded repo path
-    (finding #7): they go under the resolved output directory, overridable with
-    --download-dir.
-  - chunk_limit in the paradata snapshot is sourced from the shared
-    DEFAULT_CHUNK_SIZE constant (finding #13).
-  - New --fast-align flag selects the anchor-free ALTO alignment (finding #4),
-    which skips the per-line translation calls.
 """
 
 import argparse
@@ -90,16 +60,11 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
 def fetch_xml_from_url(url: str, download_dir: Path) -> Path | None:
     """
     Download a single XML URL to *download_dir* and return the local path.
-
-    The filename is derived from the OAI identifier at the end of the URL
-    (everything after the last ``=`` sign, with the AISCR base URI stripped).
-    Returns ``None`` if the download fails.
     """
     try:
         response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
         response.raise_for_status()
 
-        # URL ends with …identifier=https://api.aiscr.cz/id/C-TX-202400594
         raw_id = url.split("=")[-1].replace("https://api.aiscr.cz/id/", "")
         safe_name = "".join(
             c for c in raw_id if c.isalpha() or c.isdigit() or c in ("-", "_")
@@ -117,17 +82,12 @@ def fetch_xml_from_url(url: str, download_dir: Path) -> Path | None:
 def _read_config(config_path: Path) -> configparser.ConfigParser:
     """
     Parse *config_path* with configparser.
-
-    If the file does not start with a section header (legacy flat format),
-    a ``[DEFAULT]`` header is prepended in-memory so the parser accepts it.
-    This approach is safe for values that contain ``[`` or ``]`` characters.
     """
     cfg = configparser.ConfigParser()
     if not config_path.exists():
         return cfg
 
     content = config_path.read_text(encoding="utf-8")
-    # Detect whether the first non-blank, non-comment line is a section header
     has_header = any(
         line.strip().startswith("[")
         for line in content.splitlines()
@@ -143,12 +103,6 @@ def _read_config(config_path: Path) -> configparser.ConfigParser:
 def parse_arguments():
     """
     Parse CLI arguments and merge with config-file defaults.
-
-    Precedence (highest → lowest): CLI flag > config file > built-in default.
-
-    Note: ``--source_lang`` and ``--target_lang`` use ``None`` as the argparse
-    default so that a config-file entry is never overridden by the parser's own
-    fallback string.
     """
     parser = argparse.ArgumentParser(
         description="ATRIUM – LINDAT Translation Wrapper (XML-focused)"
@@ -194,7 +148,6 @@ def parse_arguments():
     config = _read_config(args.config)
     defaults = config["DEFAULT"] if "DEFAULT" in config else {}
 
-    # Merge config-file values for any argument still set to None
     if args.input_path is None and "input_path" in defaults:
         args.input_path = Path(defaults["input_path"])
     if args.output is None and "output" in defaults:
@@ -213,7 +166,6 @@ def parse_arguments():
         if vocab_candidate.exists():
             args.vocabulary = vocab_candidate
 
-    # Automatically enable ALTO processing mode if 'alto.xml' is specified in config/formats
     if not args.alto and args.formats and "alto.xml" in args.formats.lower():
         args.alto = True
 
@@ -237,6 +189,75 @@ def generate_output_path(input_file: Path, base_output: Path, args, is_batch: bo
     return input_file.with_name(new_filename)
 
 
+def process_single_file(
+    file_path: Path,
+    output_file: Path,
+    args: argparse.Namespace,
+    translator: LindatTranslator,
+    identifier: LanguageIdentifier | None,
+    xpaths_list: list[str],
+    _logger: ParadataLogger
+) -> tuple[bool, int]:
+    """
+    Process a single XML file (ALTO or metadata).
+    Returns a tuple: (success: bool, protected_count: int)
+    """
+    translator.reset_protected_count()
+
+    csv_log_path = output_file.with_name(
+        f"{file_path.name.split('.')[0]}_log.csv"
+    )
+    success = False
+
+    with open(csv_log_path, "w", encoding="utf-8", newline="") as csv_file:
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(
+            [
+                "file",
+                "page_num",
+                "line_num",
+                f"text_{args.source_lang}",
+                f"text_{args.target_lang}",
+            ]
+        )
+
+        try:
+            if args.alto:
+                process_alto_xml(
+                    file_path,
+                    output_file,
+                    translator,
+                    args.source_lang,
+                    args.target_lang,
+                    csv_writer,
+                    identifier,
+                    line_anchors=not args.fast_align,
+                )
+            else:
+                process_metadata_xml(
+                    file_path,
+                    output_file,
+                    xpaths_list,
+                    translator,
+                    args.source_lang,
+                    args.target_lang,
+                    args.xsd,
+                    csv_writer,
+                    identifier,
+                )
+
+            _logger.log_success("xml")
+            _logger.log_success("csv")
+            success = True
+
+        except Exception as e:
+            print(f"[ERROR] Failed processing '{file_path.name}': {e}")
+            _logger.log_skip(str(file_path), str(e))
+
+    protected = translator.protected_count if translator.vocabulary else 0
+    return success, protected
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
@@ -253,8 +274,6 @@ def main():
         print("[ERROR] Input path does not exist. Provide a valid file or directory.")
         return
 
-    # Resolve output dir BEFORE the logger so paradata lands in the output data,
-    # not in the repo.
     out_dir = args.output or Path.cwd() / f"translated_{args.target_lang}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -272,24 +291,15 @@ def main():
             )
             return
 
-        # Build translator and (optionally) language identifier
         translator = LindatTranslator(vocab_path=args.vocabulary)
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
 
-        # Provenance: FastText only constrains the output license when auto
-        # detection is actually used (finding #6).
         if identifier is not None:
             _logger.log_component("fasttext")
 
-        # The translation / UDPipe / vocabulary components are logged on the
-        # first SUCCESSFULLY processed file (see the loop), so a run that
-        # produces nothing does not claim those components were exercised.
         _components_logged = False
-
-        # Per-document Tag-and-Protect statistics: {doc_name: protected_terms}.
         protected_by_doc: dict[str, int] = {}
 
-        # Load XPath targets for metadata mode
         xpaths_list: list[str] = []
         if args.xpaths and args.xpaths.exists():
             with open(args.xpaths, "r", encoding="utf-8") as f:
@@ -312,8 +322,6 @@ def main():
                     if line.strip() and line.startswith("http")
                 ]
 
-            # Downloaded inputs land under the output dir (or --download-dir),
-            # never in a hardcoded repo path (finding #7).
             download_dir = args.download_dir or (out_dir / "downloaded_inputs")
             download_dir.mkdir(parents=True, exist_ok=True)
 
@@ -329,7 +337,6 @@ def main():
                 files_to_process.extend(
                     f for f in input_path.rglob(pattern) if f.is_file()
                 )
-            # Deduplicate (a file could match multiple format patterns)
             files_to_process = list(dict.fromkeys(files_to_process))
 
         else:
@@ -357,80 +364,33 @@ def main():
                 file_path, out_dir, args, is_batch=is_batch
             )
 
-            # Reset the per-document protected-term tally before this file.
-            translator.reset_protected_count()
-
-            # CSV log lives beside the translated XML, named <stem>_log.csv
-            csv_log_path = output_file.with_name(
-                f"{file_path.name.split('.')[0]}_log.csv"
+            success, protected = process_single_file(
+                file_path=file_path,
+                output_file=output_file,
+                args=args,
+                translator=translator,
+                identifier=identifier,
+                xpaths_list=xpaths_list,
+                _logger=_logger
             )
-            with open(csv_log_path, "w", encoding="utf-8", newline="") as csv_file:
-                csv_writer = csv.writer(csv_file)
-                csv_writer.writerow(
-                    [
-                        "file",
-                        "page_num",
-                        "line_num",
-                        f"text_{args.source_lang}",
-                        f"text_{args.target_lang}",
-                    ]
-                )
 
-                try:
-                    if args.alto:
-                        process_alto_xml(
-                            file_path,
-                            output_file,
-                            translator,
-                            args.source_lang,
-                            args.target_lang,
-                            csv_writer,
-                            identifier,
-                            line_anchors=not args.fast_align,
-                        )
-                    else:
-                        process_metadata_xml(
-                            file_path,
-                            output_file,
-                            xpaths_list,
-                            translator,
-                            args.source_lang,
-                            args.target_lang,
-                            args.xsd,
-                            csv_writer,
-                            identifier,
-                        )
+            if success and not _components_logged:
+                _logger.log_component("lindat_cubbitt")
+                if translator.vocabulary:
+                    for comp in (
+                        "udpipe2_engine",
+                        "udpipe2_models",
+                        "amcr_vocab",
+                        "teater_data",
+                    ):
+                        _logger.log_component(comp)
+                _components_logged = True
 
-                    _logger.log_success("xml")
-                    _logger.log_success("csv")
-
-                    # Record licensed components on first real success so the
-                    # effective output license reflects actual usage.
-                    if not _components_logged:
-                        _logger.log_component("lindat_cubbitt")
-                        if translator.vocabulary:
-                            for comp in (
-                                "udpipe2_engine",
-                                "udpipe2_models",
-                                "amcr_vocab",
-                                "teater_data",
-                            ):
-                                _logger.log_component(comp)
-                        _components_logged = True
-
-                except Exception as e:
-                    print(f"[ERROR] Failed processing '{file_path.name}': {e}")
-                    _logger.log_skip(str(file_path), str(e))
-
-            # Record how many vocabulary terms were protected in this document.
             if translator.vocabulary:
                 doc_name = file_path.name.split(".")[0]
-                protected = translator.protected_count
                 protected_by_doc[doc_name] = protected
                 print(f"[INFO] Tag-and-Protect: {protected} term(s) protected in {file_path.name}")
 
-        # Attach per-document Tag-and-Protect statistics to the paradata
-        # config snapshot (the shared logger module is intentionally untouched).
         if protected_by_doc:
             self_cfg = getattr(_logger, "config", None)
             if isinstance(self_cfg, dict):
@@ -439,8 +399,6 @@ def main():
                     protected_by_doc.values()
                 )
 
-        # Explicit finalize with the correct input count; the context manager
-        # __exit__ will no-op because _finalised is already True.
         _logger.finalize(input_total=total_inputs)
 
     print(f"\n{'=' * 60}")

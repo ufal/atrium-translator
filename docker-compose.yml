@@ -1,4 +1,24 @@
 services:
+  translator-batch:
+    build:
+      context: .
+    image: ufal/atrium-translator:latest
+    volumes:
+      - ./data:/data
+      - ./config.txt:/app/config.txt:ro
+    # Default ENTRYPOINT runs the batch CLI if invoked without a profile
+  api:
+    build:
+      context: .
+    image: ufal/atrium-translator:latest
+    # Override the ENTRYPOINT to launch the FastAPI service instead
+    entrypoint: ["uvicorn", "service.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+      - ./config.txt:/app/config.txt:ro
+    profiles: ["api"]
   translator:
     image: ghcr.io/ufal/atrium-translator:${ATRIUM_VERSION:-dev}
     build:

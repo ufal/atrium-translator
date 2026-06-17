@@ -187,6 +187,7 @@ Allowed types:
 
 ## 🧪 Code Conventions & Testing
 
+
 ### Code Conventions
 
 * **Comments:** informative but short, may be LLM-generated, added when function name does 
@@ -263,6 +264,19 @@ tests/
 **Fixtures** — small, self-contained files committed under `tests/fixtures/`. Tests must not read from `data_samples/` directly. Add a minimal fixture file in the same commit as any test that needs new sample data.
 
 </details>
+
+
+We have transitioned from `black`/`isort`/`flake8` to **Ruff** for all linting and formatting, matching the 
+overarching ATRIUM standard.
+
+1. **Linting:** Run `ruff check .` locally before opening a pull request. The CI environment utilizes the shared `ruff.toml` template.
+2. **Testing:** Our target is full structural test coverage. Execute tests using:
+   ```bash
+   pytest -m "not slow" --cov=. --cov-report=term-missing
+    ```
+   
+> [!NOTE]: Network-dependent tests (e.g., LINDAT endpoint interactions) and heavy ML model downloads (e.g., 
+> FastText weights) are marked @slow.
 
 ---
 

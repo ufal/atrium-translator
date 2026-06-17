@@ -1,0 +1,10 @@
+[run]
+source = .
+omit =
+    tests/*
+    setup/*
+    service/*
+    *paradata.py
+
+[report]
+show_missing = True

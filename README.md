@@ -53,6 +53,17 @@ token-alignment** step (see [🧠 Logic Overview](#-logic-overview)).
 
 ---
 
+## Project Structure & Architecture ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
+
+The `atrium-translator` operates as both a batch CLI tool and an exposed REST API service, bringing it into 
+architectural parity with the ATRIUM Layout and Enrichment pipelines.
+
+* **Batch CLI (`main.py`)**: Designed for massive document directories. Generates per-file translation and execution CSV logs.
+* **API Service (`service/api.py`)**: A FastAPI wrapper exposing a `/translate` endpoint. It leverages the exact same 
+core translation functions without duplicating application logic or model registries. Features full DoS guards 
+and file-size constraints.
+
+
 ## ✨ Features
 
 * 🎯 **Dedicated XML Processing**: Narrowly defined and optimised exclusively for ALTO XML and structured metadata 

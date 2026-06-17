@@ -18,3 +18,4 @@ jobs:
     secrets: inherit
     with:
       image-name: ufal/atrium-translator
+      requirements: requirements.txt service/requirements.txt requirements-test.txt
