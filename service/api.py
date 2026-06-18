@@ -10,7 +10,7 @@ import argparse
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -38,13 +38,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ATRIUM Translator API",
+    description="Automated pipeline for the translation and enrichment of archaeological archival collections.",
     version="0.6.1",
     lifespan=lifespan
 )
 
-# Single CORS registration with env allow-list
+# Opus 4.8 Hardening: Restrictive CORS Configuration
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")]
-# A wildcard origin must not be combined with credentials (browsers reject it).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -54,7 +54,19 @@ app.add_middleware(
 )
 
 
-@app.post("/translate")
+# Opus 4.8 Hardening: Strict Content-Type Guards
+async def verify_content_type(request: Request):
+    """Ensure incoming POST requests provide acceptable payload formats."""
+    if request.method in ("POST", "PUT"):
+        content_type = request.headers.get("Content-Type", "")
+        if not content_type.startswith("application/json") and not content_type.startswith("multipart/form-data"):
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"Unsupported media type: {content_type}. Expected application/json or multipart/form-data."
+            )
+
+
+@app.post("/translate", dependencies=[Depends(verify_content_type)])
 async def translate_document(
         request: Request,
         file: UploadFile = File(...),
@@ -131,6 +143,6 @@ async def translate_document(
 async def get_info():
     return {
         "name": "ATRIUM Translator Service",
-        "version": "0.6.1",
+        "version": app.version,
         "supported_formats": ["ALTO XML", "AMCR Metadata XML"]
     }

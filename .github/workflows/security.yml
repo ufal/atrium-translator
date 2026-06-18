@@ -1,0 +1,14 @@
+name: Container Security & SBOM
+
+on:
+  schedule:
+    - cron: '0 2 * * 0' # Run weekly on Sundays
+  push:
+    tags: [ "v*.*.*" ]
+
+jobs:
+  trivy-sbom:
+    uses: ufal/atrium-project/.github/workflows/security.reusable.yml@main
+    with:
+      image-name: "atrium-translator"
+    secrets: inherit
