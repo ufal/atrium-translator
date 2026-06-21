@@ -8,7 +8,7 @@ on:
 
 jobs:
   security-scan:
-    uses: ufal/atrium-project/.github/workflows/security.reusable.yml@main
+    uses: ufal/atrium-project/.github/workflows/security.reusable.yml@test
     with:
       image-ref: ghcr.io/ufal/atrium-translator:latest
       citation-path: CITATION.cff

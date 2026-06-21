@@ -18,15 +18,3 @@ jobs:
         run: |
           pip install -r requirements.txt -r requirements-test.txt
           pytest tests/
-
-      - name: Log Issues on Processing Breaches
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🚨 Scheduled Verification Failure',
-              body: 'Automated validation sequence encounters terminal processing errors. Review details within execution logs.'
-            })

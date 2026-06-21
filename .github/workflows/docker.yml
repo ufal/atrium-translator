@@ -15,5 +15,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
-      # Reusable docker workflow integration block follows standard design parameters
+  build-test-publish:
+    uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@main
+    with:
+      image-name: "atrium-translator"
+      pre-install-torch: true
+    secrets: inherit
