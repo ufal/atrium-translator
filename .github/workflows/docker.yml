@@ -3,21 +3,18 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [test, master]
+    tags: ['v*']
   pull_request:
     branches: [test, master]
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-  build-test-publish:
-    uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@main
-    with:
-      image-name: "atrium-translator"
-      pre-install-torch: true
+    # Using the @test branch since the upstream templates are not on main yet
+    uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@test
     secrets: inherit
+    with:
+      image-name: ufal/atrium-translator
+      requirements: requirements.txt requirements-test.txt
