@@ -27,6 +27,6 @@ jobs:
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: '🚨 Scheduled Verification Failure',
+              title: '🚨 Scheduled Verification Failure :(',
               body: 'Automated validation sequence encounters terminal processing errors. Review details within execution logs.'
             })
