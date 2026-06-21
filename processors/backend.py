@@ -2,12 +2,24 @@
 processors/backend.py – Pluggable translation backend interface.
 
 Defines a ``TranslationBackend`` Protocol that captures the contract the
-pipeline already depends on (``translate``).  A ``get_backend`` factory returns
-the configured implementation.
+pipeline depends on, matching the design recorded in
+``docs/translation-backends.md`` (issue #4):
 
-The default backend is ``"lindat"`` (the existing ``LindatTranslator``).
-``LindatTranslator`` structurally satisfies the Protocol without any
-modifications to ``processors/translator.py``.
+    name: str
+    supports_glossary: bool
+    translate(text, src_lang, tgt_lang="en") -> str
+    supported_languages() -> list[str]
+
+``supports_glossary`` is the load-bearing flag the design relies on: a
+glossary-native backend (e.g. Cohere Command A, DeepL) sets it ``True`` so the
+pipeline can pass the vocabulary CSV straight to the backend instead of running
+the in-process Tag-and-Protect workaround.  ``LindatTranslator`` (CUBBITT) sets
+it ``False`` because CUBBITT has no glossary API.
+
+A ``get_backend`` factory returns the configured implementation.  The default
+backend is ``"lindat"`` (the existing ``LindatTranslator``), which structurally
+satisfies the Protocol without any behavioural changes to
+``processors/translator.py``.
 
 See ``docs/translation-backends.md`` for the full evaluation of candidate
 backends and integration guidance.
@@ -21,16 +33,29 @@ from typing import Protocol, runtime_checkable
 
 @runtime_checkable
 class TranslationBackend(Protocol):
-    """Minimal contract that every translation backend must satisfy.
+    """Contract every translation backend must satisfy.
 
-    Only ``translate`` is required — it is the single coupling point used by
+    ``translate`` is the single coupling point used by
     ``utils.process_alto_xml``, ``utils.process_metadata_xml``,
-    ``service/api.py``, and ``main.process_single_file``.
+    ``service/api.py``, and ``main.process_single_file``.  ``name`` and
+    ``supports_glossary`` are class/instance attributes; ``supported_languages``
+    lets the pipeline check coverage and fall back to another backend for
+    unsupported pairs (see the "Language coverage gaps" section of the design
+    doc).
 
-    ``LindatTranslator`` already implements this structurally.
+    NOTE: because this Protocol is ``@runtime_checkable`` and declares data
+    members, ``isinstance(obj, TranslationBackend)`` checks for the *presence*
+    of ``name`` and ``supports_glossary`` too — so every backend must expose
+    them (``LindatTranslator`` does).
     """
 
+    name: str
+    supports_glossary: bool
+
     def translate(self, text: str, src_lang: str, tgt_lang: str = "en") -> str:
+        ...
+
+    def supported_languages(self) -> list[str]:
         ...
 
 

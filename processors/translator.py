@@ -51,6 +51,15 @@ the sentinel tolerantly (case-insensitive, optional stray spaces) and, as a
 final safety net, ``_scrub_placeholder_fragments`` removes any residual sentinel
 debris so a malformed placeholder can never reach the output or the logs.
 
+Pluggable backend (issue #4)
+----------------------------
+``LindatTranslator`` is the default implementation of the
+``processors.backend.TranslationBackend`` Protocol.  It exposes ``name``,
+``supports_glossary`` (``False`` — CUBBITT has no glossary API, so terminology
+is handled by the in-process Tag-and-Protect pipeline below) and
+``supported_languages()`` so the pipeline can select a backend and check
+language coverage at runtime.  See ``docs/translation-backends.md``.
+
 KNOWN LIMITATIONS:
   - Single-word term replacement uses a regex search (re.sub with count=1)
     after extracting lemmas from UDPipe.  If a sentence contains homonyms
@@ -150,6 +159,31 @@ class LindatTranslator:
     # Orphaned guard-letter clusters (e.g. a stray "zzz") that may remain after
     # the main fragment is removed.
     _GUARD_DEBRIS_RE = re.compile(r"\bz{2,}\b", re.IGNORECASE)
+
+    # ── pluggable-backend conformance (see processors/backend.py) ──────────────
+    # Satisfy the TranslationBackend Protocol. That Protocol is
+    # @runtime_checkable and declares ``name`` / ``supports_glossary`` as data
+    # members, so isinstance(translator, TranslationBackend) also requires these
+    # attributes to exist — they are class-level so every instance has them.
+    name: str = "lindat"
+    # CUBBITT has no native glossary API; terminology is handled by the
+    # in-process Tag-and-Protect pipeline, so the pipeline must NOT delegate
+    # glossary handling to this backend.
+    supports_glossary: bool = False
+
+    def supported_languages(self) -> list[str]:
+        """Language codes derivable from the LINDAT model pairs (e.g. 'cs-en').
+
+        Flattens ``supported_models`` (``['cs-en', 'fr-en', ...]``) into a sorted
+        set of ISO codes. Empty when the model list is unknown.
+        """
+        langs: set[str] = set()
+        for pair in (self.supported_models or []):
+            for code in str(pair).split("-"):
+                code = code.strip()
+                if code:
+                    langs.add(code)
+        return sorted(langs)
 
     def __init__(self, vocab_path=None):
         self.supported_models = self._fetch_models()

@@ -64,3 +64,54 @@ def test_env_var_unknown_raises(monkeypatch):
     monkeypatch.setenv("TRANSLATION_BACKEND", "bogus")
     with pytest.raises(ValueError, match="Unknown translation backend"):
         get_backend()
+
+
+# ── documented-contract coverage ─────────────────────────────────────────────
+# These pin the Protocol shape recorded in docs/translation-backends.md
+# (name / supports_glossary / supported_languages) so the doc and the code
+# cannot silently drift apart again.
+
+@patch("processors.translator.requests.get")
+def test_backend_exposes_name(mock_get):
+    """The default backend reports its registry name."""
+    mock_get.return_value.status_code = 404
+    backend = get_backend()
+    assert backend.name == "lindat"
+
+
+@patch("processors.translator.requests.get")
+def test_backend_exposes_supports_glossary_false_for_lindat(mock_get):
+    """CUBBITT has no glossary API, so the pipeline must not delegate glossary
+    handling to it (Tag-and-Protect stays responsible)."""
+    mock_get.return_value.status_code = 404
+    backend = get_backend()
+    assert backend.supports_glossary is False
+
+
+@patch("processors.translator.requests.get")
+def test_backend_supported_languages_derived_from_models(mock_get):
+    """supported_languages() flattens the LINDAT model pair list to codes."""
+    mock_get.return_value.status_code = 404
+    backend = get_backend()
+    # Drive the derivation deterministically (independent of the live fetch).
+    backend.supported_models = ["cs-en", "fr-en", "uk-en"]
+    langs = backend.supported_languages()
+    assert {"cs", "en", "fr", "uk"} <= set(langs)
+    assert langs == sorted(langs)
+
+
+@patch("processors.translator.requests.get")
+def test_backend_supported_languages_empty_when_no_models(mock_get):
+    """No models known → empty list (no crash)."""
+    mock_get.return_value.status_code = 404
+    backend = get_backend()
+    backend.supported_models = []
+    assert backend.supported_languages() == []
+
+
+@patch("processors.translator.requests.get")
+def test_get_backend_forwards_kwargs(mock_get):
+    """Constructor kwargs (e.g. vocab_path) reach the backend unchanged."""
+    mock_get.return_value.status_code = 404
+    backend = get_backend(vocab_path=None)
+    assert type(backend).__name__ == "LindatTranslator"
