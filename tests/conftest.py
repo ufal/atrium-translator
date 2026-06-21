@@ -17,6 +17,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 # ── XML file fixtures ─────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def alto_xml_file(tmp_path: Path) -> Path:
     """Copy the sample ALTO XML fixture into a writable temp directory."""
@@ -34,6 +35,7 @@ def amcr_xml_file(tmp_path: Path) -> Path:
 
 
 # ── CSV capture ───────────────────────────────────────────────────────────────
+
 
 class _CapturingWriter:
     """Minimal csv.writer stand-in that records every writerow call."""
@@ -61,6 +63,7 @@ def csv_sink():
 
 
 # ── mock collaborators ────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_translator():

@@ -10,10 +10,7 @@ shared sentence-aware chunker delegation (_chunk_text).
 no ML, no file I/O.
 """
 
-import pytest
-
 from processors.lemmatizer import LindatLemmatizer
-
 
 # ── CoNLL-U test documents ────────────────────────────────────────────────────
 
@@ -51,6 +48,7 @@ WITH_EMPTY_NODE = """\
 # ════════════════════════════════════════════════════════════════════════════
 # LindatLemmatizer._parse_conllu
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestParseConllu:
     """Tests for the pure static CoNLL-U parser."""
@@ -96,6 +94,7 @@ class TestParseConllu:
 # ════════════════════════════════════════════════════════════════════════════
 # LindatLemmatizer._chunk_text — shared sentence-aware chunker delegation
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestLemmatizerChunkText:
     """The lemmatizer must delegate to the same priority-correct chunker as the

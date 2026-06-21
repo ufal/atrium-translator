@@ -4,21 +4,22 @@ service/api.py
 FastAPI service for the ATRIUM LINDAT Translator.
 Brings this repository into API parity with the rest of the ATRIUM pipeline.
 """
+
+import argparse
 import os
 import tempfile
-import argparse
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile, Request, Depends, status
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from processors.identifier import LanguageIdentifier
-from processors.translator import LindatTranslator
-from processors.chunking import DEFAULT_CHUNK_SIZE
 from atrium_paradata import ParadataLogger
 from main import process_single_file
+from processors.chunking import DEFAULT_CHUNK_SIZE
+from processors.identifier import LanguageIdentifier
+from processors.translator import LindatTranslator
 
 # Security limit: Default 50MB
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 50 * 1024 * 1024))
@@ -40,7 +41,7 @@ app = FastAPI(
     title="ATRIUM Translator API",
     description="Automated pipeline for the translation and enrichment of archaeological archival collections.",
     version="0.6.1",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Opus 4.8 Hardening: Restrictive CORS Configuration
@@ -62,17 +63,17 @@ async def verify_content_type(request: Request):
         if not content_type.startswith("application/json") and not content_type.startswith("multipart/form-data"):
             raise HTTPException(
                 status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail=f"Unsupported media type: {content_type}. Expected application/json or multipart/form-data."
+                detail=f"Unsupported media type: {content_type}. Expected application/json or multipart/form-data.",
             )
 
 
 @app.post("/translate", dependencies=[Depends(verify_content_type)])
 async def translate_document(
-        request: Request,
-        file: UploadFile = File(...),
-        source_lang: str = "auto",
-        target_lang: str = "en",
-        is_alto: bool = True
+    request: Request,
+    file: UploadFile = File(...),
+    source_lang: str = "auto",
+    target_lang: str = "en",
+    is_alto: bool = True,
 ):
     if not file.filename or not file.filename.endswith(".xml"):
         raise HTTPException(status_code=400, detail="Only XML files are supported.")
@@ -90,11 +91,7 @@ async def translate_document(
         output_dir.mkdir()
 
         args = argparse.Namespace(
-            source_lang=source_lang,
-            target_lang=target_lang,
-            alto=is_alto,
-            fast_align=False,
-            xsd=None
+            source_lang=source_lang, target_lang=target_lang, alto=is_alto, fast_align=False, xsd=None
         )
 
         # ALTO vs standard XML naming preservation
@@ -110,14 +107,14 @@ async def translate_document(
             "target_lang": target_lang,
             "mode": "alto" if is_alto else "metadata",
             "chunk_limit": DEFAULT_CHUNK_SIZE,
-            "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/"
+            "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
         }
 
         with ParadataLogger(
-                program="translator-api",
-                config=para_config,
-                paradata_dir=str(output_dir / "paradata"),
-                output_types=["xml", "csv"]
+            program="translator-api",
+            config=para_config,
+            paradata_dir=str(output_dir / "paradata"),
+            output_types=["xml", "csv"],
         ) as logger:
             success, _ = process_single_file(
                 file_path=input_path,
@@ -126,17 +123,13 @@ async def translate_document(
                 translator=models["translator"],
                 identifier=models["identifier"] if source_lang == "auto" else None,
                 xpaths_list=[],
-                _logger=logger
+                _logger=logger,
             )
 
         if not success:
             raise HTTPException(status_code=500, detail="Translation processing failed.")
 
-        return FileResponse(
-            path=output_path,
-            media_type="application/xml",
-            filename=out_filename
-        )
+        return FileResponse(path=output_path, media_type="application/xml", filename=out_filename)
 
 
 @app.get("/info")
@@ -144,5 +137,5 @@ async def get_info():
     return {
         "name": "ATRIUM Translator Service",
         "version": app.version,
-        "supported_formats": ["ALTO XML", "AMCR Metadata XML"]
+        "supported_formats": ["ALTO XML", "AMCR Metadata XML"],
     }

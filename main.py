@@ -13,19 +13,19 @@ import requests
 try:
     from tqdm import tqdm
 except ImportError:
+
     def tqdm(iterable, *args, **kwargs):
         total = kwargs.get("total", len(iterable) if hasattr(iterable, "__len__") else None)
         desc = kwargs.get("desc", "Processing")
         for i, item in enumerate(iterable, 1):
             if total:
-                sys.stdout.write(
-                    f"\r[INFO] {desc}: {i}/{total} ({i / total * 100:.1f}%)"
-                )
+                sys.stdout.write(f"\r[INFO] {desc}: {i}/{total} ({i / total * 100:.1f}%)")
             else:
                 sys.stdout.write(f"\r[INFO] {desc}: {i} items")
             sys.stdout.flush()
             yield item
         print()
+
 
 from atrium_paradata import ParadataLogger
 from processors.chunking import DEFAULT_CHUNK_SIZE
@@ -33,26 +33,26 @@ from processors.identifier import LanguageIdentifier
 from processors.translator import LindatTranslator
 from utils import process_alto_xml, process_metadata_xml
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
     """Return a JSON-serialisable snapshot of all run-time parameters."""
     return {
-        "input_path":                    str(args.input_path),
-        "output_dir":                    str(args.output or config.get("DEFAULT", "output", fallback="")),
-        "source_lang":                   str(args.source_lang),
-        "target_lang":                   str(args.target_lang),
-        "formats":                       str(args.formats),
-        "mode":                          "alto" if args.alto else "metadata",
-        "xpaths_file":                   str(args.xpaths or ""),
-        "xsd_url":                       str(args.xsd or ""),
-        "vocabulary":                    str(args.vocabulary or ""),
-        "chunk_limit":                   DEFAULT_CHUNK_SIZE,
-        "lang_id_model":                 "facebook/fasttext-language-identification",
-        "translation_api":               "https://lindat.mff.cuni.cz/services/translation/api/v2/",
+        "input_path": str(args.input_path),
+        "output_dir": str(args.output or config.get("DEFAULT", "output", fallback="")),
+        "source_lang": str(args.source_lang),
+        "target_lang": str(args.target_lang),
+        "formats": str(args.formats),
+        "mode": "alto" if args.alto else "metadata",
+        "xpaths_file": str(args.xpaths or ""),
+        "xsd_url": str(args.xsd or ""),
+        "vocabulary": str(args.vocabulary or ""),
+        "chunk_limit": DEFAULT_CHUNK_SIZE,
+        "lang_id_model": "facebook/fasttext-language-identification",
+        "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
         "fasttext_confidence_threshold": 0.2,
     }
 
@@ -66,9 +66,7 @@ def fetch_xml_from_url(url: str, download_dir: Path) -> Path | None:
         response.raise_for_status()
 
         raw_id = url.split("=")[-1].replace("https://api.aiscr.cz/id/", "")
-        safe_name = "".join(
-            c for c in raw_id if c.isalpha() or c.isdigit() or c in ("-", "_")
-        ).rstrip()
+        safe_name = "".join(c for c in raw_id if c.isalpha() or c.isdigit() or c in ("-", "_")).rstrip()
         local_path = download_dir / f"{safe_name}.xml"
 
         local_path.write_bytes(response.content)
@@ -104,44 +102,51 @@ def parse_arguments():
     """
     Parse CLI arguments and merge with config-file defaults.
     """
-    parser = argparse.ArgumentParser(
-        description="ATRIUM – LINDAT Translation Wrapper (XML-focused)"
-    )
+    parser = argparse.ArgumentParser(description="ATRIUM – LINDAT Translation Wrapper (XML-focused)")
     parser.add_argument("input_path", type=Path, nargs="?", default=None)
     parser.add_argument("--output", "-o", type=Path, default=None)
     parser.add_argument(
-        "--source_lang", "-src", type=str, default=None,
-        help="Source language code (e.g. cs, fr) or 'auto' for detection. "
-             "Default: value from config.txt, or 'cs'.",
+        "--source_lang",
+        "-src",
+        type=str,
+        default=None,
+        help="Source language code (e.g. cs, fr) or 'auto' for detection. Default: value from config.txt, or 'cs'.",
     )
     parser.add_argument(
-        "--target_lang", "-tgt", type=str, default=None,
+        "--target_lang",
+        "-tgt",
+        type=str,
+        default=None,
         help="Target language code (e.g. en). Default: 'en'.",
     )
     parser.add_argument(
-        "--formats", type=str, default=None,
+        "--formats",
+        type=str,
+        default=None,
         help="Comma-separated list of file extensions to process (e.g. alto.xml,txt).",
     )
     parser.add_argument("--config", "-c", type=Path, default=Path("config.txt"))
-    parser.add_argument("--alto", action="store_true",
-                        help="Enable ALTO XML in-place translation mode.")
-    parser.add_argument("--xpaths", type=Path, default=None,
-                        help="Path to a file listing AMCR XPath targets.")
-    parser.add_argument("--xsd", type=str, default=None,
-                        help="URL or path to XSD schema for output validation.")
+    parser.add_argument("--alto", action="store_true", help="Enable ALTO XML in-place translation mode.")
+    parser.add_argument("--xpaths", type=Path, default=None, help="Path to a file listing AMCR XPath targets.")
+    parser.add_argument("--xsd", type=str, default=None, help="URL or path to XSD schema for output validation.")
     parser.add_argument(
-        "--vocabulary", type=Path, default=None,
+        "--vocabulary",
+        type=Path,
+        default=None,
         help="Path to a CSV vocabulary file (source_lemma,target_translation).",
     )
     parser.add_argument(
-        "--download-dir", type=Path, default=None,
+        "--download-dir",
+        type=Path,
+        default=None,
         help="Directory for URL-ingested inputs (default: <output>/downloaded_inputs).",
     )
     parser.add_argument(
-        "--fast-align", action="store_true",
+        "--fast-align",
+        action="store_true",
         help="ALTO only: distribute block tokens by source word count instead of "
-             "translating each line as an anchor. Far fewer API calls; slightly "
-             "coarser line splits.",
+        "translating each line as an anchor. Far fewer API calls; slightly "
+        "coarser line splits.",
     )
 
     args = parser.parse_args()
@@ -196,7 +201,7 @@ def process_single_file(
     translator: LindatTranslator,
     identifier: LanguageIdentifier | None,
     xpaths_list: list[str],
-    _logger: ParadataLogger
+    _logger: ParadataLogger,
 ) -> tuple[bool, int]:
     """
     Process a single XML file (ALTO or metadata).
@@ -204,9 +209,7 @@ def process_single_file(
     """
     translator.reset_protected_count()
 
-    csv_log_path = output_file.with_name(
-        f"{file_path.name.split('.')[0]}_log.csv"
-    )
+    csv_log_path = output_file.with_name(f"{file_path.name.split('.')[0]}_log.csv")
     success = False
 
     with open(csv_log_path, "w", encoding="utf-8", newline="") as csv_file:
@@ -262,6 +265,7 @@ def process_single_file(
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def main():
     args, config = parse_arguments()
 
@@ -278,17 +282,13 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     with ParadataLogger(
-            program="translator",
-            config=_build_paradata_config(args, config),
-            paradata_dir=str(out_dir / "paradata"),
-            output_types=["xml", "csv"],
+        program="translator",
+        config=_build_paradata_config(args, config),
+        paradata_dir=str(out_dir / "paradata"),
+        output_types=["xml", "csv"],
     ) as _logger:
-
         if not args.alto and not args.xpaths:
-            print(
-                "[ERROR] Specify either the --alto flag or provide "
-                "--xpaths / 'fields' in config."
-            )
+            print("[ERROR] Specify either the --alto flag or provide --xpaths / 'fields' in config.")
             return
 
         translator = LindatTranslator(vocab_path=args.vocabulary)
@@ -303,11 +303,7 @@ def main():
         xpaths_list: list[str] = []
         if args.xpaths and args.xpaths.exists():
             with open(args.xpaths, "r", encoding="utf-8") as f:
-                xpaths_list = [
-                    line.strip()
-                    for line in f
-                    if line.strip() and not line.startswith("#")
-                ]
+                xpaths_list = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
         # ── Collect files to process ───────────────────────────────────
         files_to_process: list[Path] = []
@@ -316,11 +312,7 @@ def main():
         if input_path.is_file() and input_path.suffix == ".txt" and "txt" in allowed_formats:
             print("[INFO] Text file detected – reading URLs …")
             with open(input_path, "r", encoding="utf-8") as f:
-                urls = [
-                    line.strip()
-                    for line in f
-                    if line.strip() and line.startswith("http")
-                ]
+                urls = [line.strip() for line in f if line.strip() and line.startswith("http")]
 
             download_dir = args.download_dir or (out_dir / "downloaded_inputs")
             download_dir.mkdir(parents=True, exist_ok=True)
@@ -334,24 +326,17 @@ def main():
         elif input_path.is_dir():
             for fmt in allowed_formats:
                 pattern = f"*.{fmt}" if not fmt.startswith(".") else f"*{fmt}"
-                files_to_process.extend(
-                    f for f in input_path.rglob(pattern) if f.is_file()
-                )
+                files_to_process.extend(f for f in input_path.rglob(pattern) if f.is_file())
             files_to_process = list(dict.fromkeys(files_to_process))
 
         else:
             if any(input_path.name.endswith(fmt) for fmt in allowed_formats):
                 files_to_process = [input_path]
             else:
-                print(
-                    f"[WARN] Input file '{input_path.name}' does not match "
-                    f"allowed formats: {args.formats}"
-                )
+                print(f"[WARN] Input file '{input_path.name}' does not match allowed formats: {args.formats}")
 
         if not files_to_process:
-            print(
-                f"[WARN] No files found matching allowed formats ({args.formats})."
-            )
+            print(f"[WARN] No files found matching allowed formats ({args.formats}).")
             return
 
         # ── Process each file ──────────────────────────────────────────
@@ -360,9 +345,7 @@ def main():
 
         for i, file_path in enumerate(files_to_process, 1):
             print(f"\n[FILE {i}/{total_inputs}] Processing: {file_path.name}")
-            output_file = generate_output_path(
-                file_path, out_dir, args, is_batch=is_batch
-            )
+            output_file = generate_output_path(file_path, out_dir, args, is_batch=is_batch)
 
             success, protected = process_single_file(
                 file_path=file_path,
@@ -371,7 +354,7 @@ def main():
                 translator=translator,
                 identifier=identifier,
                 xpaths_list=xpaths_list,
-                _logger=_logger
+                _logger=_logger,
             )
 
             if success and not _components_logged:
@@ -395,9 +378,7 @@ def main():
             self_cfg = getattr(_logger, "config", None)
             if isinstance(self_cfg, dict):
                 self_cfg["vocabulary_protected_terms"] = dict(protected_by_doc)
-                self_cfg["vocabulary_protected_terms_total"] = sum(
-                    protected_by_doc.values()
-                )
+                self_cfg["vocabulary_protected_terms_total"] = sum(protected_by_doc.values())
 
         _logger.finalize(input_total=total_inputs)
 

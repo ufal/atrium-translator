@@ -29,11 +29,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from processors.translator import LindatTranslator
 from processors.lemmatizer import LindatLemmatizer
-
+from processors.translator import LindatTranslator
 
 # ── fixtures (mirroring tests/test_translator.py) ─────────────────────────────
+
 
 @pytest.fixture
 def vocab_csv(tmp_path):
@@ -76,8 +76,8 @@ def _nonspace(s: str) -> str:
 # Chunking — must only insert/relocate separators, never lose characters
 # ════════════════════════════════════════════════════════════════════════════
 
-class TestChunkingConservesContent:
 
+class TestChunkingConservesContent:
     CHUNK_TEXTS = [
         "Stará Boleslav - odvodnění ohradní kamenné zdi v areálu baziliky.",
         "Sonda č. 5 o celkovém rozměru 1,5 x 1,5 m se nacházela v S části.",
@@ -97,13 +97,11 @@ class TestChunkingConservesContent:
     def test_chunking_keeps_numbers_and_dates(self, chunk_size):
         """Digits, years, coordinates and measurements survive intact."""
         text = (
-            "V r. 1348 a 1358, později 1360; rozměr 1,5 x 2,2 m, "
-            "výška 422 m n. m., 49°34'13.52\"N parc. 41/11 a 137/1."
+            "V r. 1348 a 1358, později 1360; rozměr 1,5 x 2,2 m, výška 422 m n. m., 49°34'13.52\"N parc. 41/11 a 137/1."
         )
         chunks = LindatTranslator._chunk_text(text, chunk_size=chunk_size)
         joined = " ".join(chunks)
-        for token in ["1348", "1358", "1360", "1,5", "2,2", "422", "41/11",
-                      "137/1", "49°34'13.52\"N"]:
+        for token in ["1348", "1358", "1360", "1,5", "2,2", "422", "41/11", "137/1", "49°34'13.52\"N"]:
             assert token in joined, f"{token!r} lost during chunking"
 
     @pytest.mark.parametrize("text", CHUNK_TEXTS)
@@ -124,8 +122,8 @@ class TestChunkingConservesContent:
 # Vocabulary (Tag-and-Protect) — replace terms without losing neighbours
 # ════════════════════════════════════════════════════════════════════════════
 
-class TestVocabularyPreservesContent:
 
+class TestVocabularyPreservesContent:
     def test_vocab_application_keeps_neighbouring_words(self, echo_vocab_translator):
         """A protected multi-word term is applied AND every other word survives."""
         src = "Nalezena fotografie události v archivu obce."
@@ -138,9 +136,7 @@ class TestVocabularyPreservesContent:
 
     def test_applied_vocab_terms_appear_in_output(self, echo_vocab_translator):
         """Single-word lemma match: the controlled translation reaches the output."""
-        echo_vocab_translator._lemmatizer.get_lemmas_with_features.return_value = [
-            ("nálezu", "nález", "Sing")
-        ]
+        echo_vocab_translator._lemmatizer.get_lemmas_with_features.return_value = [("nálezu", "nález", "Sing")]
         result = echo_vocab_translator.translate("Popis nálezu zde.", "cs", "en")
         assert "find" in result
         # neighbouring words preserved
@@ -159,20 +155,14 @@ class TestVocabularyPreservesContent:
 
     def test_no_placeholder_residue_after_restore(self, echo_vocab_translator):
         """No sentinel debris (Xtermzzz…) may survive into the final output."""
-        echo_vocab_translator._lemmatizer.get_lemmas_with_features.return_value = [
-            ("nálezu", "nález", "Sing")
-        ]
-        result = echo_vocab_translator.translate(
-            "Popis nálezu a fotografie události.", "cs", "en"
-        )
+        echo_vocab_translator._lemmatizer.get_lemmas_with_features.return_value = [("nálezu", "nález", "Sing")]
+        result = echo_vocab_translator.translate("Popis nálezu a fotografie události.", "cs", "en")
         assert "xterm" not in result.lower()
         assert "__term_" not in result.lower()
 
     def test_no_match_leaves_source_completely_intact(self, echo_vocab_translator):
         """When nothing matches, the (echoed) output equals the source untouched."""
-        echo_vocab_translator._lemmatizer.get_lemmas_with_features.return_value = [
-            ("něco", "něco", "Sing")
-        ]
+        echo_vocab_translator._lemmatizer.get_lemmas_with_features.return_value = [("něco", "něco", "Sing")]
         src = "Žádná shoda ve slovníku zde."
         result = echo_vocab_translator.translate(src, "cs", "en")
         assert result == src
@@ -205,7 +195,6 @@ WITH_MULTIWORD_TOKEN = """\
 
 
 class TestLemmatizationPreservesForms:
-
     def test_all_forms_preserved(self):
         forms = [w for w, _ in LindatLemmatizer._parse_conllu(TWO_SENTENCES)]
         assert forms == ["Dobrý", "den", ".", "Jak", "se", "máte", "?"]
@@ -236,6 +225,7 @@ class TestLemmatizationPreservesForms:
 # End-to-end: important source pieces survive the whole translate() pipeline
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestSourceInfoSurvivesPipeline:
     """Run the real translate() path (real _chunk_text, echo _basic_translate,
     mock lemmatizer) and assert every important piece of source information —
@@ -262,8 +252,8 @@ class TestSourceInfoSurvivesPipeline:
         out = pipeline_translator.translate(src, "cs", "en")
 
         # controlled vocabulary applied
-        assert "find" in out                      # nález → find (singular)
-        assert "photograph of event" in out       # multi-word phrase
+        assert "find" in out  # nález → find (singular)
+        assert "photograph of event" in out  # multi-word phrase
 
         # raw source information preserved verbatim
         for piece in ["1348", "41/5", "1,5", "2,2", "49°34'13.52\"N"]:
@@ -282,6 +272,6 @@ class TestSourceInfoSurvivesPipeline:
         ]
         src = "Popis nálezů v lokalitě."
         out = pipeline_translator.translate(src, "cs", "en")
-        assert "find" not in out          # number-agreement guard held
-        assert "nálezů" in out            # but the source word survived
+        assert "find" not in out  # number-agreement guard held
+        assert "nálezů" in out  # but the source word survived
         assert "lokalitě" in out

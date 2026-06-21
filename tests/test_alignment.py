@@ -24,10 +24,7 @@ They focus on the guarantees the reconstruction relies on:
   * correct splitting when the anchors give an unambiguous signal.
 """
 
-import pytest
-
-from utils import _align_tokens_to_lines
-from utils import _align_tokens_proportional
+from utils import _align_tokens_proportional, _align_tokens_to_lines
 
 
 def test_align_tokens_proportional_exact_match():
@@ -44,6 +41,7 @@ def test_align_tokens_proportional_exact_match():
     assert aligned[1] == ["brown", "fox", "jumps"]
     assert aligned[2] == ["over"]
 
+
 def test_align_tokens_proportional_overflow():
     """Ensures no tokens are lost if the translation yields more words than the source."""
     source_lines = ["word word", "word word"]
@@ -56,9 +54,11 @@ def test_align_tokens_proportional_overflow():
     assert aligned[1] == ["much", "longer", "sentence"]
     assert sum(len(line) for line in aligned) == len(translated_text.split())
 
+
 # ════════════════════════════════════════════════════════════════════════════
 # Token conservation — the central invariant
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestTokenConservation:
     """Concatenating the buckets must reproduce the block tokens, in order."""
@@ -94,6 +94,7 @@ class TestTokenConservation:
 # Bucket count contract
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestBucketCount:
     """The number of buckets must match the number of physical lines (>1)."""
 
@@ -113,6 +114,7 @@ class TestBucketCount:
 # ════════════════════════════════════════════════════════════════════════════
 # Clean-signal alignment — anchors that should drive an exact split
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestCleanSignalAlignment:
     """When anchors equal the intended line tokens, the split should follow them."""
@@ -137,6 +139,7 @@ class TestCleanSignalAlignment:
 # Last-line remainder rule
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestLastLineRemainder:
     """The final line must absorb every token not claimed by earlier lines."""
 
@@ -148,15 +151,15 @@ class TestLastLineRemainder:
         buckets = _align_tokens_to_lines(block, anchors)
         assert buckets[0] + buckets[1] == block.split()
         # the last bucket holds the remainder after the first line is assigned
-        assert buckets[-1] == block.split()[len(buckets[0]):]
+        assert buckets[-1] == block.split()[len(buckets[0]) :]
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # Documented edge cases
 # ════════════════════════════════════════════════════════════════════════════
 
-class TestEdgeCases:
 
+class TestEdgeCases:
     def test_empty_block_text_yields_empty_bucket_per_line(self):
         """No block tokens → one empty bucket per line."""
         buckets = _align_tokens_to_lines("", ["anchor one", "anchor two"])
@@ -189,8 +192,8 @@ class TestEdgeCases:
         anchors = ["only", "second", "third"]
         buckets = _align_tokens_to_lines(block, anchors)
         flat = [tok for bucket in buckets for tok in bucket]
-        assert flat == ["only"]          # the single token survives exactly once
-        assert len(buckets) == 3          # one bucket per line preserved
+        assert flat == ["only"]  # the single token survives exactly once
+        assert len(buckets) == 3  # one bucket per line preserved
         # at least the trailing lines are empty
         assert buckets[-1] == [] or buckets[1] == []
 

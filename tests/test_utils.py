@@ -20,18 +20,17 @@ Design notes
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
 from lxml import etree
 
-from utils import validate_xml_with_xsd, process_metadata_xml, process_alto_xml
+from utils import process_alto_xml, process_metadata_xml, validate_xml_with_xsd
 
 # ── constants shared across test classes ─────────────────────────────────────
 
 AMCR_NS = "https://api.aiscr.cz/schema/amcr/2.2/"
-ALTO_NS  = "http://www.loc.gov/standards/alto/ns-v2#"
+ALTO_NS = "http://www.loc.gov/standards/alto/ns-v2#"
 
 # XPaths that match the sample_amcr.xml fixture
-XPATH_POPIS  = "//amcr:amcr/amcr:dokument/amcr:popis"
+XPATH_POPIS = "//amcr:amcr/amcr:dokument/amcr:popis"
 XPATH_POZNAM = "//amcr:amcr/amcr:dokument/amcr:poznamka"
 
 # Minimal XSD that accepts <root> with optional <child> elements
@@ -51,6 +50,7 @@ _SAMPLE_XSD = """\
 # ════════════════════════════════════════════════════════════════════════════
 # validate_xml_with_xsd
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestValidateXmlWithXsd:
     """validate_xml_with_xsd(xml_tree, xsd_url_or_path) → (bool, log)."""
@@ -91,6 +91,7 @@ class TestValidateXmlWithXsd:
 # process_metadata_xml
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestProcessAmcrXml:
     """
     Tests for process_metadata_xml(input_path, output_path, xpaths, translator,
@@ -111,9 +112,12 @@ class TestProcessAmcrXml:
     def test_translator_called_once_per_matched_element(self, amcr_xml_file, tmp_path, mock_translator):
         out = tmp_path / "out.xml"
         process_metadata_xml(
-            amcr_xml_file, out,
+            amcr_xml_file,
+            out,
             [XPATH_POPIS, XPATH_POZNAM],
-            mock_translator, "cs", "en",
+            mock_translator,
+            "cs",
+            "en",
         )
         assert mock_translator.translate.call_count == 2
 
@@ -127,20 +131,16 @@ class TestProcessAmcrXml:
 
     # ── CSV logging ───────────────────────────────────────────────────────────
 
-    def test_csv_row_written_for_each_translated_element(
-        self, amcr_xml_file, tmp_path, mock_translator, csv_sink
-    ):
+    def test_csv_row_written_for_each_translated_element(self, amcr_xml_file, tmp_path, mock_translator, csv_sink):
         writer, rows = csv_sink
         out = tmp_path / "out.xml"
-        process_metadata_xml(amcr_xml_file, out, [XPATH_POPIS], mock_translator, "cs", "en",
-                             csv_writer=writer)
+        process_metadata_xml(amcr_xml_file, out, [XPATH_POPIS], mock_translator, "cs", "en", csv_writer=writer)
         assert len(rows) == 1
 
     def test_csv_row_columns_are_correct(self, amcr_xml_file, tmp_path, mock_translator, csv_sink):
         writer, rows = csv_sink
         out = tmp_path / "out.xml"
-        process_metadata_xml(amcr_xml_file, out, [XPATH_POPIS], mock_translator, "cs", "en",
-                             csv_writer=writer)
+        process_metadata_xml(amcr_xml_file, out, [XPATH_POPIS], mock_translator, "cs", "en", csv_writer=writer)
         row = rows[0]
         assert row[1] == ""
         assert row[2] == XPATH_POPIS
@@ -149,18 +149,16 @@ class TestProcessAmcrXml:
 
     # ── language detection ────────────────────────────────────────────────────
 
-    def test_auto_src_lang_invokes_identifier(
-        self, amcr_xml_file, tmp_path, mock_translator, mock_identifier
-    ):
+    def test_auto_src_lang_invokes_identifier(self, amcr_xml_file, tmp_path, mock_translator, mock_identifier):
         out = tmp_path / "out.xml"
-        process_metadata_xml(amcr_xml_file, out, [XPATH_POPIS], mock_translator,
-                             "auto", "en", identifier=mock_identifier)
+        process_metadata_xml(
+            amcr_xml_file, out, [XPATH_POPIS], mock_translator, "auto", "en", identifier=mock_identifier
+        )
         mock_identifier.detect.assert_called()
 
     def test_auto_without_identifier_defaults_to_cs(self, amcr_xml_file, tmp_path, mock_translator):
         out = tmp_path / "out.xml"
-        process_metadata_xml(amcr_xml_file, out, [XPATH_POPIS], mock_translator,
-                             "auto", "en", identifier=None)
+        process_metadata_xml(amcr_xml_file, out, [XPATH_POPIS], mock_translator, "auto", "en", identifier=None)
         call_args = mock_translator.translate.call_args[0]
         assert call_args[1] == "cs"
 
@@ -170,10 +168,10 @@ class TestProcessAmcrXml:
         xml_content = (
             f'<?xml version="1.0" encoding="utf-8"?>\n'
             f'<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/">'
-            f'<GetRecord><record><metadata>'
+            f"<GetRecord><record><metadata>"
             f'<amcr:amcr xmlns:amcr="{AMCR_NS}">'
-            f'<amcr:dokument><amcr:popis></amcr:popis></amcr:dokument>'
-            f'</amcr:amcr></metadata></record></GetRecord></OAI-PMH>'
+            f"<amcr:dokument><amcr:popis></amcr:popis></amcr:dokument>"
+            f"</amcr:amcr></metadata></record></GetRecord></OAI-PMH>"
         )
         src = tmp_path / "empty.xml"
         src.write_text(xml_content, encoding="utf-8")
@@ -183,9 +181,12 @@ class TestProcessAmcrXml:
     def test_xpath_with_no_match_does_not_raise(self, amcr_xml_file, tmp_path, mock_translator):
         out = tmp_path / "out.xml"
         process_metadata_xml(
-            amcr_xml_file, out,
+            amcr_xml_file,
+            out,
             ["//amcr:amcr/amcr:nonexistent_field"],
-            mock_translator, "cs", "en",
+            mock_translator,
+            "cs",
+            "en",
         )
         assert out.exists()
         mock_translator.translate.assert_not_called()
@@ -200,14 +201,16 @@ class TestProcessAmcrXml:
     def test_multiple_xpaths_two_csv_rows(self, amcr_xml_file, tmp_path, mock_translator, csv_sink):
         writer, rows = csv_sink
         out = tmp_path / "out.xml"
-        process_metadata_xml(amcr_xml_file, out, [XPATH_POPIS, XPATH_POZNAM],
-                             mock_translator, "cs", "en", csv_writer=writer)
+        process_metadata_xml(
+            amcr_xml_file, out, [XPATH_POPIS, XPATH_POZNAM], mock_translator, "cs", "en", csv_writer=writer
+        )
         assert len(rows) == 2
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # process_alto_xml
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestProcessAltoXml:
     """
@@ -242,7 +245,7 @@ class TestProcessAltoXml:
             f'<String ID="S1" CONTENT="a" />'
             f'<String ID="S2" CONTENT="b" />'
             f'<String ID="S3" CONTENT="c" />'
-            f'</TextLine></TextBlock></PrintSpace></Page></Layout></alto>'
+            f"</TextLine></TextBlock></PrintSpace></Page></Layout></alto>"
         )
         src = tmp_path / "three.xml"
         dst = tmp_path / "three_out.xml"
@@ -263,7 +266,7 @@ class TestProcessAltoXml:
             f'<PrintSpace><TextBlock ID="TB1"><TextLine ID="L1">'
             f'<String ID="S1" CONTENT="x" />'
             f'<String ID="S2" CONTENT="y" />'
-            f'</TextLine></TextBlock></PrintSpace></Page></Layout></alto>'
+            f"</TextLine></TextBlock></PrintSpace></Page></Layout></alto>"
         )
         src = tmp_path / "two.xml"
         dst = tmp_path / "two_out.xml"
@@ -285,7 +288,7 @@ class TestProcessAltoXml:
             f'<String ID="S1" CONTENT="x" />'
             f'<String ID="S2" CONTENT="y" />'
             f'<String ID="S3" CONTENT="z" />'
-            f'</TextLine></TextBlock></PrintSpace></Page></Layout></alto>'
+            f"</TextLine></TextBlock></PrintSpace></Page></Layout></alto>"
         )
         src = tmp_path / "three.xml"
         dst = tmp_path / "three_out.xml"
@@ -307,9 +310,7 @@ class TestProcessAltoXml:
         process_alto_xml(alto_xml_file, out, mock_translator, "cs", "en", csv_writer=writer)
         assert len(rows) == 2
 
-    def test_csv_row_contains_line_id_in_correct_column(
-        self, alto_xml_file, tmp_path, mock_translator, csv_sink
-    ):
+    def test_csv_row_contains_line_id_in_correct_column(self, alto_xml_file, tmp_path, mock_translator, csv_sink):
         writer, rows = csv_sink
         out = tmp_path / "out.xml"
         process_alto_xml(alto_xml_file, out, mock_translator, "cs", "en", csv_writer=writer)
@@ -329,8 +330,7 @@ class TestProcessAltoXml:
         self, alto_xml_file, tmp_path, mock_translator, mock_identifier
     ):
         out = tmp_path / "out.xml"
-        process_alto_xml(alto_xml_file, out, mock_translator, "auto", "en",
-                         identifier=mock_identifier)
+        process_alto_xml(alto_xml_file, out, mock_translator, "auto", "en", identifier=mock_identifier)
         assert mock_identifier.detect.call_count == 1
 
     # ── edge case ─────────────────────────────────────────────────────────────

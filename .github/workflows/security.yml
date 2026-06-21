@@ -1,14 +1,15 @@
-name: Container Security & SBOM
+name: Security Scan
 
 on:
-  schedule:
-    - cron: '0 2 * * 0' # Run weekly on Sundays
   push:
-    tags: [ "v*.*.*" ]
+    branches: [test, master]
+  pull_request:
+    branches: [test, master]
 
 jobs:
-  trivy-sbom:
+  security-scan:
     uses: ufal/atrium-project/.github/workflows/security.reusable.yml@main
     with:
-      image-name: "atrium-translator"
-    secrets: inherit
+      image-ref: ghcr.io/ufal/atrium-translator:latest
+      citation-path: CITATION.cff
+      para-config-path: para_config.txt

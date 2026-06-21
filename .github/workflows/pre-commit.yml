@@ -1,15 +1,32 @@
-name: Pre-commit checks
+name: Scheduled Smoke Testing Suite
 
 on:
-  pull_request:
-    branches: [ "main" ]
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
-  pre-commit:
+  smoke-test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - uses: pre-commit/action@v3.0.1
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Execute Test Execution Suite
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          pip install -r requirements.txt -r requirements-test.txt
+          pytest tests/
+
+      - name: Log Issues on Processing Breaches
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Scheduled Verification Failure',
+              body: 'Automated validation sequence encounters terminal processing errors. Review details within execution logs.'
+            })

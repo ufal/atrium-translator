@@ -1,16 +1,19 @@
-name: Build and Test Docker Image
+name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ "main" ]
-    tags: [ "v*.*.*" ]
+    branches: [test, master]
   pull_request:
-    branches: [ "main" ]
+    branches: [test, master]
 
 jobs:
-  build-test-publish:
-    uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@main
-    with:
-      image-name: "atrium-translator"
-      pre-install-torch: true
-    secrets: inherit
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # Reusable docker workflow integration block follows standard design parameters

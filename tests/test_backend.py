@@ -46,6 +46,7 @@ def test_lindat_satisfies_protocol(mock_get):
     """LindatTranslator structurally satisfies TranslationBackend."""
     mock_get.return_value.status_code = 404
     from processors.translator import LindatTranslator
+
     translator = LindatTranslator(vocab_path=None)
     assert isinstance(translator, TranslationBackend)
 
@@ -70,6 +71,7 @@ def test_env_var_unknown_raises(monkeypatch):
 # These pin the Protocol shape recorded in docs/translation-backends.md
 # (name / supports_glossary / supported_languages) so the doc and the code
 # cannot silently drift apart again.
+
 
 @patch("processors.translator.requests.get")
 def test_backend_exposes_name(mock_get):

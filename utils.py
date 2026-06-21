@@ -11,8 +11,8 @@ XSD schema documents (an explicit, trusted ``--xsd`` input) are parsed with
 access that ``xs:import``-based schemas may require.
 """
 
-import sys
 import difflib
+import sys
 import urllib.request
 
 from lxml import etree
@@ -41,6 +41,7 @@ _XSD_PARSER = etree.XMLParser(
 # ──────────────────────────────────────────────────────────────────────────────
 # XSD validation
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def validate_xml_with_xsd(xml_tree, xsd_url_or_path):
     """
@@ -89,17 +90,13 @@ def _resolve_namespaces(root) -> dict:
 
     if "amcr" not in xpath_ns:
         xpath_ns["amcr"] = _AMCR_NS_FALLBACK
-        print(
-            f"[WARN] AMCR namespace not detected in document; "
-            f"falling back to '{_AMCR_NS_FALLBACK}'."
-        )
+        print(f"[WARN] AMCR namespace not detected in document; falling back to '{_AMCR_NS_FALLBACK}'.")
 
     return xpath_ns
 
 
 def process_metadata_xml(
-    input_path, output_path, xpaths, translator, src_lang, tgt_lang,
-    xsd_url=None, csv_writer=None, identifier=None
+    input_path, output_path, xpaths, translator, src_lang, tgt_lang, xsd_url=None, csv_writer=None, identifier=None
 ):
     try:
         tree = etree.parse(str(input_path), parser=_SECURE_PARSER)
@@ -122,16 +119,12 @@ def process_metadata_xml(
                         else:
                             actual_src_lang = "cs"
 
-                    translated = translator.translate(
-                        original_text, actual_src_lang, tgt_lang
-                    )
+                    translated = translator.translate(original_text, actual_src_lang, tgt_lang)
                     elem.text = translated
 
                     if csv_writer:
                         doc_name = input_path.name.split(".")[0]
-                        csv_writer.writerow(
-                            [doc_name, "", xpath, original_text, translated]
-                        )
+                        csv_writer.writerow([doc_name, "", xpath, original_text, translated])
 
             except etree.XPathError as e:
                 print(f"[WARN] XPath error for '{xpath}': {e}")
@@ -163,6 +156,7 @@ def process_metadata_xml(
 # ──────────────────────────────────────────────────────────────────────────────
 # ALTO XML processing Helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _align_tokens_to_lines(block_text, line_translations):
     """
@@ -257,9 +251,9 @@ def _align_tokens_proportional(block_text, source_line_texts):
 # ALTO XML processing
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def process_alto_xml(
-        input_path, output_path, translator, src_lang, tgt_lang,
-        csv_writer=None, identifier=None, line_anchors=True
+    input_path, output_path, translator, src_lang, tgt_lang, csv_writer=None, identifier=None, line_anchors=True
 ):
     """
     Translate an ALTO XML document in place (dual-pass reconstruction).
@@ -305,14 +299,16 @@ def process_alto_xml(
                     strings = line.xpath(".//alto:String", namespaces=ns) if use_ns else line.xpath(".//String")
 
                     orig_line_text = " ".join(s.get("CONTENT", "") for s in strings if s.get("CONTENT")).strip()
-                    lines_data.append({
-                        "id": line_id,
-                        "strings": strings,
-                        "orig_text": orig_line_text,
-                        # Pre-seed so CSV logging never KeyErrors on a TextLine
-                        # that has no <String> children (finding #5).
-                        "trans_line_text": "",
-                    })
+                    lines_data.append(
+                        {
+                            "id": line_id,
+                            "strings": strings,
+                            "orig_text": orig_line_text,
+                            # Pre-seed so CSV logging never KeyErrors on a TextLine
+                            # that has no <String> children (finding #5).
+                            "trans_line_text": "",
+                        }
+                    )
                     all_strings.extend(strings)
 
                 # 2. Aggregate the full paragraph/block

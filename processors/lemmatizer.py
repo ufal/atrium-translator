@@ -71,9 +71,7 @@ class LindatLemmatizer:
 
         return all_lemmas
 
-    def get_lemmas_with_features(
-        self, text: str, lang: str = "cs"
-    ) -> list[tuple[str, str, str]]:
+    def get_lemmas_with_features(self, text: str, lang: str = "cs") -> list[tuple[str, str, str]]:
         """
         Like :meth:`get_lemmas` but each item is ``(word, lemma, number)`` where
         *number* is ``"Sing"``, ``"Plur"`` or ``""`` (unknown / not applicable),
@@ -101,19 +99,16 @@ class LindatLemmatizer:
                 resp = requests.post(
                     self.URL,
                     data={
-                        "model":     model,
+                        "model": model,
                         "tokenizer": "",
-                        "tagger":    "",
-                        "parser":    "",
-                        "data":      chunk,
+                        "tagger": "",
+                        "parser": "",
+                        "data": chunk,
                     },
                     timeout=30,
                 )
                 if resp.status_code != 200:
-                    print(
-                        f"[WARN] UDPipe returned HTTP {resp.status_code}; "
-                        "skipping lemmatisation for chunk."
-                    )
+                    print(f"[WARN] UDPipe returned HTTP {resp.status_code}; skipping lemmatisation for chunk.")
                     continue
 
                 yield resp.json().get("result", "")
@@ -133,7 +128,7 @@ class LindatLemmatizer:
             parts = line.split("\t")
             if len(parts) < 3 or "-" in parts[0] or "." in parts[0]:
                 continue
-            word  = parts[1]
+            word = parts[1]
             lemma = parts[2]
             results.append((word, lemma))
         return results
@@ -156,7 +151,7 @@ class LindatLemmatizer:
             parts = line.split("\t")
             if len(parts) < 3 or "-" in parts[0] or "." in parts[0]:
                 continue
-            word  = parts[1]
+            word = parts[1]
             lemma = parts[2]
 
             number = ""

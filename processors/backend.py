@@ -52,11 +52,9 @@ class TranslationBackend(Protocol):
     name: str
     supports_glossary: bool
 
-    def translate(self, text: str, src_lang: str, tgt_lang: str = "en") -> str:
-        ...
+    def translate(self, text: str, src_lang: str, tgt_lang: str = "en") -> str: ...
 
-    def supported_languages(self) -> list[str]:
-        ...
+    def supported_languages(self) -> list[str]: ...
 
 
 _REGISTRY: dict[str, type] = {}
@@ -66,6 +64,7 @@ def _ensure_registry() -> None:
     if _REGISTRY:
         return
     from .translator import LindatTranslator
+
     _REGISTRY["lindat"] = LindatTranslator
 
 

@@ -41,9 +41,9 @@ DEFAULT_CHUNK_SIZE: int = 4000
 # number of characters from the separator to retain in the *left* chunk (keep
 # the terminal punctuation, drop the following space / newline).
 _SEP_TIERS: list[list[tuple[str, int]]] = [
-    [("\n", 0)],                          # paragraph / OCR-line break
-    [(". ", 1), ("! ", 1), ("? ", 1)],    # sentence-terminal punctuation
-    [("; ", 1), (", ", 1)],               # clause-level punctuation
+    [("\n", 0)],  # paragraph / OCR-line break
+    [(". ", 1), ("! ", 1), ("? ", 1)],  # sentence-terminal punctuation
+    [("; ", 1), (", ", 1)],  # clause-level punctuation
 ]
 
 

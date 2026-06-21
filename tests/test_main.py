@@ -2,10 +2,11 @@
 tests/test_main.py
 Orchestration coverage for CLI arg merging, file handling, and configuration defaults.
 """
-import pytest
-from unittest.mock import patch, MagicMock
+
 from pathlib import Path
-from main import parse_arguments, generate_output_path
+from unittest.mock import MagicMock, patch
+
+from main import generate_output_path, parse_arguments
 
 
 def test_parse_arguments_cli_overrides_config(tmp_path):

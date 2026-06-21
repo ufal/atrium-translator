@@ -80,15 +80,17 @@ import requests
 try:
     from tqdm import tqdm
 except ImportError:
+
     def tqdm(iterable, *args, **kwargs):
         for item in iterable:
             yield item
 
+
 from .chunking import chunk_text
 from .lemmatizer import LindatLemmatizer
 
-
 # ── failure / retry / throttle configuration ──────────────────────────────────
+
 
 class TranslationError(RuntimeError):
     """Raised when a chunk cannot be translated after all retries.
@@ -153,9 +155,7 @@ class LindatTranslator:
     # NOTE (finding #14): keyed off the FULL sentinel stem ("Xtermzzz"), not the
     # broad 5-char "Xterm" prefix, so legitimate source text that merely begins
     # with "Xterm" can never be eaten.
-    _TAG_FRAGMENT_RE = re.compile(
-        rf"{_TAG_PREFIX}[A-Za-z0-9]*z*\d*z*", re.IGNORECASE
-    )
+    _TAG_FRAGMENT_RE = re.compile(rf"{_TAG_PREFIX}[A-Za-z0-9]*z*\d*z*", re.IGNORECASE)
     # Orphaned guard-letter clusters (e.g. a stray "zzz") that may remain after
     # the main fragment is removed.
     _GUARD_DEBRIS_RE = re.compile(r"\bz{2,}\b", re.IGNORECASE)
@@ -178,7 +178,7 @@ class LindatTranslator:
         set of ISO codes. Empty when the model list is unknown.
         """
         langs: set[str] = set()
-        for pair in (self.supported_models or []):
+        for pair in self.supported_models or []:
             for code in str(pair).split("-"):
                 code = code.strip()
                 if code:
@@ -208,7 +208,7 @@ class LindatTranslator:
                     reverse=True,
                 )
                 self._lemmatizer = LindatLemmatizer()
-                print(f"[INFO] Vocabulary loaded. Tag-and-Protect enabled.")
+                print("[INFO] Vocabulary loaded. Tag-and-Protect enabled.")
 
     # ── public translation entry point ────────────────────────────────────────
 
@@ -236,9 +236,7 @@ class LindatTranslator:
                     if len(row) < 2:
                         continue
                     src, tgt = row[0].strip(), row[1].strip()
-                    if i == 0 and src.lower() in (
-                        "source_lemma", "source", "src", "term", "lemma", "cs"
-                    ):
+                    if i == 0 and src.lower() in ("source_lemma", "source", "src", "term", "lemma", "cs"):
                         continue
                     if src:
                         vocab[src.lower()] = tgt
@@ -275,15 +273,11 @@ class LindatTranslator:
         # older lemmatizer without it is injected (e.g. a test double), fall back
         # to the plain 2-tuple API and treat every token as number-neutral.
         if hasattr(self._lemmatizer, "get_lemmas_with_features"):
-            word_feat_triples = self._lemmatizer.get_lemmas_with_features(
-                protected_text, lang=src_lang
-            )
+            word_feat_triples = self._lemmatizer.get_lemmas_with_features(protected_text, lang=src_lang)
         else:
             word_feat_triples = [
-                (w, l, "")
-                for w, l in self._lemmatizer.get_lemmas(protected_text, lang=src_lang)
+                (w, lemma, "") for w, lemma in self._lemmatizer.get_lemmas(protected_text, lang=src_lang)
             ]
-
         if word_feat_triples:
             for word, lemma, number in word_feat_triples:
                 if self._TAG_RE.search(word):
@@ -421,23 +415,17 @@ class LindatTranslator:
                     last_reason = f"HTTP {response.status_code}"
                 else:
                     # 4xx (other than 429) will not recover on retry.
-                    raise TranslationError(
-                        f"LINDAT translation failed: HTTP {response.status_code} "
-                        f"from {url}"
-                    )
+                    raise TranslationError(f"LINDAT translation failed: HTTP {response.status_code} from {url}")
 
             if attempt < _MAX_RETRIES:
-                sleep_s = _BACKOFF_BASE_S * (2 ** attempt) + random.uniform(0, 0.25)
+                sleep_s = _BACKOFF_BASE_S * (2**attempt) + random.uniform(0, 0.25)
                 print(
                     f"[WARN] LINDAT call failed ({last_reason}); retrying in "
                     f"{sleep_s:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})."
                 )
                 time.sleep(sleep_s)
 
-        raise TranslationError(
-            f"LINDAT translation failed after {_MAX_RETRIES} retries "
-            f"({last_reason})."
-        )
+        raise TranslationError(f"LINDAT translation failed after {_MAX_RETRIES} retries ({last_reason}).")
 
     # ── core translation (chunked) ────────────────────────────────────────────
 
@@ -449,11 +437,7 @@ class LindatTranslator:
 
         chunks = self._chunk_text(text)
         translated_chunks = []
-        chunk_iter = (
-            tqdm(chunks, desc="Translating chunks", leave=False)
-            if len(chunks) > 1
-            else chunks
-        )
+        chunk_iter = tqdm(chunks, desc="Translating chunks", leave=False) if len(chunks) > 1 else chunks
 
         url = f"{self.BASE_URL}/models/{model_name}?src={src_lang}&tgt={tgt_lang}"
         for chunk in chunk_iter:

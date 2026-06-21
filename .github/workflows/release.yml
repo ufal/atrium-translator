@@ -1,31 +1,23 @@
-name: Publish Release
+name: Release Package Bundle
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-beta'
-
-permissions:
-  contents: write
+  release:
+    types: [published]
 
 jobs:
-  release:
-    name: Create GitHub Release
+  bundle:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Package service payload
+      - name: Generate Independent Application Zip
         run: |
-          # Bundle the FastAPI service and core execution files for deployment
-          zip -r atrium-translator-service.zip service/ main.py utils.py config.txt para_config.txt requirements.txt
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: atrium-translator-service.zip
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref, '-beta') }}
+          zip -r atrium-translator-release.zip \
+            service/ \
+            processors/ \
+            atrium_paradata.py \
+            para_licenses.py \
+            service/requirements.txt \
+            main.py \
+            para_config.txt
