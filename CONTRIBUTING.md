@@ -1,18 +1,19 @@
 # 🤝 Contributing to the LINDAT Translation Wrapper of the ATRIUM project
 
-Welcome! Thank you for your interest in contributing. This repository [^2] provides a 
-robust workflow for translating archival XML records (specifically ALTO XML and AMCR 
-metadata) into English and other target languages. It addresses common challenges in 
-digital archives, such as safely translating highly nested XMLs without breaking tags, 
+Welcome! Thank you for your interest in contributing. This repository [^2] provides a
+robust workflow for translating archival XML records (specifically ALTO XML and AMCR
+metadata) into English and other target languages. It addresses common challenges in
+digital archives, such as safely translating highly nested XMLs without breaking tags,
 namespaces, or OAI-PMH envelopes.
 
-This document describes the project's capabilities, development workflow, code 
+This document describes the project's capabilities, development workflow, code
 conventions, and rules for contributors.
 
 ## 📦 Release History
 
 | Version    | Release Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Key Features & Fixes |
 |------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| **v0.6.2** | Multi-option backend translation model (draft) and Docker GH Actions alignment.                                                                                                                                                                                                                                                                                                                                                                                                | Pre-release          |
 | **v0.6.1** | Next round LLM review edits and Docker GH Actions alignment.                                                                                                                                                                                                                                                                                                                                                                                                                   | Pre-release          |
 | **v0.6.0** | **Security:** Hardened XML parsing with lxml `_SECURE_PARSER` to prevent XXE. **Reliability:** Raised `TranslationError` with exponential back-off instead of logging corrupt output strings. Pinned all dependencies. **Performance:** Added `--fast-align` CLI flag to reduce ALTO API calls and `LINDAT_*` env vars for rate limiting. **Fixes:** Fixed empty-line KeyErrors, whitespace reflow issues in metadata, and improved file-saving directories for URL downloads. | Pre-release          |
 | **v0.5.1** | Docker wrapper and small dependencies swap - fasttext-wheel                                                                                                                                                                                                                                                                                                                                                                                                                    | Pre-release          |
@@ -40,20 +41,20 @@ conventions, and rules for contributors.
 
 ## 🏗️ Project Contributions & Capabilities
 
-This pipeline contributes 4 major capabilities to the data translation lifecycle, 
+This pipeline contributes 4 major capabilities to the data translation lifecycle,
 as detailed in the section of the main [README 🧠 Logic Overview](README.md#-logic-overview).
 
 ### 1. Dedicated Archival XML Processing
 
-The pipeline allows archives to safely translate structured documents without altering their 
+The pipeline allows archives to safely translate structured documents without altering their
 spatial coordinates or metadata schemas.
 
-* **ALTO XML Handling:** Specifically targets and translates only the `CONTENT` 
+* **ALTO XML Handling:** Specifically targets and translates only the `CONTENT`
 attributes within `TextBlock` and `TextLine` elements natively. Reconstruction uses a
 dual-pass block/line translation plus similarity-based token alignment so that the
 original `String` positions are preserved (see the main
 [README → ALTO Dual-Pass Reconstruction](README.md#-alto-dual-pass-reconstruction)).
-* **XML Metadata Handling:** Uses deep recursive namespace extraction to parse specific 
+* **XML Metadata Handling:** Uses deep recursive namespace extraction to parse specific
 elements based on custom XPaths and safely replace the text content. Works with any
 well-formed XML (AMCR/OAI-PMH or custom schemas).
 
@@ -71,7 +72,7 @@ Archive managers can choose processing modes based on their specific document ty
 
 A core contribution of this project is minimizing manual preprocessing and providing immediate review tools:
 
-* **Language Identification:** Source text is automatically analyzed using 
+* **Language Identification:** Source text is automatically analyzed using
 **FastText** [^5]. If the confidence score is low (< 0.2), the system safely defaults
 to Czech (`cs`) to keep the pipeline moving. In ALTO mode, detection runs once per
 `TextBlock` so every line in a block shares a consistent source language.
@@ -81,9 +82,9 @@ in each window, tried in strict order — newline (`\n`) → sentence-terminal p
 to the translation API. Keeping whole sentences together preserves NMT context; the word
 boundary is a fallback and a hard cut is the last resort, so mid-word truncation never occurs.
 The same shared chunker (`processors/chunking.py`) feeds the UDPipe lemmatiser.
-* **QA Logging:** Automatically produces a supplementary CSV file (`file, page_num, 
+* **QA Logging:** Automatically produces a supplementary CSV file (`file, page_num,
 line_num, text_src, text_tgt`) for easy line-by-line manual QA review.
-* **Schema Validation:** Optionally validates metadata outputs against an XSD schema to 
+* **Schema Validation:** Optionally validates metadata outputs against an XSD schema to
 guarantee post-translation structural integrity.
 
 ### 4. Seamless API & Configuration Integration
@@ -92,7 +93,7 @@ The project includes streamlined interfaces for reproducible archival processing
 
 * **LINDAT Integration:** Direct connection to the LINDAT/CLARIAH-CZ Translation Service
 API (v2) [^1].
-* **Standardized Configs:** Support for `config.txt` to define default input paths, 
+* **Standardized Configs:** Support for `config.txt` to define default input paths,
 target languages, and XPath lists, ensuring consistency across different archival teams.
 
 > **Future work:** the LINDAT translation backend may eventually be supplemented or
@@ -151,11 +152,11 @@ Every PR must include:
 
 Use a **Draft PR** if the work is not ready for review.
 
-**Do not open PRs into `master` — merging into `master` is exclusively the 
+**Do not open PRs into `master` — merging into `master` is exclusively the
 maintainers' responsibility.
 
-> **Note on issue tracking:** Issues reference the commits and PRs that resolved 
-> them — not the other way around. Commit messages describe *what changed*; the issue 
+> **Note on issue tracking:** Issues reference the commits and PRs that resolved
+> them — not the other way around. Commit messages describe *what changed*; the issue
 > is the place to record *why* and link the resulting commits together.
 
 ---
@@ -190,7 +191,7 @@ Allowed types:
 
 ### Code Conventions
 
-* **Comments:** informative but short, may be LLM-generated, added when function name does 
+* **Comments:** informative but short, may be LLM-generated, added when function name does
 not explain its functionality in detail
 * **Argument types:** set default type (e.g., `int`, `list`) for function arguments
 * **Console flags:** when a new one added, provide help message for it
@@ -211,7 +212,7 @@ pre-commit run --all-files
 ```
 
 > [!NOTE]
->  If specific scripts or extraction modules are updated, please run a smoke-test 
+>  If specific scripts or extraction modules are updated, please run a smoke-test
 > against the `data_samples/` directory to verify extraction integrity.
 
 ---
@@ -266,7 +267,7 @@ tests/
 </details>
 
 
-We have transitioned from `black`/`isort`/`flake8` to **Ruff** for all linting and formatting, matching the 
+We have transitioned from `black`/`isort`/`flake8` to **Ruff** for all linting and formatting, matching the
 overarching ATRIUM standard.
 
 1. **Linting:** Run `ruff check .` locally before opening a pull request. The CI environment utilizes the shared `ruff.toml` template.
@@ -274,8 +275,8 @@ overarching ATRIUM standard.
    ```bash
    pytest -m "not slow" --cov=. --cov-report=term-missing
     ```
-   
-> [!NOTE]: Network-dependent tests (e.g., LINDAT endpoint interactions) and heavy ML model downloads (e.g., 
+
+> [!NOTE]: Network-dependent tests (e.g., LINDAT endpoint interactions) and heavy ML model downloads (e.g.,
 > FastText weights) are marked @slow.
 
 ---
@@ -290,7 +291,7 @@ Each documentation file has one target audience and one responsibility. Rules ar
 | `README.md`       | GitHub visitors | Project overview, workflow stages, quick start |
 | `CONTRIBUTING.md` | Developers      | Code conventions, branches, PRs, testing       |
 
-* **Do not duplicate rules:** if a rule is defined in `CONTRIBUTING.md`, other files 
+* **Do not duplicate rules:** if a rule is defined in `CONTRIBUTING.md`, other files
 reference it rather than copying it.
 * **When changing a rule:** update the canonical source and verify that referencing files
 still point correctly.
@@ -304,7 +305,7 @@ For support or specific archival integration questions, contact **lutsai.k@gmail
 
 * **Developed by:** UFAL [^3]
 * **Funded by:** ATRIUM [^4]
-* **APIs & Models:** 
+* **APIs & Models:**
   * LINDAT/CLARIAH-CZ Translation Service [^1]
   * Facebook's FastText model [^5]
 
