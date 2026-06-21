@@ -1,23 +1,29 @@
-name: Release Package Bundle
+name: Release Bundle
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
 
 jobs:
-  bundle:
+  create-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
-      - name: Generate Independent Application Zip
+      - name: Build deployment package
         run: |
-          zip -r atrium-translator-release.zip \
-            service/ \
-            processors/ \
-            atrium_paradata.py \
-            para_licenses.py \
-            service/requirements.txt \
-            main.py \
-            para_config.txt
+          mkdir -p dist/service
+          cp main.py processors/ utils.py load_vocab.py atrium_paradata.py para_licenses.py para_config.txt dist/ -r
+          cp service/api.py service/requirements.txt dist/service/ -r
+          cd dist
+          zip -r ../atrium-translator-release.zip .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: atrium-translator-release.zip
+          generate_release_notes: true

@@ -1,20 +1,15 @@
-name: Security Scan
+name: Security Scans
 
 on:
   push:
-    branches: [test, master]
+    branches: [ test, master ]
   pull_request:
-    branches: [test, master]
+    branches: [ test, master ]
+  schedule:
+    - cron: '0 0 * * 1'
 
 jobs:
-  security-scan:
-    permissions:
-      contents: read
-      packages: read
-      security-events: write
+  trivy-scan:
     uses: ufal/atrium-project/.github/workflows/security.reusable.yml@test
-    secrets: inherit
     with:
       image-ref: ghcr.io/ufal/atrium-translator:latest
-      citation-path: CITATION.cff
-      para-config-path: para_config.txt

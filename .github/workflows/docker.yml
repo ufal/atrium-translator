@@ -1,20 +1,19 @@
-name: Build and Push Docker Image
+name: Docker Build & Push
 
 on:
   push:
-    branches: [test, master]
-    tags: ['v*']
+    branches: [ test, master ]
+    tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [test, master]
+    branches: [ test, master ]
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build-and-push:
-    permissions:
-      contents: read
-      packages: write
-    # Using the @test branch since the upstream templates are not on main yet
     uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@test
-    secrets: inherit
     with:
-      image-name: ufal/atrium-translator
-      requirements: requirements.txt requirements-test.txt
+      image-name: atrium-translator
+    secrets: inherit
