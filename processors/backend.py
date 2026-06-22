@@ -11,15 +11,24 @@ pipeline depends on, matching the design recorded in
     supported_languages() -> list[str]
 
 ``supports_glossary`` is the load-bearing flag the design relies on: a
-glossary-native backend (e.g. Cohere Command A, DeepL) sets it ``True`` so the
-pipeline can pass the vocabulary CSV straight to the backend instead of running
-the in-process Tag-and-Protect workaround.  ``LindatTranslator`` (CUBBITT) sets
-it ``False`` because CUBBITT has no glossary API.
+glossary-native backend (e.g. the ``openai_compatible`` LLM adapter, which
+injects term pairs into the prompt) sets it ``True`` so the pipeline can hand
+terminology to the backend instead of running the in-process Tag-and-Protect
+workaround.  ``LindatTranslator`` (CUBBITT) sets it ``False`` because CUBBITT has
+no glossary API.
 
 A ``get_backend`` factory returns the configured implementation.  The default
 backend is ``"lindat"`` (the existing ``LindatTranslator``), which structurally
 satisfies the Protocol without any behavioural changes to
-``processors/translator.py``.
+``processors/translator.py``.  ``"openai_compatible"`` selects the free/low-cost
+LLM API adapter (``processors/llm_translator.py``).
+
+Beyond the Protocol, ``main.process_single_file`` relies on a small
+compatibility surface every backend must expose: ``vocabulary`` (dict),
+``reset_protected_count()`` and the ``protected_count`` property, and
+(optionally) ``license_components(vocab_loaded)`` so paradata records the
+components the backend actually exercised.  Both shipped backends provide all of
+these.
 
 See ``docs/translation-backends.md`` for the full evaluation of candidate
 backends and integration guidance.
@@ -63,9 +72,18 @@ _REGISTRY: dict[str, type] = {}
 def _ensure_registry() -> None:
     if _REGISTRY:
         return
+    from .llm_translator import LLMTranslator
     from .translator import LindatTranslator
 
     _REGISTRY["lindat"] = LindatTranslator
+    _REGISTRY["openai_compatible"] = LLMTranslator
+    # Phase 3 (issue #4): a CTranslate2 self-host backend lives in
+    # processors/ct2_translator.py.  It is intentionally NOT registered by
+    # default so importing this module never pulls in the heavy ctranslate2 /
+    # sentencepiece dependencies.  To enable it, install requirements-ct2.txt and
+    # uncomment the two lines below:
+    # from .ct2_translator import CT2Translator
+    # _REGISTRY["ct2"] = CT2Translator
 
 
 def get_backend(name: str | None = None, **kwargs) -> TranslationBackend:

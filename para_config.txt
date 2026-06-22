@@ -21,3 +21,21 @@ udpipe2_engine = MPL 2.0         ; conditional ; UDPipe2 lemmatiser engine
 udpipe2_models = CC BY-NC-SA 4.0 ; conditional ; UDPipe2 linguistic models
 amcr_vocab     = CC BY-NC 4.0    ; conditional ; AMCR vocabulary data
 teater_data    = CC BY-NC 4.0    ; conditional ; TEATER thesaurus data
+
+# Issue #4 — alternative translation backends. These are CONDITIONAL: a run only
+# inherits a backend's licence when that backend is actually selected and
+# main.py logs its components via license_components().
+#
+# llm_api intentionally carries an unrecognised licence string ("LLM provider
+# ToS"): the output terms of an arbitrary free LLM API are provider-specific and
+# NOT a CC/OSS licence, so para_licenses treats it as maximally restrictive and
+# emits a warning. That is the safe default for a prototype backend — the
+# licensing owner should pin the real terms before any non-experimental use.
+llm_api        = LLM provider ToS ; conditional ; OpenAI-compatible LLM API output (provider terms govern reuse)
+# CTranslate2 self-host (Phase 3) — permissive stack: Apache-2.0 models on the
+# MIT-licensed CTranslate2 engine. Enables the "permissive recipe" in
+# docs/translation-backends.md (combine with --source_lang + a permissive/empty
+# glossary to avoid the CC BY-NC FastText / AMCR-TEATER components).
+ctranslate2    = MIT             ; conditional ; CTranslate2 inference engine
+eurollm        = Apache-2.0      ; conditional ; EuroLLM instruction-tuned MT model
+madlad400      = Apache-2.0      ; conditional ; MADLAD-400 multilingual NMT model

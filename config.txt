@@ -19,3 +19,12 @@ fields = amcr-fields.txt
 # tags before translation, and restored with the vocabulary translations
 # in the output.  Leave blank or comment out to disable.
 vocabulary = data_samples/vocabulary.csv
+
+# Translation backend selection (issue #4):
+#   lindat             -> LINDAT CUBBITT (default; cs-centric, CC BY-NC-SA).
+#   openai_compatible  -> free/low-cost OpenAI-compatible LLM API. Configure it
+#                         with the LLM_* environment variables (LLM_BASE_URL,
+#                         LLM_MODEL, LLM_API_KEY, optional LLM_PROVIDER /
+#                         LLM_LANGUAGES). See docs/translation-backends.md.
+# Overridden by --backend on the CLI and by the TRANSLATION_BACKEND env var.
+translation_backend = lindat

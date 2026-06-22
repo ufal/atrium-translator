@@ -1,0 +1,14 @@
+# requirements-llm.txt — optional dependency group for the OpenAI-compatible
+# LLM translation backend (processors/llm_translator.py, issue #4).
+#
+# The adapter speaks raw REST against any /v1/chat/completions endpoint via
+# `requests` only — no vendor SDK — so the base image stays small. This file
+# exists as the documented opt-in install point and pins the HTTP client the
+# backend relies on. Install with:
+#
+#     pip install -r requirements.txt -r requirements-llm.txt
+#
+# Then configure the backend via the LLM_* environment variables and select it
+# with `--backend openai_compatible` (CLI) or TRANSLATION_BACKEND=openai_compatible.
+# See docs/translation-backends.md.
+requests==2.32.3

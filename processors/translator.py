@@ -68,9 +68,7 @@ KNOWN LIMITATIONS:
     word.  This may result in misaligned tags in rare edge cases.
 """
 
-import csv
 import os
-import random
 import re
 import time
 from pathlib import Path
@@ -87,7 +85,9 @@ except ImportError:
 
 
 from .chunking import chunk_text
+from .http_retry import request_with_retry
 from .lemmatizer import LindatLemmatizer
+from .vocab import load_vocabulary
 
 # ── failure / retry / throttle configuration ──────────────────────────────────
 
@@ -185,6 +185,21 @@ class LindatTranslator:
                     langs.add(code)
         return sorted(langs)
 
+    def license_components(self, vocab_loaded: bool = False) -> list[str]:
+        """Paradata component names this backend contributes (see para_config.txt).
+
+        CUBBITT maps to ``lindat_cubbitt``.  When a vocabulary is loaded the
+        Tag-and-Protect path also exercises UDPipe and the AMCR/TEATER vocab
+        data, so those components are recorded too.  ``main.py`` calls this so
+        the effective output license reflects the backend actually used rather
+        than a hard-coded LINDAT assumption (issue #4 — keeps paradata correct
+        once the backend can be swapped).
+        """
+        comps = ["lindat_cubbitt"]
+        if vocab_loaded:
+            comps += ["udpipe2_engine", "udpipe2_models", "amcr_vocab", "teater_data"]
+        return comps
+
     def __init__(self, vocab_path=None):
         self.supported_models = self._fetch_models()
         self.vocabulary: dict = {}
@@ -228,21 +243,14 @@ class LindatTranslator:
     # ── vocabulary loading ────────────────────────────────────────────────────
 
     def _load_vocabulary(self, path: Path) -> dict:
-        vocab: dict = {}
-        try:
-            with open(path, mode="r", encoding="utf-8", newline="") as fh:
-                reader = csv.reader(fh)
-                for i, row in enumerate(reader):
-                    if len(row) < 2:
-                        continue
-                    src, tgt = row[0].strip(), row[1].strip()
-                    if i == 0 and src.lower() in ("source_lemma", "source", "src", "term", "lemma", "cs"):
-                        continue
-                    if src:
-                        vocab[src.lower()] = tgt
-        except Exception as e:
-            print(f"[WARN] Could not load vocabulary from '{path}': {e}")
-        return vocab
+        """Delegate to the shared loader (``processors/vocab.py``).
+
+        Retained as an instance method so the existing
+        ``LindatTranslator._load_vocabulary(...)`` call/test API is preserved
+        while the parsing rules live in exactly one place (shared with the LLM
+        backend's prompt-glossary loader).
+        """
+        return load_vocabulary(path)
 
     # ── Tag-and-Protect pipeline ──────────────────────────────────────────────
 
@@ -395,37 +403,24 @@ class LindatTranslator:
         """
         POST *data* to *url*, returning the response text on HTTP 200.
 
-        Retries network errors and HTTP 429/5xx with bounded exponential
-        back-off.  Raises :class:`TranslationError` on a non-retryable status or
-        once retries are exhausted, so the caller fails loudly instead of
-        embedding an error string in the document.
+        Delegates the retry/throttle/back-off policy to the shared
+        ``processors.http_retry.request_with_retry`` helper (issue #4), so the
+        LINDAT client and the LLM backend cannot drift apart.  Raises
+        :class:`TranslationError` on a non-retryable status or once retries are
+        exhausted, so the caller fails loudly instead of embedding an error
+        string in the document.
         """
-        last_reason = "unknown error"
-        for attempt in range(_MAX_RETRIES + 1):
-            self._throttle()
-            try:
-                response = requests.post(url, data=data, timeout=60)
-            except requests.exceptions.RequestException as e:
-                last_reason = f"network error: {e}"
-            else:
-                if response.status_code == 200:
-                    response.encoding = "utf-8"
-                    return response.text.strip()
-                if response.status_code in _RETRYABLE_STATUS:
-                    last_reason = f"HTTP {response.status_code}"
-                else:
-                    # 4xx (other than 429) will not recover on retry.
-                    raise TranslationError(f"LINDAT translation failed: HTTP {response.status_code} from {url}")
-
-            if attempt < _MAX_RETRIES:
-                sleep_s = _BACKOFF_BASE_S * (2**attempt) + random.uniform(0, 0.25)
-                print(
-                    f"[WARN] LINDAT call failed ({last_reason}); retrying in "
-                    f"{sleep_s:.1f}s (attempt {attempt + 1}/{_MAX_RETRIES})."
-                )
-                time.sleep(sleep_s)
-
-        raise TranslationError(f"LINDAT translation failed after {_MAX_RETRIES} retries ({last_reason}).")
+        response = request_with_retry(
+            lambda: requests.post(url, data=data, timeout=60),
+            max_retries=_MAX_RETRIES,
+            backoff_base_s=_BACKOFF_BASE_S,
+            retryable_status=_RETRYABLE_STATUS,
+            throttle=self._throttle,
+            error_cls=TranslationError,
+            label=f"LINDAT translation @ {url}",
+        )
+        response.encoding = "utf-8"
+        return response.text.strip()
 
     # ── core translation (chunked) ────────────────────────────────────────────
 

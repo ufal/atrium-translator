@@ -5,6 +5,7 @@ main.py – Entry point for the ATRIUM LINDAT Translation Wrapper.
 import argparse
 import configparser
 import csv
+import os
 import sys
 from pathlib import Path
 
@@ -28,9 +29,9 @@ except ImportError:
 
 
 from atrium_paradata import ParadataLogger
+from processors.backend import TranslationBackend, get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
-from processors.translator import LindatTranslator
 from utils import process_alto_xml, process_metadata_xml
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         "target_lang": str(args.target_lang),
         "formats": str(args.formats),
         "mode": "alto" if args.alto else "metadata",
+        "translation_backend": str(getattr(args, "backend", "") or "lindat"),
         "xpaths_file": str(args.xpaths or ""),
         "xsd_url": str(args.xsd or ""),
         "vocabulary": str(args.vocabulary or ""),
@@ -148,6 +150,15 @@ def parse_arguments():
         "translating each line as an anchor. Far fewer API calls; slightly "
         "coarser line splits.",
     )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default=None,
+        help="Translation backend to use: 'lindat' (default, LINDAT CUBBITT) or "
+        "'openai_compatible' (free/low-cost OpenAI-compatible LLM API, configured "
+        "via LLM_* env vars). Default: config 'translation_backend', then env "
+        "TRANSLATION_BACKEND, then 'lindat'. See docs/translation-backends.md.",
+    )
 
     args = parser.parse_args()
     config = _read_config(args.config)
@@ -163,6 +174,8 @@ def parse_arguments():
         args.target_lang = defaults.get("target_lang", "en")
     if args.formats is None:
         args.formats = defaults.get("formats", "xml")
+    if args.backend is None:
+        args.backend = defaults.get("translation_backend") or os.environ.get("TRANSLATION_BACKEND") or "lindat"
     if args.xpaths is None and "fields" in defaults:
         args.xpaths = Path(defaults["fields"])
 
@@ -198,7 +211,7 @@ def process_single_file(
     file_path: Path,
     output_file: Path,
     args: argparse.Namespace,
-    translator: LindatTranslator,
+    translator: TranslationBackend,
     identifier: LanguageIdentifier | None,
     xpaths_list: list[str],
     _logger: ParadataLogger,
@@ -291,7 +304,7 @@ def main():
             print("[ERROR] Specify either the --alto flag or provide --xpaths / 'fields' in config.")
             return
 
-        translator = LindatTranslator(vocab_path=args.vocabulary)
+        translator = get_backend(args.backend, vocab_path=args.vocabulary)
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
 
         if identifier is not None:
@@ -358,15 +371,26 @@ def main():
             )
 
             if success and not _components_logged:
-                _logger.log_component("lindat_cubbitt")
-                if translator.vocabulary:
-                    for comp in (
-                        "udpipe2_engine",
-                        "udpipe2_models",
-                        "amcr_vocab",
-                        "teater_data",
-                    ):
+                # Record the components the *selected* backend actually exercised
+                # (issue #4). Backends expose license_components(vocab_loaded);
+                # fall back to the historical LINDAT set for any backend that
+                # predates the method, so paradata licensing stays correct after
+                # a backend swap instead of hard-coding lindat_cubbitt.
+                vocab_loaded = bool(getattr(translator, "vocabulary", None))
+                components_fn = getattr(translator, "license_components", None)
+                if callable(components_fn):
+                    for comp in components_fn(vocab_loaded):
                         _logger.log_component(comp)
+                else:
+                    _logger.log_component("lindat_cubbitt")
+                    if vocab_loaded:
+                        for comp in (
+                            "udpipe2_engine",
+                            "udpipe2_models",
+                            "amcr_vocab",
+                            "teater_data",
+                        ):
+                            _logger.log_component(comp)
                 _components_logged = True
 
             if translator.vocabulary:

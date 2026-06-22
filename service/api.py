@@ -17,9 +17,9 @@ from fastapi.responses import FileResponse
 
 from atrium_paradata import ParadataLogger
 from main import process_single_file
+from processors.backend import get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
-from processors.translator import LindatTranslator
 
 # Security limit: Default 50MB
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 50 * 1024 * 1024))
@@ -29,8 +29,12 @@ models = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("[INFO] Warming up LINDAT Translator models...")
-    models["translator"] = LindatTranslator(vocab_path=None)
+    # Backend selected via the TRANSLATION_BACKEND env var (default: lindat).
+    # Matches the CLI seam in main.py so the service can be pointed at the
+    # OpenAI-compatible LLM backend without code changes (issue #4).
+    backend = os.getenv("TRANSLATION_BACKEND")
+    print(f"[INFO] Warming up translation backend ({backend or 'lindat'})...")
+    models["translator"] = get_backend(backend, vocab_path=None)
     models["identifier"] = LanguageIdentifier()
     yield
     print("[INFO] Shutting down service...")
@@ -40,7 +44,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ATRIUM Translator API",
     description="Automated pipeline for the translation and enrichment of archaeological archival collections.",
-    version="0.6.1",
+    version="0.6.2",
     lifespan=lifespan,
 )
 

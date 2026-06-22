@@ -55,32 +55,32 @@ token-alignment** step (see [🧠 Logic Overview](#-logic-overview)).
 
 ## Project Structure & Architecture ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
 
-The `atrium-translator` operates as both a batch CLI tool and an exposed REST API service, bringing it into 
+The `atrium-translator` operates as both a batch CLI tool and an exposed REST API service, bringing it into
 architectural parity with the ATRIUM Layout and Enrichment pipelines.
 
 * **Batch CLI (`main.py`)**: Designed for massive document directories. Generates per-file translation and execution CSV logs.
-* **API Service (`service/api.py`)**: A FastAPI wrapper exposing a `/translate` endpoint. It leverages the exact same 
-core translation functions without duplicating application logic or model registries. Features full DoS guards 
+* **API Service (`service/api.py`)**: A FastAPI wrapper exposing a `/translate` endpoint. It leverages the exact same
+core translation functions without duplicating application logic or model registries. Features full DoS guards
 and file-size constraints.
 
 
 ## ✨ Features
 
-* 🎯 **Dedicated XML Processing**: Narrowly defined and optimised exclusively for ALTO XML and structured metadata 
+* 🎯 **Dedicated XML Processing**: Narrowly defined and optimised exclusively for ALTO XML and structured metadata
 records, ensuring safe, universal usage without tag or namespace corruption.
 * 📖 **ALTO Translation Mode (Dual-Pass)**: Translates only the `CONTENT` attributes natively. Tied to a simple flag (`--alto`).
 Each `TextBlock` is translated **twice** — once as a whole block (for semantic quality) and once line-by-line (as structural
 anchors) — and the block translation is then realigned to the physical line/`String` layout (see [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction)).
-* 📄 **XML Metadata Mode**: Translates specific elements based on a user-provided list of XPaths (e.g., 
-[amcr-fields.txt](amcr-fields.txt) 📎), safely reconstructs the document tree, and handles deep recursive 
+* 📄 **XML Metadata Mode**: Translates specific elements based on a user-provided list of XPaths (e.g.,
+[amcr-fields.txt](amcr-fields.txt) 📎), safely reconstructs the document tree, and handles deep recursive
 namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, not only AMCR [^7] records.
-* ✅ **XSD Validation**: Optionally validates metadata outputs against an XSD schema (e.g., 
+* ✅ **XSD Validation**: Optionally validates metadata outputs against an XSD schema (e.g.,
 `https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd`) to guarantee structural integrity after translation.
-* 📊 **Per-document Translation CSV Logs**: Automatically produces a supplementary QA CSV file with columns 
+* 📊 **Per-document Translation CSV Logs**: Automatically produces a supplementary QA CSV file with columns
 `file, page_num, line_num, text_<source_lang>, text_<target_lang>` for easy manual review.
-* 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts, 
+* 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts,
 configuration snapshot) to the [paradata](paradata)📁 directory for auditing and performance reporting.
-* 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using 
+* 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using
 **FastText** (Facebook) [^5]. In XML Metadata mode, if the detection confidence is below `0.2`, it defaults to Czech (`cs`);
 in ALTO mode detection is performed **once per `TextBlock`** so that all lines in a block share a consistent source language.
 * ✂️ **Sentence-Aware Chunking**: Long texts are split at the highest-priority boundary found in each window, tried in
@@ -88,10 +88,10 @@ strict order — newline (`\n`) → sentence-terminal punctuation (`. `, `! `, `
 word boundary — before being sent to the translation API. Keeping whole sentences together preserves NMT context and
 improves quality; the word boundary is a fallback and a hard cut is the last resort for oversized single tokens.
 * 🔤 **Tag-and-Protect Vocabulary Overriding**: When a vocabulary CSV is supplied, domain-specific terms are protected
-before translation using NMT-safe placeholder sentinels. Single-word terms are matched by lemma via the **LINDAT UDPipe API** [^6]; 
-multi-word phrases use case-insensitive substring matching (longest match first). Vocabulary translations are restored 
+before translation using NMT-safe placeholder sentinels. Single-word terms are matched by lemma via the **LINDAT UDPipe API** [^6];
+multi-word phrases use case-insensitive substring matching (longest match first). Vocabulary translations are restored
 after the NMT call, ensuring controlled terminology is never garbled.
-* 🗂️ **Automated Vocabulary Harvesting**: The bundled [load_vocab.py](load_vocab.py)📎 script downloads Czech→English term pairs from 
+* 🗂️ **Automated Vocabulary Harvesting**: The bundled [load_vocab.py](load_vocab.py)📎 script downloads Czech→English term pairs from
 both the **AMCR OAI-PMH API** [^7] and the **TEATER GraphQL API** [^8] and merges them into a single ready-to-use CSV.
 * 🔗 **LINDAT API Integration**: Seamlessly connects to the LINDAT Translation API (v2) [^1].
 
@@ -290,7 +290,7 @@ fotografie události,photograph of event
 
 
 > [!IMPORTANT]
-> Single-word vocabulary entries should be provided as lemmas (singular/infinitive); 
+> Single-word vocabulary entries should be provided as lemmas (singular/infinitive);
 > matching is lemma-based and number-neutral.
 
 
@@ -399,14 +399,14 @@ vocabulary = data_samples/vocabulary.csv
      line's text from its `String` `CONTENT` attributes. Each block is translated with a
      **dual-pass** strategy and the result is **realigned** to the physical line/`String`
      layout — see [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction).
-   * **XML Metadata**: Uses deep recursive namespace extraction (essential for OAI-PMH envelopes and custom schema 
-   wrappers). Finds elements matching the user-provided XPaths, translates their text content, and replaces it in the tree.  
+   * **XML Metadata**: Uses deep recursive namespace extraction (essential for OAI-PMH envelopes and custom schema
+   wrappers). Finds elements matching the user-provided XPaths, translates their text content, and replaces it in the tree.
    Compatible with any well-formed XML.
 3. **Language Identification**: Source text is analysed by **FastText** [^5].
    In XML Metadata mode, if the confidence is below `0.2` the system falls back to Czech 🇨🇿 (`cs`);
    in ALTO mode detection is performed **once per `TextBlock`** and applied to every line in that block.
-4. **Vocabulary Overriding** *(optional)*: When a vocabulary CSV is loaded, the **Tag-and-Protect** strategy 
-   is applied before each NMT call.  Multi-word phrases are matched first (longest-first substring), then single-word 
+4. **Vocabulary Overriding** *(optional)*: When a vocabulary CSV is loaded, the **Tag-and-Protect** strategy
+   is applied before each NMT call.  Multi-word phrases are matched first (longest-first substring), then single-word
    terms are matched via **UDPipe lemmatisation** [^6] (with a singular/plural number-agreement guard).  Matched terms
    are replaced with NMT-safe sentinels, translated, and then restored with the controlled vocabulary translations.
 5. **Sentence-Aware Chunking**: Texts longer than 4,000 characters are split at the highest-priority boundary available
@@ -414,7 +414,7 @@ vocabulary = data_samples/vocabulary.csv
    punctuation (`; `, `, `) → word boundary, with a hard cut as the last resort. The priority is now actually enforced
    (the highest tier with a match wins), so whole sentences are kept together for the NMT model, improving translation
    quality compared to raw word-boundary splitting.
-6. **Output**: Generates the translated `.xml` file preserving all original tags and namespaces, 
+6. **Output**: Generates the translated `.xml` file preserving all original tags and namespaces,
    alongside a per-document `_log.csv` file for manual QA review.  Optionally validates against an XSD schema.
 
 ---
@@ -501,7 +501,7 @@ C-TX-202500252,,//amcr:amcr/amcr:dokument/amcr:popis,"Stará Boleslav - odvodně
 
 The wrapper generates a **run-level** JSON provenance record after every execution, named
 `YYMMDD-HHmmss_translator.json`. It is written to the run's **output directory** alongside the
-translated files (the in-repo [paradata](data_samples%2Ftranslated_files%2Fparadata) 📁 directory 
+translated files (the in-repo [paradata](data_samples%2Ftranslated_files%2Fparadata) 📁 directory
 holds only example logs for development).
 
 They are separate from the per-document translation CSV logs above: CSV logs capture what was
@@ -614,5 +614,5 @@ tool version and the component→license table, and resolves the effective licen
 [^4]: https://atrium-research.eu/
 [^5]: https://huggingface.co/facebook/fasttext-language-identification
 [^6]: https://lindat.mff.cuni.cz/services/udpipe/
-[^7]: https://api.aiscr.cz/2.2/oai?set=heslo 
+[^7]: https://api.aiscr.cz/2.2/oai?set=heslo
 [^8]: https://teater.aiscr.cz/
