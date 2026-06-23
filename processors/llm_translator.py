@@ -59,7 +59,7 @@ import requests
 from .chunking import chunk_text
 from .http_retry import Throttle, request_with_retry
 from .translator import TranslationError
-from .vocab import load_vocabulary
+from .vocab import get_matching_terms, load_vocabulary
 
 
 def _env_float(name: str, default: float) -> float:
@@ -82,6 +82,9 @@ _MIN_LEN_RATIO = _env_float("LLM_GUARD_MIN_RATIO", 0.25)
 _MAX_LEN_RATIO = _env_float("LLM_GUARD_MAX_RATIO", 4.0)
 # Cap on glossary lines injected into a single prompt (keep the request small).
 _MAX_GLOSSARY_TERMS = _env_int("LLM_MAX_GLOSSARY_TERMS", 40)
+# Default output-token cap — prevents silent truncation by providers that impose
+# their own hard ceiling without returning an error (M2).
+_LLM_MAX_TOKENS = _env_int("LLM_MAX_TOKENS", 2048)
 
 
 class LLMTranslator:
@@ -112,6 +115,9 @@ class LLMTranslator:
         self.model = model if model is not None else os.environ.get("LLM_MODEL", "")
         self.api_key = api_key if api_key is not None else os.environ.get("LLM_API_KEY", "")
         self.provider = provider if provider is not None else os.environ.get("LLM_PROVIDER", "")
+        # Per-instance override; falls back to the module-level default so the
+        # env var is respected whether or not it was set before import (M2).
+        self.max_tokens: int = _env_int("LLM_MAX_TOKENS", _LLM_MAX_TOKENS)
 
         if languages is not None:
             self._languages = list(languages)
@@ -202,8 +208,9 @@ class LLMTranslator:
     def _glossary_lines(self, text: str) -> list:
         if not self.vocabulary:
             return []
-        low = text.lower()
-        pairs = [(src, tgt) for src, tgt in self.vocabulary.items() if src in low]
+        # get_matching_terms uses word-boundary regex to avoid short keys
+        # over-matching inside unrelated words (e.g. "kost" ∉ "kostel") — L1.
+        pairs = get_matching_terms(text, self.vocabulary)
         pairs.sort(key=lambda kv: len(kv[0]), reverse=True)
         pairs = pairs[:_MAX_GLOSSARY_TERMS]
         return [f"{src} = {tgt}" for src, tgt in pairs]
@@ -228,6 +235,7 @@ class LLMTranslator:
             "model": self.model,
             "messages": self._build_messages(chunk, src_lang, tgt_lang),
             "temperature": 0,
+            "max_tokens": self.max_tokens,
         }
         url = f"{self.base_url}/chat/completions"
         response = request_with_retry(

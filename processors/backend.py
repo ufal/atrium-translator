@@ -48,9 +48,9 @@ class TranslationBackend(Protocol):
     ``utils.process_alto_xml``, ``utils.process_metadata_xml``,
     ``service/api.py``, and ``main.process_single_file``.  ``name`` and
     ``supports_glossary`` are class/instance attributes; ``supported_languages``
-    lets the pipeline check coverage and fall back to another backend for
-    unsupported pairs (see the "Language coverage gaps" section of the design
-    doc).
+    lets the pipeline check language coverage (note: fallback to another backend
+    is currently advisory and not automatically wired — see the "Language
+    coverage gaps" section of the design doc).
 
     NOTE: because this Protocol is ``@runtime_checkable`` and declares data
     members, ``isinstance(obj, TranslationBackend)`` checks for the *presence*

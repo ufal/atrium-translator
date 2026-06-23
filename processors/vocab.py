@@ -10,6 +10,7 @@ tolerant row handling) are defined once.
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 from typing import Union
 
@@ -41,3 +42,21 @@ def load_vocabulary(path: Union[str, Path]) -> dict:
     except Exception as e:
         print(f"[WARN] Could not load vocabulary from '{path}': {e}")
     return vocab
+
+
+def get_matching_terms(text: str, vocab: dict) -> list[tuple[str, str]]:
+    """Return ``(source, target)`` pairs from *vocab* that are present in *text*
+    as whole words.
+
+    Two-pass matching:
+    1. Fast substring pre-filter (``src in low_text``) to skip most misses.
+    2. ``\\b``-anchored regex confirm to reject short keys that are substrings of
+       longer, unrelated words (e.g. "kost" must not match inside "kostel").
+    """
+    matched = []
+    low_text = text.lower()
+    for src, tgt in vocab.items():
+        if src in low_text:
+            if re.search(rf"\b{re.escape(src)}\b", low_text):
+                matched.append((src, tgt))
+    return matched

@@ -106,13 +106,18 @@ async def translate_document(
 
         output_path = output_dir / out_filename
 
+        backend_name = models["translator"].name
         para_config = {
             "source_lang": source_lang,
             "target_lang": target_lang,
             "mode": "alto" if is_alto else "metadata",
             "chunk_limit": DEFAULT_CHUNK_SIZE,
-            "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
+            "translation_backend": backend_name,
         }
+        # Only record the hardcoded LINDAT URL when the active backend is
+        # actually lindat — avoids misrepresenting LLM / CT2 runs (M1).
+        if backend_name == "lindat":
+            para_config["translation_api"] = "https://lindat.mff.cuni.cz/services/translation/api/v2/"
 
         with ParadataLogger(
             program="translator-api",
@@ -129,6 +134,22 @@ async def translate_document(
                 xpaths_list=[],
                 _logger=logger,
             )
+
+            # API-path paradata component logging (mirrors main.py logic, M1).
+            if success:
+                vocab_loaded = bool(getattr(models["translator"], "vocabulary", None))
+                components_fn = getattr(models["translator"], "license_components", None)
+                if callable(components_fn):
+                    for comp in components_fn(vocab_loaded):
+                        logger.log_component(comp)
+                else:
+                    logger.log_component("lindat_cubbitt")
+                    if vocab_loaded:
+                        for comp in ("udpipe2_engine", "udpipe2_models", "amcr_vocab", "teater_data"):
+                            logger.log_component(comp)
+
+                if source_lang == "auto":
+                    logger.log_component("fasttext")
 
         if not success:
             raise HTTPException(status_code=500, detail="Translation processing failed.")

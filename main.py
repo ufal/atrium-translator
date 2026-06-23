@@ -396,7 +396,10 @@ def main():
             if translator.vocabulary:
                 doc_name = file_path.name.split(".")[0]
                 protected_by_doc[doc_name] = protected
-                print(f"[INFO] Tag-and-Protect: {protected} term(s) protected in {file_path.name}")
+                if getattr(translator, "supports_glossary", False):
+                    print(f"[INFO] Prompt glossary: {protected} term(s) applied in {file_path.name}")
+                else:
+                    print(f"[INFO] Tag-and-Protect: {protected} term(s) protected in {file_path.name}")
 
         if protected_by_doc:
             self_cfg = getattr(_logger, "config", None)

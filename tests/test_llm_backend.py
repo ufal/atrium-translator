@@ -110,6 +110,7 @@ def test_payload_uses_temperature_zero_and_model(mock_post):
     _backend(model="my-model").translate("Ahoj", "cs", "en")
     assert captured["json"]["temperature"] == 0
     assert captured["json"]["model"] == "my-model"
+    assert captured["json"]["max_tokens"] == 2048
 
 
 # ── configuration guard ────────────────────────────────────────────────────────
@@ -175,6 +176,26 @@ def test_glossary_injected_into_prompt(mock_post):
     assert glossary_msgs, "glossary system message missing"
     assert "kostel = church" in glossary_msgs[0]["content"]
     assert b.protected_count >= 1
+
+
+@patch("processors.llm_translator.requests.post")
+def test_glossary_word_boundary_matching(mock_post):
+    """Short key 'kost' must not match inside 'kostel' (L1 word-boundary fix)."""
+    captured = {}
+
+    def capture(url, json=None, headers=None, timeout=None):
+        captured["json"] = json
+        return _resp(200, _completion("the church"))
+
+    mock_post.side_effect = capture
+    b = _backend()
+    b.vocabulary = {"kost": "bone", "kostel": "church"}
+    b.translate("Našli jsme kostel poblíž.", "cs", "en")
+
+    glossary_msgs = [m for m in captured["json"]["messages"] if "Glossary" in m.get("content", "")]
+    assert glossary_msgs, "glossary system message missing"
+    assert "kostel = church" in glossary_msgs[0]["content"]
+    assert "kost = bone" not in glossary_msgs[0]["content"], "short key must not over-match inside longer word"
 
 
 @patch("processors.llm_translator.requests.post")

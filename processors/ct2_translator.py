@@ -48,7 +48,7 @@ from pathlib import Path
 
 from .chunking import chunk_text
 from .translator import TranslationError
-from .vocab import load_vocabulary
+from .vocab import get_matching_terms, load_vocabulary
 
 # Families that use the encoder-decoder NMT path (vs. decoder-only LLM path).
 _NMT_FAMILIES = {"madlad", "nllb", "opus"}
@@ -227,8 +227,9 @@ class CT2Translator:
     def _glossary_lines(self, text: str) -> list:
         if not self.vocabulary:
             return []
-        low = text.lower()
-        pairs = [(s, t) for s, t in self.vocabulary.items() if s in low]
+        # Shared word-boundary helper prevents short keys matching inside longer
+        # unrelated words (mirrors the LLM backend fix, L1).
+        pairs = get_matching_terms(text, self.vocabulary)
         pairs.sort(key=lambda kv: len(kv[0]), reverse=True)
         return [f"{s} = {t}" for s, t in pairs[:_MAX_GLOSSARY_TERMS]]
 
