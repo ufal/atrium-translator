@@ -6,5 +6,5 @@
 #   - unbabel-comet : COMET / COMET-QE (heavy; pulls torch) when available
 #
 #     pip install -r eval/requirements-eval.txt
-sacrebleu>=2.4.0
+sacrebleu>=2.6.0
 # unbabel-comet>=2.2.0   # uncomment for COMET / COMET-QE (large download, needs torch)
