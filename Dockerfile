@@ -14,17 +14,18 @@ ENV ATRIUM_RUNNER_IMAGE=${ATRIUM_RUNNER_IMAGE} \
 
 WORKDIR /app
 
-# Install all requirements including the new service dependencies
-COPY requirements.txt requirements-test.txt ./
+# Install all requirements excluding test dependencies for the production image
+COPY requirements.txt ./
 COPY service/requirements.txt ./service/requirements.txt
-RUN pip install -r requirements.txt -r requirements-test.txt -r service/requirements.txt
+RUN pip install -r requirements.txt -r service/requirements.txt
 
 COPY . .
 
-# Non-root runtime user owning app, HF cache, and the data mountpoint.
+# Non-root runtime user owning only the HF cache and data mountpoint.
+# /app remains owned by root to enforce source immutability.
 RUN useradd --create-home --uid 10001 atrium \
     && mkdir -p /cache/huggingface /data \
-    && chown -R atrium:atrium /app /cache /data
+    && chown -R atrium:atrium /cache /data
 USER atrium
 
 ENTRYPOINT ["python", "main.py"]

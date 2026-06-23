@@ -12,9 +12,9 @@
 
 # 🏛️ ATRIUM - LINDAT Translation Wrapper 🌍
 
-A modular Python wrapper specifically designed for the **LINDAT Translation API** [^1].
-Following project scope requirements, this tool is strictly focused on processing
-**XML and its direct derivatives**.  It supports two input modes:
+A modular Python wrapper originally designed for the **LINDAT Translation API** [^1], now featuring a pluggable
+architecture supporting local LLMs and CTranslate2 self-hosted models. Following project scope requirements,
+this tool is strictly focused on processing **XML and its direct derivatives**.  It supports two input modes:
 
 | Mode             | Input                                                      | Key flag   |
 |------------------|------------------------------------------------------------|------------|
@@ -94,7 +94,8 @@ after the NMT call, ensuring controlled terminology is never garbled.
 * 🗂️ **Automated Vocabulary Harvesting**: The bundled [load_vocab.py](load_vocab.py)📎 script downloads Czech→English term pairs from
 both the **AMCR OAI-PMH API** [^7] and the **TEATER GraphQL API** [^8] and merges them into a single ready-to-use CSV.
 * 🔗 **LINDAT API Integration**: Seamlessly connects to the LINDAT Translation API (v2) [^1].
-
+* 🔌 **Pluggable Translation Backends**: Switch seamlessly between the LINDAT Translation API, OpenAI-compatible LLM
+endpoints, and low-resource self-hosted CTranslate2 models (e.g., EuroLLM, MADLAD-400) using the `--backend` flag.
 ---
 
 ## 🛠️ Prerequisites
@@ -541,7 +542,7 @@ record re-derives the end-to-end license from the union of all components used.
 
 > **Note on licensing:** the license is no longer a fixed value. It is the most restrictive license
 > among the components used in the run. A run that exercises the LINDAT translation models and the
-> UDPipe linguistic models resolves to **CC BY-NC-SA 4.0** (non-commercial, share-alike); the
+> UDPipe linguistic models resolves to **CC BY-NC 4.0** (non-commercial); the
 > component→license mapping lives in this repository's [para_config.txt](para_config.txt) 📎.
 
 ### Example paradata JSON structure
@@ -551,21 +552,21 @@ record re-derives the end-to-end license from the union of all components used.
   "schema_version": "2.0",
   "program": "translator",
   "tool_version": "v0.5.0",
-  "repository": "https://github.com/ufal/atrium-translator",
+  "repository": "[https://github.com/ufal/atrium-translator](https://github.com/ufal/atrium-translator)",
   "runner_ref": "a1b2c3d",
   "docker_image": "ghcr.io/ufal/atrium-translator:v0.5.0",
   "run_id": "260321-102451",
-  "license": "CC BY-NC-SA 4.0",
-  "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "license": "CC BY-NC 4.0",
+  "license_url": "[https://creativecommons.org/licenses/by-nc/4.0/](https://creativecommons.org/licenses/by-nc/4.0/)",
   "license_detail": {
-    "effective_license": "CC BY-NC-SA 4.0",
+    "effective_license": "CC BY-NC 4.0",
     "is_non_commercial": true,
-    "is_share_alike": true,
+    "is_share_alike": false,
     "determined_by": ["lindat_cubbitt", "udpipe2_models"],
     "components": [
       { "name": "fasttext",       "license": "CC BY-NC 4.0" },
-      { "name": "lindat_cubbitt", "license": "CC BY-NC-SA 4.0" },
-      { "name": "udpipe2_models", "license": "CC BY-NC-SA 4.0" }
+      { "name": "lindat_cubbitt", "license": "CC BY-NC 4.0" },
+      { "name": "udpipe2_models", "license": "CC BY-NC 4.0" }
     ]
   },
   "duration_seconds": 63.017,

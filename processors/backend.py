@@ -32,6 +32,8 @@ these.
 
 See ``docs/translation-backends.md`` for the full evaluation of candidate
 backends and integration guidance.
+
+
 """
 
 from __future__ import annotations
@@ -49,8 +51,8 @@ class TranslationBackend(Protocol):
     ``service/api.py``, and ``main.process_single_file``.  ``name`` and
     ``supports_glossary`` are class/instance attributes; ``supported_languages``
     lets the pipeline check language coverage (note: fallback to another backend
-    is currently advisory and not automatically wired — see the "Language
-    coverage gaps" section of the design doc).
+    is currently advisory and not automatically wired, see the "Language coverage
+    gaps" section of the design doc).
 
     NOTE: because this Protocol is ``@runtime_checkable`` and declares data
     members, ``isinstance(obj, TranslationBackend)`` checks for the *presence*
