@@ -3,7 +3,7 @@ tests/test_api.py
 Automated TestClient coverage for the FastAPI service and DoS guards.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -15,7 +15,6 @@ client = TestClient(app)
 def test_info_endpoint():
     response = client.get("/info")
     assert response.status_code == 200
-    # assert response.json()["version"] == "0.6.1"
     assert "ALTO XML" in response.json()["supported_formats"]
 
 
@@ -39,14 +38,7 @@ def test_translate_upload_size_limit():
 @patch("service.api.process_single_file")
 @patch("service.api.ParadataLogger.log_component")
 def test_translate_logs_components(mock_log_component, mock_process_single_file):
-    """Component logging must fire on a successful API translation (M1).
-
-    ``models`` is not populated in a bare TestClient call (lifespan doesn't
-    run), so we inject a fake translator via ``patch``.  After C1 the endpoint
-    reads the output file while inside the TemporaryDirectory context, so the
-    side-effect must write it; a plain return_value is no longer enough.
-    """
-    from unittest.mock import MagicMock
+    """Component logging must fire on a successful API translation (M1)."""
 
     def _write_and_succeed(file_path=None, output_file=None, **kwargs):
         if output_file is not None:
@@ -79,13 +71,7 @@ def test_translate_logs_components(mock_log_component, mock_process_single_file)
 
 @patch("service.api.process_single_file")
 def test_translate_happy_path(mock_process_single_file):
-    """Full upload-to-response round-trip: verifies status, content-type,
-    Content-Disposition header, and that translated bytes reach the client.
-
-    Uses a side-effect that writes the output file (required after C1, which
-    reads the file into memory while the TemporaryDirectory is still alive).
-    """
-    from unittest.mock import MagicMock
+    """Full upload-to-response round-trip verifying HTTP headers and payload."""
 
     def fake_process(file_path=None, output_file=None, **kwargs):
         if output_file is not None:
