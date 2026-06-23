@@ -12,7 +12,7 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build deployment package
         run: |
@@ -23,7 +23,7 @@ jobs:
           zip -r ../atrium-translator-release.zip .
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: atrium-translator-release.zip
           generate_release_notes: true
