@@ -32,7 +32,7 @@ from atrium_paradata import ParadataLogger
 from processors.backend import TranslationBackend, get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
-from utils import process_alto_xml, process_metadata_xml
+from utils import load_xsd, process_alto_xml, process_metadata_xml
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -215,10 +215,15 @@ def process_single_file(
     identifier: LanguageIdentifier | None,
     xpaths_list: list[str],
     _logger: ParadataLogger,
+    xsd_schema=None,
 ) -> tuple[bool, int]:
     """
     Process a single XML file (ALTO or metadata).
     Returns a tuple: (success: bool, protected_count: int)
+
+    *xsd_schema* is a precompiled ``etree.XMLSchema`` (or ``None``).
+    It is compiled once in ``main()`` via ``load_xsd`` rather than
+    per-file to avoid redundant network round-trips (M2).
     """
     translator.reset_protected_count()
 
@@ -257,9 +262,9 @@ def process_single_file(
                     translator,
                     args.source_lang,
                     args.target_lang,
-                    args.xsd,
-                    csv_writer,
-                    identifier,
+                    xsd_schema=xsd_schema,
+                    csv_writer=csv_writer,
+                    identifier=identifier,
                 )
 
             _logger.log_success("xml")
@@ -318,6 +323,19 @@ def main():
             with open(args.xpaths, "r", encoding="utf-8") as f:
                 xpaths_list = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
+        # M2: compile the XSD schema once before the batch loop.
+        # The old design re-fetched from the network on every file, which is
+        # wasteful and fragile. Any load failure is fatal — abort cleanly here
+        # rather than silently skipping validation inside each file's handler.
+        xsd_schema = None
+        if args.xsd:
+            print(f"[INFO] Compiling XSD schema from {args.xsd} …")
+            try:
+                xsd_schema = load_xsd(args.xsd)
+            except Exception as exc:
+                print(f"[ERROR] XSD schema load failed: {exc}")
+                return
+
         # ── Collect files to process ───────────────────────────────────
         files_to_process: list[Path] = []
         allowed_formats = [fmt.strip() for fmt in args.formats.split(",")]
@@ -368,6 +386,7 @@ def main():
                 identifier=identifier,
                 xpaths_list=xpaths_list,
                 _logger=_logger,
+                xsd_schema=xsd_schema,
             )
 
             if success and not _components_logged:

@@ -50,13 +50,41 @@ from .chunking import chunk_text
 from .translator import TranslationError
 from .vocab import get_matching_terms, load_vocabulary
 
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, "") or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, "") or default)
+    except (TypeError, ValueError):
+        return default
+
+
+# Output-faithfulness guardrail thresholds (see _guard).
+_MIN_RATIO_CHARS = _env_int("CT2_GUARD_MIN_CHARS", 16)
+_MIN_LEN_RATIO = _env_float("CT2_GUARD_MIN_RATIO", 0.25)
+_MAX_LEN_RATIO = _env_float("CT2_GUARD_MAX_RATIO", 4.0)
+
 # Families that use the encoder-decoder NMT path (vs. decoder-only LLM path).
 _NMT_FAMILIES = {"madlad", "nllb", "opus"}
 _MAX_GLOSSARY_TERMS = 40
 
 
 class CT2Translator:
-    """CTranslate2 self-host backend (EuroLLM / MADLAD-400, Apache-2.0)."""
+    """CTranslate2 self-host backend (EuroLLM / MADLAD-400, Apache-2.0).
+
+    Configuration:
+      CT2_COMPUTE_TYPE   "int4" (default, 4-bit quantization) | "int8" |
+                         "int8_float16" | "float16" | "float32".
+                         int4 is the safe default for limiting VRAM on shared
+                         cluster nodes; promote to int8/float16 when the target
+                         machine has dedicated headroom.
+    """
 
     name: str = "ct2"
 
@@ -75,7 +103,7 @@ class CT2Translator:
         self.family = (family if family is not None else os.environ.get("CT2_MODEL_FAMILY", "eurollm")).lower().strip()
         self.sp_model = sp_model if sp_model is not None else os.environ.get("CT2_SP_MODEL", "")
         self.device = device if device is not None else os.environ.get("CT2_DEVICE", "cpu")
-        self.compute_type = compute_type if compute_type is not None else os.environ.get("CT2_COMPUTE_TYPE", "int8")
+        self.compute_type = compute_type if compute_type is not None else os.environ.get("CT2_COMPUTE_TYPE", "int4")
 
         # Encoder-decoder NMT families have no glossary mechanism; EuroLLM (LLM)
         # accepts an instruction glossary, so it can own terminology like the LLM
@@ -185,7 +213,7 @@ class CT2Translator:
         else:  # opus tc-big and similar
             target_prefix = None
 
-        kwargs = {"beam_size": 4, "max_decoding_length": 512}
+        kwargs = {"beam_size": 4, "max_decoding_length": 2048}
         if target_prefix is not None:
             kwargs["target_prefix"] = target_prefix
         result = self._engine.translate_batch([tokens], **kwargs)
@@ -217,7 +245,7 @@ class CT2Translator:
         else:
             tokens = self._engine.tokenize(prompt) if hasattr(self._engine, "tokenize") else list(prompt)
         result = self._engine.generate_batch(
-            [tokens], max_length=512, sampling_temperature=0.0, include_prompt_in_result=False
+            [tokens], max_length=2048, sampling_temperature=0.0, include_prompt_in_result=False
         )
         out_tokens = result[0].sequences[0]
         translated = (self._sp.decode(out_tokens) if self._sp is not None else "".join(out_tokens)).strip()
@@ -252,3 +280,11 @@ class CT2Translator:
     def _guard(source: str, translated: str) -> None:
         if not translated or not translated.strip():
             raise TranslationError("CT2 backend returned an empty translation for a non-empty source chunk.")
+        src_len = len(source.strip())
+        if src_len >= _MIN_RATIO_CHARS:
+            ratio = len(translated.strip()) / src_len
+            if ratio < _MIN_LEN_RATIO or ratio > _MAX_LEN_RATIO:
+                raise TranslationError(
+                    f"CT2 output/input length ratio {ratio:.2f} outside "
+                    f"[{_MIN_LEN_RATIO}, {_MAX_LEN_RATIO}] — suspected hallucination or truncation."
+                )

@@ -43,23 +43,36 @@ _XSD_PARSER = etree.XMLParser(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def validate_xml_with_xsd(xml_tree, xsd_url_or_path):
+def load_xsd(xsd_url_or_path: str) -> "etree.XMLSchema":
+    """Fetch and compile an XSD schema into an ``etree.XMLSchema`` object.
+
+    Separating network I/O from per-file validation means the schema is
+    fetched exactly once per run rather than once per document (M2).
+    Raises on any error so callers can abort the run cleanly.
     """
-    Validate *xml_tree* against an XSD schema.
+    if not xsd_url_or_path:
+        raise ValueError("xsd_url_or_path must be a non-empty string.")
+    if xsd_url_or_path.startswith("http"):
+        req = urllib.request.Request(
+            xsd_url_or_path,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        # 30-second timeout to prevent infinite network hangs.
+        with urllib.request.urlopen(req, timeout=30) as f:
+            xmlschema_doc = etree.parse(f, parser=_XSD_PARSER)
+    else:
+        xmlschema_doc = etree.parse(xsd_url_or_path, parser=_XSD_PARSER)
+    return etree.XMLSchema(xmlschema_doc)
+
+
+def validate_xml_with_xsd(xml_tree, xmlschema: "etree.XMLSchema") -> tuple:
+    """Validate *xml_tree* against a precompiled *xmlschema*.
+
+    Accepts an ``etree.XMLSchema`` produced by :func:`load_xsd` rather than a
+    URL or path, so the caller controls when and how often the schema is
+    compiled.
     """
     try:
-        if xsd_url_or_path.startswith("http"):
-            req = urllib.request.Request(
-                xsd_url_or_path,
-                headers={"User-Agent": "Mozilla/5.0"},
-            )
-            # 30-second timeout to prevent infinite network hangs.
-            with urllib.request.urlopen(req, timeout=30) as f:
-                xmlschema_doc = etree.parse(f, parser=_XSD_PARSER)
-        else:
-            xmlschema_doc = etree.parse(xsd_url_or_path, parser=_XSD_PARSER)
-
-        xmlschema = etree.XMLSchema(xmlschema_doc)
         if xmlschema.validate(xml_tree):
             return True, ""
         return False, xmlschema.error_log
@@ -96,7 +109,7 @@ def _resolve_namespaces(root) -> dict:
 
 
 def process_metadata_xml(
-    input_path, output_path, xpaths, translator, src_lang, tgt_lang, xsd_url=None, csv_writer=None, identifier=None
+    input_path, output_path, xpaths, translator, src_lang, tgt_lang, xsd_schema=None, csv_writer=None, identifier=None
 ):
     try:
         tree = etree.parse(str(input_path), parser=_SECURE_PARSER)
@@ -129,9 +142,9 @@ def process_metadata_xml(
             except etree.XPathError as e:
                 print(f"[WARN] XPath error for '{xpath}': {e}")
 
-        if xsd_url:
+        if xsd_schema:
             print(f"[INFO] Validating {output_path.name} against XSD …")
-            is_valid, error_log = validate_xml_with_xsd(tree, xsd_url)
+            is_valid, error_log = validate_xml_with_xsd(tree, xsd_schema)
             if is_valid:
                 print(f"[SUCCESS] XSD validation passed for {output_path.name}")
             else:

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 
 from atrium_paradata import ParadataLogger
 from main import process_single_file
@@ -154,7 +154,18 @@ async def translate_document(
         if not success:
             raise HTTPException(status_code=500, detail="Translation processing failed.")
 
-        return FileResponse(path=output_path, media_type="application/xml", filename=out_filename)
+        # C1: read into memory while the TemporaryDirectory is still open.
+        # FileResponse streams lazily *after* the context exits, so the tmpdir
+        # is already deleted before the first byte is sent — returning an
+        # in-memory Response eliminates that race entirely.
+        with open(output_path, "rb") as fh:
+            content_bytes = fh.read()
+
+    return Response(
+        content=content_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{out_filename}"'},
+    )
 
 
 @app.get("/info")

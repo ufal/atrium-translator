@@ -41,16 +41,19 @@ def test_translate_upload_size_limit():
 def test_translate_logs_components(mock_log_component, mock_process_single_file):
     """Component logging must fire on a successful API translation (M1).
 
-    ``models`` is normally populated by the lifespan handler, which does not
-    run in a bare TestClient call.  We inject a fake translator via
-    ``patch.dict`` so the endpoint can reach the component-logging block
-    without a real backend or model directory.
+    ``models`` is not populated in a bare TestClient call (lifespan doesn't
+    run), so we inject a fake translator via ``patch``.  After C1 the endpoint
+    reads the output file while inside the TemporaryDirectory context, so the
+    side-effect must write it; a plain return_value is no longer enough.
     """
     from unittest.mock import MagicMock
 
-    from fastapi.responses import Response as _Response
+    def _write_and_succeed(file_path=None, output_file=None, **kwargs):
+        if output_file is not None:
+            output_file.write_bytes(b"<alto/>")
+        return True, 0
 
-    mock_process_single_file.return_value = (True, 0)
+    mock_process_single_file.side_effect = _write_and_succeed
 
     fake_translator = MagicMock()
     fake_translator.name = "lindat"
@@ -58,11 +61,8 @@ def test_translate_logs_components(mock_log_component, mock_process_single_file)
     fake_translator.license_components.return_value = ["lindat_cubbitt"]
 
     fake_models = {"translator": fake_translator, "identifier": MagicMock()}
-    # process_single_file is mocked so no output file is ever written;
-    # patch FileResponse so the endpoint doesn't try to serve a missing path.
-    dummy_response = _Response(content=b"<alto/>", media_type="application/xml")
 
-    with patch("service.api.models", fake_models), patch("service.api.FileResponse", return_value=dummy_response):
+    with patch("service.api.models", fake_models):
         valid_xml_content = b"<alto></alto>"
         response = client.post(
             "/translate?source_lang=auto",
@@ -75,3 +75,41 @@ def test_translate_logs_components(mock_log_component, mock_process_single_file)
     mock_log_component.assert_any_call("fasttext")
     # At least one backend component must also have been logged
     assert mock_log_component.call_count >= 2, "backend license components should also be logged"
+
+
+@patch("service.api.process_single_file")
+def test_translate_happy_path(mock_process_single_file):
+    """Full upload-to-response round-trip: verifies status, content-type,
+    Content-Disposition header, and that translated bytes reach the client.
+
+    Uses a side-effect that writes the output file (required after C1, which
+    reads the file into memory while the TemporaryDirectory is still alive).
+    """
+    from unittest.mock import MagicMock
+
+    def fake_process(file_path=None, output_file=None, **kwargs):
+        if output_file is not None:
+            output_file.write_bytes(b"<alto><String CONTENT='translated'/></alto>")
+        return True, 0
+
+    mock_process_single_file.side_effect = fake_process
+
+    fake_translator = MagicMock()
+    fake_translator.name = "lindat"
+    fake_translator.vocabulary = {}
+    fake_translator.license_components.return_value = ["lindat_cubbitt"]
+
+    fake_models = {"translator": fake_translator, "identifier": MagicMock()}
+
+    with patch("service.api.models", fake_models):
+        valid_xml_content = b"<alto><String CONTENT='original'/></alto>"
+        response = client.post(
+            "/translate?source_lang=cs&target_lang=en",
+            files={"file": ("test.alto.xml", valid_xml_content, "application/xml")},
+            data={"is_alto": "true"},
+        )
+
+    assert response.status_code == 200
+    assert "application/xml" in response.headers["content-type"]
+    assert 'attachment; filename="test_en.alto.xml"' in response.headers["content-disposition"]
+    assert b"translated" in response.content

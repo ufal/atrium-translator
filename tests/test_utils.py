@@ -20,9 +20,10 @@ Design notes
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from lxml import etree
 
-from utils import process_alto_xml, process_metadata_xml, validate_xml_with_xsd
+from utils import load_xsd, process_alto_xml, process_metadata_xml, validate_xml_with_xsd
 
 # ── constants shared across test classes ─────────────────────────────────────
 
@@ -48,12 +49,12 @@ _SAMPLE_XSD = """\
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# validate_xml_with_xsd
+# load_xsd & validate_xml_with_xsd
 # ════════════════════════════════════════════════════════════════════════════
 
 
 class TestValidateXmlWithXsd:
-    """validate_xml_with_xsd(xml_tree, xsd_url_or_path) → (bool, log)."""
+    """Tests for load_xsd and validate_xml_with_xsd."""
 
     def _xsd_file(self, tmp_path: Path, content: str = _SAMPLE_XSD) -> Path:
         p = tmp_path / "schema.xsd"
@@ -62,28 +63,29 @@ class TestValidateXmlWithXsd:
 
     def test_valid_xml_returns_true_and_empty_log(self, tmp_path):
         xsd = self._xsd_file(tmp_path)
+        schema = load_xsd(str(xsd))
         tree = etree.ElementTree(etree.fromstring("<root><child>ok</child></root>"))
-        valid, log = validate_xml_with_xsd(tree, str(xsd))
+        valid, log = validate_xml_with_xsd(tree, schema)
         assert valid is True
         assert log == ""
 
     def test_xml_with_wrong_root_returns_false(self, tmp_path):
         xsd = self._xsd_file(tmp_path)
+        schema = load_xsd(str(xsd))
         tree = etree.ElementTree(etree.fromstring("<wrong_root/>"))
-        valid, log = validate_xml_with_xsd(tree, str(xsd))
+        valid, log = validate_xml_with_xsd(tree, schema)
         assert valid is False
         assert log
 
-    def test_missing_schema_file_returns_false_with_message(self, tmp_path):
-        tree = etree.ElementTree(etree.fromstring("<root/>"))
-        valid, log = validate_xml_with_xsd(tree, str(tmp_path / "no_such.xsd"))
-        assert valid is False
-        assert log
+    def test_missing_schema_file_raises_exception(self, tmp_path):
+        with pytest.raises(Exception):
+            load_xsd(str(tmp_path / "no_such.xsd"))
 
     def test_root_element_with_no_children_satisfies_min_occurs_zero(self, tmp_path):
         xsd = self._xsd_file(tmp_path)
+        schema = load_xsd(str(xsd))
         tree = etree.ElementTree(etree.fromstring("<root/>"))
-        valid, _ = validate_xml_with_xsd(tree, str(xsd))
+        valid, _ = validate_xml_with_xsd(tree, schema)
         assert valid is True
 
 
@@ -95,7 +97,7 @@ class TestValidateXmlWithXsd:
 class TestProcessAmcrXml:
     """
     Tests for process_metadata_xml(input_path, output_path, xpaths, translator,
-                                   src_lang, tgt_lang, xsd_url, csv_writer, identifier).
+                                   src_lang, tgt_lang, xsd_schema, csv_writer, identifier).
     """
 
     # ── translation ──────────────────────────────────────────────────────────
