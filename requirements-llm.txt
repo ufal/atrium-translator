@@ -11,4 +11,4 @@
 # Then configure the backend via the LLM_* environment variables and select it
 # with `--backend openai_compatible` (CLI) or TRANSLATION_BACKEND=openai_compatible.
 # See docs/translation-backends.md.
-requests==2.32.3
+requests==2.34.2
