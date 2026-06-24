@@ -3,10 +3,14 @@ name: Scheduled Smoke Test
 permissions:
   contents: read
   actions: read
+  issues: write          # required by "Open Issue on Failure"; GitHub's 403 asked
+                         # for exactly this (x-accepted-github-permissions: issues=write).
+                         # A permissions block WITHOUT it pins issues=none -> 403.
 
 on:
   schedule:
     - cron: '0 4 * * *'
+  workflow_dispatch:     # allow manual re-runs
 
 jobs:
   smoke-test:
