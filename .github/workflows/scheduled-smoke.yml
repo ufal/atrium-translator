@@ -3,10 +3,14 @@ name: Scheduled Smoke Test
 on:
   schedule:
     - cron: '0 4 * * *'
+  workflow_dispatch:          # allow manual re-runs (parity with the rest of the suite)
 
 jobs:
   smoke-test:
     runs-on: ubuntu-latest
+    permissions:              # fix: the "Open Issue on Failure" step needs issues:write,
+      contents: read          # otherwise github.rest.issues.create returns
+      issues: write           # "Resource not accessible by integration"
     steps:
       - uses: actions/checkout@v7
 
@@ -17,9 +21,10 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements-test.txt
-          pip install -r service/requirements.txt
+        # fix: install requirements.txt — it carries fasttext-wheel, which
+        # processors/identifier.py imports at module top. Omitting it made
+        # pytest fail at collection (exit 2) before any test ran.
+        run: pip install -r requirements.txt -r service/requirements.txt -r requirements-test.txt
 
       - name: Run Pytest
         env:
