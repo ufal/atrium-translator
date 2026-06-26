@@ -1,6 +1,6 @@
 file,page_num,line_num,text_auto,text_en
 MTX201501307_anon,1,1,Záchranný archeologický výzkum,rescue archaeological research
-MTX201501307_anon,1,1,"Vraní, ČOV a kanalizace","Crow, QOV and sewer"
+MTX201501307_anon,1,1,"Vraní, ČOV a kanalizace","Crow, OV and sewer"
 MTX201501307_anon,1,2,"parc. č. 41/1, 41/5, 41/11, 42,137/1","parc. Nos. 41/1, 41/5, 41/11, 42,137/1"
 MTX201501307_anon,1,1,Nálezová zpráva,fieldwork report
 MTX201501307_anon,1,1,"Pueblo - archeologická společnost, o. p. s.","Pueblo - archaeological society, o. p. society."
@@ -27,9 +27,9 @@ MTX201501307_anon,2,13,"Tomáš Beran, geodet","Tomáš Beran, geodet"
 MTX201501307_anon,2,1,Upozornění,Warning
 MTX201501307_anon,2,2,Předložená práce vznikla tvůrčím zpracováním výsledků archeologického výzkumu a je tedy chráněna autorským právem,The submitted work was created by the creative processing of the results of archaeological research and is therefore protected by the copyright law
 MTX201501307_anon,2,3,podle platných právních předpisů České republiky ve smyslu zákona 121/2000 Sb. Na základě tohoto zákona jsou chráněny,"under the current legislation of the České republic within the meaning of law 121/2000 Sb. On the basis of this law, its"
-MTX201501307_anon,2,4,"i její jednotlivé části, tj. např. text, databáze, kresebná, měřičská a fotografická dokumentace (viz § 2 citovaného zákona).","individual parts are also protected, i.e. text, database, cretaceous, meter and photodocumentation (see § 2 cited by law)."
-MTX201501307_anon,2,5,"Tuto práci lze tedy, stejně jako její části, dále využít, popřípadě uveřejnit, jen se svolením autora (viz § 12 citovaného","This work, like parts of it, can therefore be used or published only with the author's permission (see Paragraph 12 of the"
-MTX201501307_anon,2,6,zákona).,law cited).
+MTX201501307_anon,2,4,"i její jednotlivé části, tj. např. text, databáze, kresebná, měřičská a fotografická dokumentace (viz § 2 citovaného zákona).","individual parts are also protected, i.e. text, database, cretaceous, measurable and photographic documentation (see § 2 cited by law)."
+MTX201501307_anon,2,5,"Tuto práci lze tedy, stejně jako její části, dále využít, popřípadě uveřejnit, jen se svolením autora (viz § 12 citovaného","This work, like parts of it, can therefore be further exploited or published only with the author's permission (see Paragraph 12 of"
+MTX201501307_anon,2,6,zákona).,law).
 MTX201501307_anon,3,1,3,3
 MTX201501307_anon,3,1,"Pueblo - archeologická společnost, o. p. s.","Pueblo - archaeological society, o. p. society."
 MTX201501307_anon,3,1,Katastrální území:,cadastral area:
@@ -145,13 +145,13 @@ MTX201501307_anon,7,2,a jsou rozdělena do čtyř kategorií: UAN I - území s 
 MTX201501307_anon,7,3,"nálezů; UAN II - území, na němž nebyl doposud pozitivně prokázán výskyt archeologických nálezů ale určité indicie mu nasvědčují:",finds; UAN II - Territories in which the presence of archaeological finds has not yet been positively proven but certain indications are
 MTX201501307_anon,7,4,"pravděpodobnost výskytu archeologických nálezů je 51-100%; UAN III - území, na kterém ještě nebyl rozpoznán a pozitivně doložen výskyt",indicative: the probability of occurrence of archaeological finds is 51-100%; UAN III - Territories in which it has not yet been recognised and positively positive
 MTX201501307_anon,7,5,"archeologických nálezů a prozatím tomu nenasvědčují žádné indicie, ale předmětné území mohlo být osídleno nebo jinak využito člověkem,","There is evidence of the occurrence of archaeological finds, and so far there are no indications, but the area in question may have been settled or otherwise used by human"
-MTX201501307_anon,7,6,"a proto existuje 50% pravděpodobnost výskytu archeologických nálezů. Jde tedy o území celé ČR vyjma UAN I, II a IV; UAN IV - území, kde","and therefore there is a 50% probability of the occurrence of archaeological finds. It is therefore the territory of the whole Czech Republic except UAN I, II and IV; UAN IV - territory where"
+MTX201501307_anon,7,6,"a proto existuje 50% pravděpodobnost výskytu archeologických nálezů. Jde tedy o území celé ČR vyjma UAN I, II a IV; UAN IV - území, kde","and therefore there is a 50% probability of the occurrence of archaeological finds. It is therefore the territory of the whole Czech Republic except UAN I, II and IV; UAN IV - a territory where"
 MTX201501307_anon,7,7,"je nereálná pravděpodobnost výskytu archeologických nálezů - veškerá vytěžená území - lomy, cihelny, pískovny apod.","there is an unrealistic probability of occurrence of archaeological finds - all excavated territories - quarries, brickworks, sandboxes etc."
 MTX201501307_anon,7,8,§ 21 - 24 zákona č. 20/1987Sb. - Na celém zájmovém území v kategoriích UAN I - III je nutno dodržovat ustanovení vyplývající ze,§ 21 - 24 law No 20/1987Sb. - The provisions of law must be observed throughout the area of interest in the categories UAN I - III. This means that
 MTX201501307_anon,7,9,"zákona. To znamená, že je nutné v prostoru UAN I, II i III respektovat § 22 zákona č. 20/1987Sb., o státní památkové péči v platné znění,","it is necessary to respect Paragraph 22 of the law No 20/1987Sb., on the State Historical Preservation, in the current version, in the UAN I, II and III space,"
-MTX201501307_anon,7,10,"tj. stavebníci jsou již od přípravy stavby , tj. záměru provádět jakékoli zemní práce, při nichž může být objeven archeologický nález ve","i.e. the builders have been obliged, since the preparation of the construction , i.e. the intention to carry out any earthworks in which archaeological find may be discovered"
+MTX201501307_anon,7,10,"tj. stavebníci jsou již od přípravy stavby , tj. záměru provádět jakékoli zemní práce, při nichž může být objeven archeologický nález ve","i.e. the builders have been obliged since the preparation of the construction , i.e. the intention to carry out any earthworks in which archaeological find may be discovered"
 MTX201501307_anon,7,11,"smyslu § 23, povinni tento záměr oznámit Archeologickému ústavu AV ČR a umožnit jemu nebo organizaci oprávněné k archeologickým","within the meaning of Paragraph 23, to notify the Archaeological Institute of the AV ČR of this intention and to allow it or an organisation authorised to carry out archaeological"
-MTX201501307_anon,7,12,výzkumům provést na dotčeném území záchranný archeologický výzkum.,research on the territory in question rescue archaeological research.
+MTX201501307_anon,7,12,výzkumům provést na dotčeném území záchranný archeologický výzkum.,research on the territory in question.
 MTX201501307_anon,8,1,8,8
 MTX201501307_anon,8,1,5. Stručná historie obce Vraní,5. A brief history of the Crow village
 MTX201501307_anon,8,1,Místní jméno Vraní je vykládáno jako „místo kde jsou vrány“. Správnost interpretace,"The local name Crow is interpreted as ""the place where the crows are."" The accuracy of the interpretation"
@@ -207,8 +207,8 @@ MTX201501307_anon,9,19,vzniklých řezů sond a jejich geodetické zaměření t
 MTX201501307_anon,9,20,Pro písemný zápis informací byl užit tzv. „formulářový popis“ stratigrafických,"A so-called ""form description"" of the stratigraphic"
 MTX201501307_anon,9,21,"jednotek, a to dle dokumentačních standardů platných ve společnosti Pueblo - archeologická","units was used for writing the information, according to the documentation standards in force at society Pueblo - archaeological"
 MTX201501307_anon,9,22,"společnost, o. p. s. Konkrétně byl v terénu pro každou stratigrafickou jednotku vypsán","society, o. p. society. Specifically, an appropriate form was written out in the field for each stratigraphic unit."
-MTX201501307_anon,9,23,patřičný formulář. Kresebná dokumentace byla provedena v měřítku 1:20. Fotografická,The documentation drawing was done on a scale of 1:20. photodocumentation
-MTX201501307_anon,9,24,dokumentace byla provedena aparátem Canon PowerShot SX120 IS.,was performed by the Canon PowerShot SX120 IS apparatus.
+MTX201501307_anon,9,23,patřičný formulář. Kresebná dokumentace byla provedena v měřítku 1:20. Fotografická,The documentation drawing was done on a scale of 1:20.
+MTX201501307_anon,9,24,dokumentace byla provedena aparátem Canon PowerShot SX120 IS.,photodocumentation was performed by the Canon PowerShot SX120 IS apparatus.
 MTX201501307_anon,9,25,Movité nálezy byly tříděny v terénu a převáženy k laboratornímu zpracování.,Movable findings were trialled in the field and transported for laboratory processing.
 MTX201501307_anon,9,26,V souběhu s průběhem terénních prací byla provedena digitalizace dokumentace a tvořeny,"In parallel to the progress of the field work, documentation was digitised and made up of"
 MTX201501307_anon,10,1,10,10
@@ -229,11 +229,11 @@ MTX201501307_anon,10,14,"prachovité hnědé hlíny, porostlé travním drnem (S
 MTX201501307_anon,10,15,byla poškozena recentními výkopy inženýrských sítí (Přííloha: obr. č. 2 - 3). Konkrétně se,plumbing pipe (SJ 500 and 501) and cut for telephone cable (SJ 502). The preserved layer
 MTX201501307_anon,10,16,jednalo o výkopy pro plynové potrubí (SJ 500 a 501) a výkop pro telefonní kabel (SJ 502).,(Annex: Figure 4) is further described from the stratigraphically oldest to
 MTX201501307_anon,10,17,Zachovalé souvrství (Příloha: obr. č. 4) je dále popisováno od stratigraficky nejstarších po,the youngest layers of the terrain. The archaeological subsoil consisting of
-MTX201501307_anon,10,18,nejmladší vrstvy terénu. Na archeologické podloží tvořené šedobéžovou jílovitou hlínou,the grey-beige clay clay (SJ
-MTX201501307_anon,10,19,"(SJ 100) nasedala hnědošedá, mírně plastická hlína (SJ 115=119) obsahující homogenní","100) was mounted by a brownish-grey, slightly plastic clay (SJ 115=119) containing a homogeneous"
+MTX201501307_anon,10,18,nejmladší vrstvy terénu. Na archeologické podloží tvořené šedobéžovou jílovitou hlínou,the grey-beige clay clay (SJ 100)
+MTX201501307_anon,10,19,"(SJ 100) nasedala hnědošedá, mírně plastická hlína (SJ 115=119) obsahující homogenní","was mounted by a brownish-grey, slightly plastic clay (SJ 115=119) containing a homogeneous"
 MTX201501307_anon,10,20,"soubor keramického materiálu 15. - 16. stol. Tato vrstva, tvořící původní povrch terénu, byla","set of ceramic material 15th - 16th table. This layer, forming the original surface terrain, was"
 MTX201501307_anon,10,21,"následně překryta 0,3 m mocnou vrstvou lomového kamene a hlíny (SJ 103) obsahující",subsequently superimposed by a 0.3m-thick layer of fracture stone and clay (SJ 103) containing
-MTX201501307_anon,10,22,keramiku 15. a 17. stol. Popsanou situaci lze interpretovat jako účelovou úpravu komunikační,15th and 17th tables. The communication situation can be interpreted as an enhancement. The following
+MTX201501307_anon,10,22,keramiku 15. a 17. stol. Popsanou situaci lze interpretovat jako účelovou úpravu komunikační,Xtermz22z 15th and 17th tables. The communication situation can be interpreted as an enhancement. The following
 MTX201501307_anon,10,23,"plochy, za účelem zvýšení její schůdnosti. Následující vrstvy tvoří navážky hnědých hlín (SJ",layers are made up of brown earth piles (SJ
 MTX201501307_anon,10,24,"116, 112, 102), ve kterých byla zaznamenána keramika 15. - 17. stol. v přemístěné poloze (SJ","116, 112, 102) in which ceramic 15 - 17th century was recorded in the repositioned position (SJ"
 MTX201501307_anon,10,25,112).,112).
@@ -260,9 +260,9 @@ MTX201501307_anon,11,19,"terénu tvoří prachovitá hnědá hlína, porostlá t
 MTX201501307_anon,11,1,S3,S3
 MTX201501307_anon,11,2,"Popis: Sonda č. 3 o celkovém rozměru 1,5 x 2,5 m se nacházela na zatravněné ploše","Description: trench No 3, with an overall dimension of 1,5 x 2,5 m, was situated on a grassed area"
 MTX201501307_anon,11,3,"mezi domy č. p. 9 a 58 ve vzdálenosti 5 m S od SV rohu domu č. p. 58 a 4,5 m od SV rohu","between houses Nos 9 and 58 at a distance of 5 m S from SV horn house Nos 58 and 4,5 m from SV horn"
-MTX201501307_anon,11,4,vchodové části domu č. p. 9 (Příloha: plán č. 1). Sonda byla dokumentována na úroveň,entrance part of house Nos 9 (Annex: Plan No 1). trench has been documented to the level
-MTX201501307_anon,11,5,"archeologického podloží (SJ 100) (Přiíloha: výkresy č. 3, 10). Na archeologické podloží","of archaeological subsoil (SJ 100) (Request: Drawings No 3, 10). The archaeological subsoil"
-MTX201501307_anon,11,6,"tvořené šedobéžovou jílovitou hlínou (SJ 100) nasedala hnědošedá, mírně plastická hlína","consisting of the grey-beige clay clay (SJ 100) was mounted by a brownish-grey, slightly plastic clay"
+MTX201501307_anon,11,4,vchodové části domu č. p. 9 (Příloha: plán č. 1). Sonda byla dokumentována na úroveň,entrance section house No. p. 9 (Annex: Plan No 1). trench has been documented to the level
+MTX201501307_anon,11,5,"archeologického podloží (SJ 100) (Přiíloha: výkresy č. 3, 10). Na archeologické podloží","of archaeological subsoil (SJ 100) (Request: Drawings No 3, 10). The archaeological subsoil,"
+MTX201501307_anon,11,6,"tvořené šedobéžovou jílovitou hlínou (SJ 100) nasedala hnědošedá, mírně plastická hlína","consisting of the grey-beige clay clay (SJ 100), was mounted by a brownish-grey, slightly plastic clay"
 MTX201501307_anon,11,7,(SJ 119=115) obsahující homogenní soubor keramického materiálu 14. - 15. stol (Příloha:,(SJ 119=115) containing a homogeneous set of ceramic material from the 14th - 15th tables (Annex:
 MTX201501307_anon,11,8,"obr. č. 23 - 25; tab. č. 2). Tato vrstva, tvořící původní povrch terénu, byla následně překryta","Figure 23 - 25; Table 2). This layer, forming the original surface terrain, was then overlaid"
 MTX201501307_anon,11,9,"přirozeně vznikajícími antropogenními vrstvami hnědých plastických hlín (SJ 114, 118).","by naturally emerging anthropogenic layers of brown plastic clay (SJ 114, 118)."
@@ -271,32 +271,32 @@ MTX201501307_anon,11,11,"120, 106). Vrstva č. 106 obsahovala druhotně přemís
 MTX201501307_anon,11,12,"obr. č. 22, tab. č. 2). Během 20. stol. toto souvrství porušil výkop blíže neurčených","(Annex: Figure 22, Table 2). During the 20th century, this constellation was violated by cut of unspecified"
 MTX201501307_anon,12,1,12,12
 MTX201501307_anon,12,1,"inženýrských sítí (SJ 511) a výkop jámy na hašení vápna (SJ 504), která byla v superpozici","engineering networks (SJ 511) and cut pit to fire quicklime (SJ 504), which was in superposition"
-MTX201501307_anon,12,2,s mladším výkop (SJ 503) pro plynové potrubí. Zásyp výkopu (SJ 107) č. 503 obsahoval,with the younger cut (SJ 503) for gas-fired plumbing pipe. The cut PGI (SJ 107) No 503 contained
+MTX201501307_anon,12,2,s mladším výkop (SJ 503) pro plynové potrubí. Zásyp výkopu (SJ 107) č. 503 obsahoval,with the younger cut (SJ 503) for gas-powered plumbing pipe. The cut PGI (SJ 107) No 503 contained
 MTX201501307_anon,12,3,druhotně přemístěnou keramiku (14. - 15. a 19. stol.). Zásyp výkopu (SJ 168) č. 511,the secondary relocated ceramic (14th - 15th and 19th centuries). The cut PGI (SJ 168) No 511
 MTX201501307_anon,12,4,obsahoval druhotně přemístěnou keramiku z období (15. - 16. stol.). Současný povrch terénu,contained a secondary relocated ceramic from the period (15th - 16th century). The current surface terrain
 MTX201501307_anon,12,5,"tvoří prachovitá hnědá hlína, porostlá travním drnem (SJ 101).","is dusty brown clay, covered with grass turf (SJ 101)."
 MTX201501307_anon,12,1,S4,S4
 MTX201501307_anon,12,2,"Popis: Sonda č. 4 o celkovém rozměru 1,5 x 1,5 m se nacházela na travnaté ploše před","Description: trench No 4, with an overall dimension of 1,5 x 1,5 m, was situated on a grassy area in front of"
-MTX201501307_anon,12,3,"budovou č. p. 25, ve vzdálenosti 13 m S směrem od jejího Z rohu a 10 m východo-","building No. p. 25, at a distance of 13 m S from its Z horn and 10 m"
-MTX201501307_anon,12,4,jihovýchodním směrem od V rohu budovy č. p. 105 (Příloha: plán č. 1). Sonda byla,east-south-east from V horn building No. p. 105 (Annex: Plan No 1). trench has
-MTX201501307_anon,12,5,dokumentována na úroveň archeologického podloží (SJ 100) (Příloha: výkres č. 4). Na,been documented to the level of archaeological subsoil (SJ 100) (Annex: Drawing No 4).
-MTX201501307_anon,12,6,archeologické podloží tvořené šedobéžovou jílovitou hlínou (SJ 100) nasedala vrstva,An archaeological subsoil made up of grey-beige clay clay (SJ 100) was mounted with a layer
-MTX201501307_anon,12,7,drobného (do 3 cm) lomového kamení (SJ 134). Jedná se o zpevňující úpravu komunikační,of tiny (up to 3 cm) fracture rock (SJ 134). It is a strengthening adjustment of the communication
+MTX201501307_anon,12,3,"budovou č. p. 25, ve vzdálenosti 13 m S směrem od jejího Z rohu a 10 m východo-","building No p. 25, at a distance of 13 m S from its Z horn and 10 m"
+MTX201501307_anon,12,4,jihovýchodním směrem od V rohu budovy č. p. 105 (Příloha: plán č. 1). Sonda byla,east-south-east from V horn building No p. 105 (Annex: Plan No 1). trench has
+MTX201501307_anon,12,5,dokumentována na úroveň archeologického podloží (SJ 100) (Příloha: výkres č. 4). Na,been documented to
+MTX201501307_anon,12,6,archeologické podloží tvořené šedobéžovou jílovitou hlínou (SJ 100) nasedala vrstva,the level of archaeological subsoil (SJ 100) (Annex: Drawing No 4). An archaeological subsoil made of grey-beige clay clay (SJ
+MTX201501307_anon,12,7,drobného (do 3 cm) lomového kamení (SJ 134). Jedná se o zpevňující úpravu komunikační,100) was mounted with a layer of tiny (up to 3 cm) fracture rock (SJ 134). It is a strengthening adjustment of the communication
 MTX201501307_anon,12,8,"plochy. Kamenitou vrstvu překrývá vrstva hnědošedého hlinitého písku (SJ 133), která","area. A layer of brownish grey clay sand (SJ 133) overlaps the stony layer,"
-MTX201501307_anon,12,9,s největší pravděpodobností tvoří usazeniny vzniklé využíváním vrstvy č. 134 jako pochozího,most likely forming deposits resulting from the use of layer No 134 as the marching
+MTX201501307_anon,12,9,s největší pravděpodobností tvoří usazeniny vzniklé využíváním vrstvy č. 134 jako pochozího,most likely forming deposits formed by the use of layer No 134 as a marching
 MTX201501307_anon,12,10,"povrchu. Tuto interpretaci podporuje i následný vývoj terénu, kdy se opakuje obdobná","surface. This interpretation is supported by the subsequent development of the terrain, when a similar"
-MTX201501307_anon,12,11,situace. Vrstvu č. 133 v celé ploše sondy překrývá vrstva lomového kamene s příměsí,situation recurs. Layer No 133 is overlaid across the whole area of trench by a fracture layer of stone with an
-MTX201501307_anon,12,12,"hlinitého písku (SJ 132, obsahuje keramiku z 15. stol.), na kterou nasedají vrstvy hlinitého","admixture of aluminium sand (SJ 132, contains 15th-century ceramic), on which layers of aluminium sand are mounted"
+MTX201501307_anon,12,11,situace. Vrstvu č. 133 v celé ploše sondy překrývá vrstva lomového kamene s příměsí,situation recurs. Layer No 133 is overlaid across the entire trench area by a fracture stone layer with an
+MTX201501307_anon,12,12,"hlinitého písku (SJ 132, obsahuje keramiku z 15. stol.), na kterou nasedají vrstvy hlinitého","admixture of aluminium sand (SJ 132, contains 15th century ceramic), on which layers of aluminium sand are mounted"
 MTX201501307_anon,12,13,"písku (SJ 131, 130). Lze předpokládat, že se opět jedná o zpevnění komunikační plochy a","(SJ 131, 130). It can be assumed that this is again a strengthening of the communication area and"
 MTX201501307_anon,12,14,"doklad jejího užívání. Následné vrstvy jsou tvořeny vrstvou maltoviny (SJ 126), stavební suti","proof of its use. The downstream layers are made up of a layer of mortar (SJ 126), building rubble"
-MTX201501307_anon,12,15,s uhlíky (SJ 125) a stavební suti (SJ 124). Tento horizont lze interpretovat jako cílené,with carbons (SJ 125) and building rubble (SJ 124). This horizon can be interpreted as a targeted
-MTX201501307_anon,12,16,"rozvezení poškozené stavby, která přestala sloužit svému účelu. Pravděpodobně po požáru.","distribution of the damaged construction, which has ceased to serve its purpose. Probably after the fire."
+MTX201501307_anon,12,15,s uhlíky (SJ 125) a stavební suti (SJ 124). Tento horizont lze interpretovat jako cílené,with carbons (SJ 125) and building rubble (SJ 124). This horizon can be interpreted as the targeted
+MTX201501307_anon,12,16,"rozvezení poškozené stavby, která přestala sloužit svému účelu. Pravděpodobně po požáru.",delivery of a damaged construction that has ceased to serve its purpose. Probably after the fire.
 MTX201501307_anon,12,17,"Jak dokládá mapa Stabilního katastru z r. 1835, tak v těsné blízkosti sondy se v minulosti","As the 1835 map Stable Cadastra illustrates, there has"
 MTX201501307_anon,12,18,skutečně nacházela zástavba (Příloha: plán č. 2). Ve vrstvách č. 124 a 125 byla zjištěna,"indeed been a development in the past in close proximity to trench (Annex: Plan 2). In layers 124 and 125, ceramic was found"
 MTX201501307_anon,12,19,"keramika datovatelná do období 16. stol. (Příloha: obr. č. 20 - 21, tab. č. 3), vrstva č. 125","to be dated to the 16th century (Annex: Figure 20 - 21, Table 3), while layer 125"
 MTX201501307_anon,12,20,navíc obsahovala renesanční kachle z 2. pol. 16. stol. (Přiíloha: obr. č. 19; tab. č. 1.,also contained a Renaissance duck from the 2nd to 16th century
 MTX201501307_anon,12,21,"Destrukční horizont překrývají vrstvy recentních navážek (SJ 123, 122, 121). Současný","(Annex: Figure 19; Table 1). destruction horizon overlaps layers of recent bindings (SJ 123, 122, 121). The current"
-MTX201501307_anon,12,22,"povrch terénu tvoří prachovitá hnědá hlína, porostlá travním drnem (SJ 101).","surface terrain is dusty brown clay, covered in grass turf (SJ 101)."
+MTX201501307_anon,12,22,"povrch terénu tvoří prachovitá hnědá hlína, porostlá travním drnem (SJ 101).","surface terrain is dusty brown clay, covered with grass turf (SJ 101)."
 MTX201501307_anon,13,1,13,13
 MTX201501307_anon,13,1,S5,S5
 MTX201501307_anon,13,2,"Popis: Sonda č. 5 o celkovém rozměru 1,5 x 1,5 m se nacházela v S části pozemku","Description: trench No 5, measuring a total of 1,5 x 1,5 m, was located at S part of the property"
@@ -307,28 +307,28 @@ MTX201501307_anon,13,6,tvořeno šedobéžovou jílovitou hlínou (SJ 100) se za
 MTX201501307_anon,13,7,"výkopy. Ani jeden z nich nebyl odkryt v plném rozsahu, protože zasahovaly mimo",fully uncovered because they encroached outside
 MTX201501307_anon,13,8,zkoumanou plochu (Přiíloha: obr. č. 12). V JZ roku sondy byla odkryta část výkopu,"the area studied (Figure 12). In the JZ of trench, part of cut irregular shape (SJ 505) was uncovered at a"
 MTX201501307_anon,13,9,"nepravidelného tvaru (SJ 505) o hloubce 0,2 m. Jeho výplň tvořila mírně plastická béžově",depth of 0.2 m. Its fill was a slightly plastic beige
-MTX201501307_anon,13,10,"hnědá hlína (SJ 135), obsahující keramický materiál datovatelný do 15. - 16. stol. V SZ roku","brown clay (SJ 135), containing ceramic material date to 15 - 16th century."
-MTX201501307_anon,13,11,"sondy byla odkryta část výkopu neurčitelného tvaru (SJ 506) o zaznamenané hloubce 0,16 m.","In the SZ of trench, part of cut non-readable shape (SJ 506) was uncovered at a recorded depth of 0.16 m."
-MTX201501307_anon,13,12,Jeho výplň tvořila mírně plastická béžově hnědá písčitá hlína (SJ 139). V SV roku sondy byla,"Its fill was a slightly plastic beige brown Xzzz thermal. In the SV of the year trench, a"
-MTX201501307_anon,13,13,"odkryta část výkopu neurčitelného tvaru (SJ 507) o zaznamenané hloubce 0,12 m. Jeho výplň","part of cut of indeterminate shape (SJ 507) with a recorded depth of 0,12 m was"
-MTX201501307_anon,13,14,tvořila mírně plastická béžově hnědá písčitá hlína (SJ 140). V JV roku sondy byla odkryta,uncovered. Its filling was a slightly plastic beige brown sandy clay (SJ 140). The trench JV uncovered
-MTX201501307_anon,13,15,"část výkopu neurčitelného tvaru (SJ 510) o hloubce 0,2 m. Jeho výplň tvořila prachová černo",part of the cut indeterminate shape (SJ 510) at a depth of 0.2 m. Its fill was a dusty black
+MTX201501307_anon,13,10,"hnědá hlína (SJ 135), obsahující keramický materiál datovatelný do 15. - 16. stol. V SZ roku","brown clay (SJ 135), containing ceramic material dated to 15 - 16th century."
+MTX201501307_anon,13,11,"sondy byla odkryta část výkopu neurčitelného tvaru (SJ 506) o zaznamenané hloubce 0,16 m.","In the SZ of Xtermz14z, part of cut undetectable shape (SJ 506) was uncovered at a recorded depth of 0.16 m."
+MTX201501307_anon,13,12,Jeho výplň tvořila mírně plastická béžově hnědá písčitá hlína (SJ 139). V SV roku sondy byla,"Its fill was a slightly plastic beige brown Xzzz thermal. In the SV of the year trench, part"
+MTX201501307_anon,13,13,"odkryta část výkopu neurčitelného tvaru (SJ 507) o zaznamenané hloubce 0,12 m. Jeho výplň","of cut of an indeterminate shape (SJ 507) with a recorded depth of 0,12 m was"
+MTX201501307_anon,13,14,tvořila mírně plastická béžově hnědá písčitá hlína (SJ 140). V JV roku sondy byla odkryta,"uncovered. Its filling was a slightly plastic beige brown sandy clay (SJ 140). In the JV of trench, a part"
+MTX201501307_anon,13,15,"část výkopu neurčitelného tvaru (SJ 510) o hloubce 0,2 m. Jeho výplň tvořila prachová černo",of cut of indeterminate shape (SJ 510) with a depth of 0.2 m was uncovered. Its fill was a dusty black
 MTX201501307_anon,13,16,"hnědá hlína (SJ 136). Tyto výkopy překryly recentní navážky písčitých hlín (SJ 138, 137)","brown clay (SJ 136). These excavations overlaid the recent sandy-clay piles (SJ 138, 137)"
 MTX201501307_anon,13,17,s druhotně přemístěnou keramikou 15. - 20. stol. Současný povrch terénu tvoří prachovitá,with the secondary relocated ceramic 15th - 20th century. The current surface terrain is dusty
 MTX201501307_anon,13,18,"hnědá hlína, porostlá travním drnem (SJ 101).","brown clay, covered with grass turf (SJ 101)."
 MTX201501307_anon,13,1,S6,S6
 MTX201501307_anon,13,2,"Popis: Sonda č. 6 o celkovém rozměru 1,5 x 1,5 m se nacházela v S části návsi mezi","Description: trench No 6, with a total dimension of 1,5 x 1,5 m, was located in S part of the square between"
-MTX201501307_anon,13,3,"budovami č. e. 42 a č. p. 53. Byla vzdálená 3 m SV směrem od S rohu budovy č. e. 42 a 11,5","buildings No e. 42 and No 53. It was 3 m SV away from S horn building No e. 42 and 11,5"
+MTX201501307_anon,13,3,"budovami č. e. 42 a č. p. 53. Byla vzdálená 3 m SV směrem od S rohu budovy č. e. 42 a 11,5","buildings No e. 42 and No 53. It was 3 m SV away from S horn building No. 42 and 11,5"
 MTX201501307_anon,13,4,m Z směrem od S rohu budovy č. p. 53 (Přiíloha: plán č. 1). Kvůli kořenovému systému,m Z away from S horn building No. 53 (Attribution: plan 1). Due to the root system
 MTX201501307_anon,13,5,"nedalekého stromu, byla exkavována pouze SZ pol. sondy a to na úroveň archeologického","of a nearby tree, only SZ pol trench has been excavated to the level of archaeological"
 MTX201501307_anon,13,6,podloží (SJ 100) (Příloha: výkres č. 8). Na podloží tvořené šedobéžovou jílovitou hlínou,subsoil (SJ 100) (Annex: Drawing No 8). The subsoil made up of grey-beige clay clay
 MTX201501307_anon,13,7,(SJ 100) nasedala vrstva čistého písku (SJ 157) a štěrkovitého písku (SJ 154) s keramickým,(SJ 100) was mounted by a layer of pure sand (SJ 157) and gravel sand (SJ 154) with
-MTX201501307_anon,13,8,materiálem 15. stol. Tyto vrstvy překrývala vrstva lomového kamene s příměsí písku (SJ,15th-table ceramic material. I believe these are fluviatile sedimentes formed in torrential rains by flushing the coarser soil particles from the higher ground. The refractive layer of stone (SJ
-MTX201501307_anon,13,9,"155), vrstva štěrkovitého písku (SJ 156) a hlinitých písků (SJ 153, 151 s keramikou 15. - 16.","155) would then constitute a makeshift modification of the communication surface, which was again overlaid with other silts. These"
-MTX201501307_anon,13,10,"stol.). Domnívám se, že se jedná o fluviální sedimenty vzniklé při přívalových deštích",sediments overlap with sand-loam
-MTX201501307_anon,13,11,splavováním hrubších částic půdy z výše položených partií terénu. Vrstva lomového kamene,
-MTX201501307_anon,13,12,"(SJ 155) by pak představovala provizorní úpravu komunikační plochy, která byla opět",
-MTX201501307_anon,13,13,převrstvena dalšími naplaveninami. Tyto sedimenty překrývají navážky písčitých hlín (SJ,(SJ)
+MTX201501307_anon,13,8,materiálem 15. stol. Tyto vrstvy překrývala vrstva lomového kamene s příměsí písku (SJ,15th-table ceramic material. These layers were overlaid by a layer of fractured stone with sand (SJ
+MTX201501307_anon,13,9,"155), vrstva štěrkovitého písku (SJ 156) a hlinitých písků (SJ 153, 151 s keramikou 15. - 16.","155), a layer of gravel sand (SJ 156) and clay sands (SJ 153, 151 with ceramic 15. - 16th"
+MTX201501307_anon,13,10,"stol.). Domnívám se, že se jedná o fluviální sedimenty vzniklé při přívalových deštích",tables). I believe these are fluviatile sedimentes formed in torrential rains
+MTX201501307_anon,13,11,splavováním hrubších částic půdy z výše položených partií terénu. Vrstva lomového kamene,by flushing the coarser soil particles from higher ground areas. The fracture layer stone
+MTX201501307_anon,13,12,"(SJ 155) by pak představovala provizorní úpravu komunikační plochy, která byla opět","(SJ 155) would then constitute a makeshift modification of the communication surface, which was again"
+MTX201501307_anon,13,13,převrstvena dalšími naplaveninami. Tyto sedimenty překrývají navážky písčitých hlín (SJ,topped by other alluvia. These sediments overlap with sand-loam (SJ)
 MTX201501307_anon,14,1,14,14
 MTX201501307_anon,14,1,"150, 149). Současný povrch terénu tvoří tmavě černá písčitá hlína (SJ 148) obsahující","150, 149). The current surface terrain consists of the dark black sandy clay (SJ 148) containing"
 MTX201501307_anon,14,2,druhotně přemístěnou keramiku 16. - 17. stol.,the secondary relocated ceramic 16th - 17th century.
@@ -336,39 +336,39 @@ MTX201501307_anon,14,1,S7,S7
 MTX201501307_anon,14,2,"Popis: Sonda č. 7 o celkovém rozměru 1,5 x 1,5 m se nacházela mezi budovou č. p. 14","Description: trench No 7 with an overall dimension of 1,5 x 1,5 m was between building Nos 14"
 MTX201501307_anon,14,3,"a 37, ve vzdálenosti 5 m S směrem od Z rohu domu č. p. 37 a 15 m JV směrem od V rohu","and 37, at a distance of 5 m S from Z horn house Nos 37 and 15 m JV from V horn"
 MTX201501307_anon,14,4,domu č. p. 14 (Příloha: plán č. 1). Sonda byla dokumentována na úroveň archeologického,house Nos 14 (Annex: Plan No 1). trench has been documented to the level of archaeological
-MTX201501307_anon,14,5,podloží (SJ 100) (Příloha: výkres č. 9). Z podloží tvořeného šedobéžovou jílovitou hlínou,subsoil (SJ 100) (Annex: Drawing No 9). subsoil made up of the grey-beige clay clay
-MTX201501307_anon,14,6,(SJ 100) se vyvinul půdotvorný horizont (SJ 164) béžově šedohnědé plastické hlíny. Na ní se,(SJ 100) has developed a soil-forming horizon (SJ 164) of beige-grey-brown plastic clay.
+MTX201501307_anon,14,5,podloží (SJ 100) (Příloha: výkres č. 9). Z podloží tvořeného šedobéžovou jílovitou hlínou,subsoil (SJ 100) (Annex: Drawing No 9). The subsoil made up of the grey-beige clay clay
+MTX201501307_anon,14,6,(SJ 100) se vyvinul půdotvorný horizont (SJ 164) béžově šedohnědé plastické hlíny. Na ní se,(SJ 100) developed a soil-forming horizon (SJ 164) of beige-grey-brown plastic clay.
 MTX201501307_anon,14,7,vytvořila kulturní vrstva tmavé šedočerné hlíny (SJ 166). Její vývoj byl přerušen navážkou,The cultural layer dark grey and black clay (SJ 166) formed on it. Its development was interrupted by backfill
 MTX201501307_anon,14,8,"šedočerné písčité hlíny (SJ 166), která obsahovala keramiku datovatelnou do období 15. - 16.","grey-black sandy clay (SJ 166), which contained ceramic dating"
 MTX201501307_anon,14,9,stol. Na ní bezprostředně nasedaly navážkové vrstvy hlinitého písku (SJ 162) a písčité hlíny,back to the 15th - 16th century. On it immediately mounted the weight layers of aluminium sand (SJ 162) and sandy clay
 MTX201501307_anon,14,10,(SJ 167). Nerovnosti terénu byly následně vyrovnány navážkou béžově hnědé jílovité hlíny,(SJ 167). The unevenness of the terrain was subsequently compensated by backfill beige-brown clay clay
-MTX201501307_anon,14,11,"(SJ 161), která místy dosahovala mocnosti až 0,3 m. Na ní nasedala vrstva černohnědé písčité","(SJ 161), which in places was as high as 0.3m. A layer of black-brown sandy"
-MTX201501307_anon,14,12,"hlíny (SJ 160, nalezeny dvě podkovy) a vrstva hnědé písčité hlíny (SJ 159) obsahující","clay (SJ 160, found two horseshoes) and a layer of brown sandy (SJ 159) containing"
-MTX201501307_anon,14,13,keramiku 17. - 19. stol. Tehdejší povrch byl následně upraven navezením štěrku s příměsí,17. - 19th table. The then-era Xzzz22z was subsequently modified by an offshore grave with direct
-MTX201501307_anon,14,14,hlíny (SJ 158) za účelem zvýšení schůdnosti terénu. Na tuto vrstvu byla později navezena,"Xzzzzz238 thermal load. A layer of beige brown sandy clay (SJ 165) was later added to this layer,"
+MTX201501307_anon,14,11,"(SJ 161), která místy dosahovala mocnosti až 0,3 m. Na ní nasedala vrstva černohnědé písčité","(SJ 161), which in places reached up to 0.3m. A layer of black-brown sandy"
+MTX201501307_anon,14,12,"hlíny (SJ 160, nalezeny dvě podkovy) a vrstva hnědé písčité hlíny (SJ 159) obsahující","clay (SJ 160, found two horseshoes) and a layer of brown sand clay (SJ 159) containing"
+MTX201501307_anon,14,13,keramiku 17. - 19. stol. Tehdejší povrch byl následně upraven navezením štěrku s příměsí,Xtermz24z 17. - 19th table. The then-era surface was subsequently modified by an external staircase with direct
+MTX201501307_anon,14,14,hlíny (SJ 158) za účelem zvýšení schůdnosti terénu. Na tuto vrstvu byla později navezena,"Xzzzzzz26z (SJ) load. A layer of beige brown sandy clay (SJ 165) was later added to this layer,"
 MTX201501307_anon,14,15,"vrstva béžově hnědé písčité hlíny (SJ 165), která opět srovnala terén do relativní robiny.",which again flattened the terrain into a relative robin.
 MTX201501307_anon,14,16,"Současný povrch terénu tvoří prachovitá hnědá hlína, porostlá travním drnem (SJ 101).","The current surface terrain is dusty brown clay, covered with grass turf (SJ 101)."
 MTX201501307_anon,14,1,S8,S8
 MTX201501307_anon,14,2,"Popis: Sonda č. 8 o celkovém rozměru 1,5 x 2 m Byla položena při SZ stěně domu č.","Description: trench No 8 with an overall dimension of 1,5 x 2 m It was laid at SZ wall house No"
 MTX201501307_anon,14,3,"p. 24. Vzdálenost od V rohu protějšího domu č. p. 74, byla asi 8 m J směrem (Příloha: plán č.","24. The distance from V horn, opposite house No. 74, was about 8 m J towards"
-MTX201501307_anon,14,4,1). Sonda byla dokumentována na úroveň archeologického podloží (SJ 100) (Přiíloha: výkres,(Schedule: Schedule 1). trench has been documented to the level of archaeological subsoil (SJ 100) (Request: Drawing
-MTX201501307_anon,14,5,"č. 11). V prohlubni podloží tvořeném skalním výchozem (SJ 100), se dochovali zbytky","No 11). In the bowl of subsoil formed by rock outcropping (SJ 100), fluvial sediment residues (SJ 174, 173) were preserved,"
-MTX201501307_anon,14,6,"fluviálních sedimentů (SJ 174, 173), s obsahem keramického materiálu 15. - 16. stol. Na",containing ceramic material of the 15th - 16th century.
+MTX201501307_anon,14,4,1). Sonda byla dokumentována na úroveň archeologického podloží (SJ 100) (Přiíloha: výkres,(Schedule: Schedule 1). trench has been documented to the level of archaeological subsoil (SJ 100) (Request: drawing
+MTX201501307_anon,14,5,"č. 11). V prohlubni podloží tvořeném skalním výchozem (SJ 100), se dochovali zbytky","No 11). In the bowl of subsoil formed by the outcrop of rock (SJ 100),"
+MTX201501307_anon,14,6,"fluviálních sedimentů (SJ 174, 173), s obsahem keramického materiálu 15. - 16. stol. Na","fluvial sediment residues (SJ 174, 173) were preserved, containing ceramic material of the 15th - 16th century."
 MTX201501307_anon,14,7,"skalním výchozu se pak nalézala asi 0,25 m mocná navážka tmavě hnědé písčité hlíny",The rock outcropping then contained about 0.25m of the powerful backfill dark brown sandy clay
 MTX201501307_anon,14,8,(SJ 172). Podle keramického materiálu lze navážku datovat do 19. stol. Tato skutečnost,"(SJ 172). According to the ceramic material, backfill can be dated to the 19th century. This fact"
 MTX201501307_anon,14,9,"svědčí o terénních úpravách v místech sondy č. 8, které měly za následek odstranění",is indicative of the terrain modifications at trench No 8 sites which resulted in the removal
 MTX201501307_anon,14,10,původních uloženin. Vrstvu č. 172 porušil výkop pro kanalizaci (SJ 512) převrstvený,of the original deposits. Layer No 172 violated cut for sewer (SJ 512) over-coated
 MTX201501307_anon,15,1,15,15
 MTX201501307_anon,15,1,"mladšími navážkami písčitých hlín (SJ 178, 175) a škváry (SJ 171). Do souvrství se zahlubuje","younger, sandy clay (SJ 178, 175) and cinders (SJ 171). The recent"
-MTX201501307_anon,15,2,recentní výkop (SJ 513) pro plynové potrubí. Současný povrch terénu tvoří prachovitá hnědá,cut (SJ 513) for gas-fired plumbing pipe is lubricated into the constellations. The current the field is dusty brown
-MTX201501307_anon,15,3,"hlína, porostlá travním drnem (SJ 101).","clay, covered with grass turf (SJ 101)."
+MTX201501307_anon,15,2,recentní výkop (SJ 513) pro plynové potrubí. Současný povrch terénu tvoří prachovitá hnědá,cut (SJ 513) for gas-fired plumbing pipe is lubricated into the constellations. The current surface terrain is dusty brown
+MTX201501307_anon,15,3,"hlína, porostlá travním drnem (SJ 101).","clay, covered in grass turf (SJ 101)."
 MTX201501307_anon,15,1,Zhodnocení výsledků výzkumu,Assessment of research results
 MTX201501307_anon,15,2,Stručné shrnutí poznatků na položené otázky:,Brief summary of findings on the questions
 MTX201501307_anon,15,3,1. Prokázání nebo vyloučení přítomnosti archeologických nálezů v zájmovém území.,asked 1. Demonstration or exclusion of the presence of archaeological finds in the area of interest.
 MTX201501307_anon,15,4,Archeologický výzkum provedený v roce 2013 dokumentoval velmi dobře dochované,Archaeological research conducted in 2013 documented very well-preserved
 MTX201501307_anon,15,5,archeologické situace v k. ú. Vraní u Starého Sídla na Vysočině. Odkryté archeologické,archaeological situations in the U.K. Crows at Old residential area in the Highlands. The archaeological situations uncovered
 MTX201501307_anon,15,6,situace prokázaly intenzivní užívání zájmového prostoru od 14. stol. po současnost.,demonstrated the intense use of the interest space from the 14th century to the present.
-MTX201501307_anon,15,7,"2. Rekonstrukce obousměrné geneze historického nadloží, intenzity a charakter","2. Reconstruction of the bidirectional genesis of the historical overburden, the intensity and character"
+MTX201501307_anon,15,7,"2. Rekonstrukce obousměrné geneze historického nadloží, intenzity a charakter","2. Reconstruction of the two-way genesis of the historical overburden, the intensity and character"
 MTX201501307_anon,15,8,osídlení.,of the settlement.
 MTX201501307_anon,15,9,Archeologický výzkum přinesl svědectví o kontinuálním osídlení tohoto prostoru od,Archaeological research has provided evidence of the continuous settlement of this space from
 MTX201501307_anon,15,10,14. stol. po současnost. Nejstarší keramický materiál se vyskytoval ve formě intruzí v kulturní,the 14th century to the present. The oldest ceramic material occurred in the form of intrusions in the cultural
@@ -473,7 +473,7 @@ MTX201501307_anon,25,1,21,21
 MTX201501307_anon,25,1,Obrazová příloha,Image Attachment
 MTX201501307_anon,25,1,"Obr. č. 2: S1, začištěná plocha sondy po vybrání výplně objektů (SJ 500, 501, 502) na","Figure 2: S1, trench printed area after selecting object filler (SJ 500, 501, 502) to"
 MTX201501307_anon,25,2,dokumentační úroveň. Uprostřed sondy fragmenty neporušených archeologických terénů.,the documentation level. Amid trench fragments of intact archaeological terrain.
-MTX201501307_anon,25,1,"Obr. č. 3: S1, začištěná plocha sondy po odebrání archeologického souvrství. Zejména v pravé",Figure 3: Especially in the right
+MTX201501307_anon,25,1,"Obr. č. 3: S1, začištěná plocha sondy po odebrání archeologického souvrství. Zejména v pravé","Figure 3: S1, the pressed area of trench after the removal of the archaeological constellation. Especially in the right"
 MTX201501307_anon,25,2,"části snímku jsou dobře patrné výkopy pro plynové potrubí (SJ 500, 501).","part of the picture, excavations for gas-powered plumbing pipe (SJ 500, 501) are well visible."
 MTX201501307_anon,26,1,22,22
 MTX201501307_anon,26,1,"Obr. č. 4: S1, řez 2. Pohled na dokumentovaný řez terénem. Vlevo výkop č. 500 pro","Figure 4: S1, linear trench 2. A view of the documented linear trench terrain. Left cut No 500 for"
@@ -489,7 +489,7 @@ MTX201501307_anon,27,2,"nasedající na ar. podloží (SJ 100), představuje mí
 MTX201501307_anon,27,3,v období raného novověku. Následovaná přirozenou genezí antropgenního terénu (SJ 127).,during the early Modern period. Followed by natural genesis of anthropogenic terrain (SJ 127).
 MTX201501307_anon,27,4,Kameny ve středu profilu tvoří konstrukci odvodňovacího kanálu (SJ 700) z 19. stol.,The stones at the centre of the profile form the construction of a drainage channel (SJ 700) from the 19th century.
 MTX201501307_anon,27,1,"Obr. č. 7: S3, začištěná plocha sondy po odebrání travního drnu (SJ 101). Vpravo nahoře","Figure 7: S3, trench sown area after removal of grass turf (SJ 101). On the top right,"
-MTX201501307_anon,27,2,pozůstatek původního ternu porušeného jámou na hašení vápna (SJ 504). V levé třetině sondy,"a remnant of the original pit firefighting firecracker quicklime (SJ 504). In the left-hand third of the trench,"
+MTX201501307_anon,27,2,pozůstatek původního ternu porušeného jámou na hašení vápna (SJ 504). V levé třetině sondy,"a remnant of the original pit firefighting fireworks, quicklime (SJ 504). In the left-hand third of the trench,"
 MTX201501307_anon,27,3,patrný liniový výkop (SJ 503) plynového potrubí.,the apparent linear cut (SJ 503) gas plumbing pipe.
 MTX201501307_anon,28,1,24,24
 MTX201501307_anon,28,1,"Obr. č. 8: S3, začištěná plocha sondy po vybrání výplně objektů č. 503 a 504.","Figure 8: S3, trench printed area after selecting the fill of objects Nos 503 and 504."
@@ -515,8 +515,8 @@ MTX201501307_anon,31,3,"(SJ 150, 149, 148).","(SJ 150, 149, 148)."
 MTX201501307_anon,32,1,28,28
 MTX201501307_anon,32,1,"Obr. č. 15: S7, řez 27. Pohled na dokumentovaný řez terénem. Při dně sondy hnědý","Figure 15: S7, linear trench 27. A view of the documented linear trench terrain. At the bottom of trench brown"
 MTX201501307_anon,32,2,půdotvorný horizont (SJ164) nad ním tmavá kulturní vrstva (SJ 166).,soil-forming horizon (SJ164) above it dark cultural layer (SJ 166).
-MTX201501307_anon,32,1,"Obr. č. 16: S8, začištěná plocha sondy po exkavaci na podloží (SJ 100). Ve spodní části snímku","Figure 16: S8, trench soaked area after excavation to subsoil (SJ 100). cut for gas"
-MTX201501307_anon,32,2,"dobře patrný výkop pro plynové potrubí (SJ 513), vlevo výkop kanalizace (SJ 512).","plumbing pipe (SJ 513), left cut sewer (SJ 512) at the bottom of the slide."
+MTX201501307_anon,32,1,"Obr. č. 16: S8, začištěná plocha sondy po exkavaci na podloží (SJ 100). Ve spodní části snímku","Figure 16: S8, trench printed area after excavation to subsoil (SJ 100). cut for gas"
+MTX201501307_anon,32,2,"dobře patrný výkop pro plynové potrubí (SJ 513), vlevo výkop kanalizace (SJ 512).","plumbing pipe (SJ 513), left cut sewer (SJ 512)."
 MTX201501307_anon,33,1,29,29
 MTX201501307_anon,33,1,"Obr. č. 17: S8, řez 30. Pohled na dokumentovaný řez terénem. Vlevo výkop pro kanalizaci","Figure 17: S8, linear trench 30. A view of the documented linear trench terrain. Left cut for sewer"
 MTX201501307_anon,33,2,"(SJ 512). V prohlubni skalnatého podloží (SJ 100) uprostřed snímku, zachované raně novověké","(SJ 512). In the hollow of the rocky subsoil (SJ 100) in the center of the slide, preserved early modern"
