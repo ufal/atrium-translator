@@ -271,11 +271,9 @@ def process_alto_xml(
     """
     Translate an ALTO XML document in place (dual-pass reconstruction).
 
-    *line_anchors* (default ``True``) reproduces the original behaviour: each
-    line is translated individually to anchor the alignment, costing ``1 + N``
-    API calls per block. Pass ``False`` (CLI ``--fast-align``) to skip the
-    per-line calls and distribute block tokens by source word count instead —
-    far fewer requests at the cost of slightly coarser line splits.
+    Implements Page-Level Batching (Issue #16): Pools block and line translation
+    requests per page to eliminate heavy API call overhead, falling back to
+    1-by-1 processing if the NMT model modifies layout boundaries.
     """
     try:
         tree = etree.parse(str(input_path), parser=_SECURE_PARSER)
@@ -297,16 +295,16 @@ def process_alto_xml(
 
             print(f"[INFO] Page {page_idx}/{total_pages} - Found {num_blocks} text blocks and {num_lines} text lines.")
 
+            # ──────────────────────────────────────────────────────────────────
+            # PHASE 1: Gather original line structures and block text
+            # ──────────────────────────────────────────────────────────────────
+            page_blocks_data = []
             for block_idx, block in enumerate(text_blocks, 1):
-                sys.stdout.write(f"\r[INFO] Page {page_idx}/{total_pages} | Processing block {block_idx}/{num_blocks}")
-                sys.stdout.flush()
-
                 lines = block.xpath(".//alto:TextLine", namespaces=ns) if use_ns else block.xpath(".//TextLine")
 
                 all_strings = []
                 lines_data = []
 
-                # 1. Gather original line structures and text
                 for line_idx, line in enumerate(lines, 1):
                     line_id = line.get("ID", str(line_idx))
                     strings = line.xpath(".//alto:String", namespaces=ns) if use_ns else line.xpath(".//String")
@@ -317,21 +315,15 @@ def process_alto_xml(
                             "id": line_id,
                             "strings": strings,
                             "orig_text": orig_line_text,
-                            # Pre-seed so CSV logging never KeyErrors on a TextLine
-                            # that has no <String> children (finding #5).
                             "trans_line_text": "",
                         }
                     )
                     all_strings.extend(strings)
 
-                # 2. Aggregate the full paragraph/block
                 block_text = " ".join(ld["orig_text"] for ld in lines_data if ld["orig_text"]).strip()
                 if not block_text or not all_strings:
                     continue
 
-                # Detect language once at the block level for consistency.
-                # When auto is requested but no identifier is available, default
-                # to Czech — mirroring process_metadata_xml (finding #9).
                 actual_src_lang = src_lang
                 if src_lang == "auto":
                     if identifier:
@@ -340,27 +332,95 @@ def process_alto_xml(
                     else:
                         actual_src_lang = "cs"
 
-                # 3. PASS ONE: Translate the FULL block (High semantic quality)
-                block_tgt = translator.translate(block_text, actual_src_lang, tgt_lang)
+                page_blocks_data.append(
+                    {
+                        "block_idx": block_idx,
+                        "lines_data": lines_data,
+                        "block_text": block_text,
+                        "actual_src_lang": actual_src_lang,
+                        "block_tgt": "",
+                    }
+                )
 
-                # 4 + 5. Partition the block tokens into one bucket per line.
+            if not page_blocks_data:
+                continue
+
+            # ──────────────────────────────────────────────────────────────────
+            # PHASE 2: Page-Level Batch Translation (Grouped by Language)
+            # ──────────────────────────────────────────────────────────────────
+            lang_groups = {}
+            for bdata in page_blocks_data:
+                lang_groups.setdefault(bdata["actual_src_lang"], []).append(bdata)
+
+            def _translate_batch(texts, lang):
+                """Helper to join texts with newlines, translate, and validate boundaries."""
+                if not texts:
+                    return []
+
+                # Filter out empty line/block placeholders to preserve spacing structures
+                valid_map = [(i, t) for i, t in enumerate(texts) if t.strip()]
+                if not valid_map:
+                    return [""] * len(texts)
+
+                valid_indices, valid_texts = zip(*valid_map)
+                joined_text = "\n".join(valid_texts)
+
+                try:
+                    translated_joined = translator.translate(joined_text, lang, tgt_lang)
+                    translated_lines = [t.strip() for t in translated_joined.split("\n")]
+
+                    # Validate the layout structure matches original elements exactly
+                    if len(translated_lines) == len(valid_texts):
+                        results = [""] * len(texts)
+                        for idx, res_line in zip(valid_indices, translated_lines):
+                            results[idx] = res_line
+                        return results
+                except Exception:
+                    pass
+
+                # Safe fallback: revert to 1-by-1 requests for this batch if layout breaks
+                return [translator.translate(t, lang, tgt_lang) if t.strip() else "" for t in texts]
+
+            for lang, group in lang_groups.items():
+                # Pass 1: Batch translate full blocks
+                block_texts = [b["block_text"] for b in group]
+                translated_blocks = _translate_batch(block_texts, lang)
+                for bdata, tgt in zip(group, translated_blocks):
+                    bdata["block_tgt"] = tgt
+
+                # Pass 2: Batch translate lines as structural anchors
                 if line_anchors:
-                    # PASS TWO: translate individual lines as structural anchors.
-                    line_translations = []
-                    for ld in lines_data:
-                        if ld["orig_text"]:
-                            line_tgt = translator.translate(ld["orig_text"], actual_src_lang, tgt_lang)
-                            line_translations.append(line_tgt)
-                        else:
-                            line_translations.append("")
+                    line_texts = []
+                    line_refs = []
+                    for bdata in group:
+                        for ld in bdata["lines_data"]:
+                            line_texts.append(ld["orig_text"])
+                            line_refs.append(ld)
+
+                    translated_lines = _translate_batch(line_texts, lang)
+                    for ld, tgt in zip(line_refs, translated_lines):
+                        ld["line_tgt"] = tgt
+
+            # ──────────────────────────────────────────────────────────────────
+            # PHASE 3: Redistribution & Logging (Downstream Logic Untouched)
+            # ──────────────────────────────────────────────────────────────────
+            for bdata in page_blocks_data:
+                sys.stdout.write(
+                    f"\r[INFO] Page {page_idx}/{total_pages} | Processing block {bdata['block_idx']}/{num_blocks}"
+                )
+                sys.stdout.flush()
+
+                block_tgt = bdata["block_tgt"]
+                lines_data = bdata["lines_data"]
+
+                if line_anchors:
+                    line_translations = [ld.get("line_tgt", "") for ld in lines_data]
                     aligned_token_buckets = _align_tokens_to_lines(block_tgt, line_translations)
                 else:
-                    # Anchor-free: proportional to source word counts (no API calls).
                     aligned_token_buckets = _align_tokens_proportional(
                         block_tgt, [ld["orig_text"] for ld in lines_data]
                     )
 
-                # 6. REDISTRIBUTION: Place aligned tokens strictly within their physical lines
                 for ld, assigned_tokens in zip(lines_data, aligned_token_buckets):
                     num_strings = len(ld["strings"])
                     if num_strings == 0:
@@ -368,19 +428,15 @@ def process_alto_xml(
 
                     for i, string_elem in enumerate(ld["strings"]):
                         if i < num_strings - 1:
-                            # 1-to-1 greedy mapping
                             if i < len(assigned_tokens):
                                 string_elem.set("CONTENT", assigned_tokens[i])
                             else:
                                 string_elem.set("CONTENT", "")
                         else:
-                            # Cram any remaining text into the last string element of THIS line
                             string_elem.set("CONTENT", " ".join(assigned_tokens[i:]))
 
-                    # Save the distributed text for CSV logging
                     ld["trans_line_text"] = " ".join(assigned_tokens)
 
-                # 7. LOGGING: Write to the QA CSV per TextLine
                 if csv_writer:
                     doc_name = input_path.name.split(".")[0]
                     for ld in lines_data:

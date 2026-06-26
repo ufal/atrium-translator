@@ -222,15 +222,15 @@ class TestProcessAltoXml:
 
     # ── translation ──────────────────────────────────────────────────────────
 
-    def test_translator_called_once_per_text_block(self, alto_xml_file, tmp_path, mock_translator):
+    def test_translator_called_twice_per_page_due_to_batching(self, alto_xml_file, tmp_path, mock_translator):
         """
         sample.alto.xml has 1 TextBlock containing 2 TextLines.
-        Due to the Dual-Pass architecture, it will call translate():
-        1 time for the block + 2 times for the lines = 3 calls total.
+        Due to the Page-Level Batching optimization, it will call translate():
+        1 time for the batch of all blocks + 1 time for the batch of all lines = 2 calls total.
         """
         out = tmp_path / "out.xml"
         process_alto_xml(alto_xml_file, out, mock_translator, "cs", "en")
-        assert mock_translator.translate.call_count == 3
+        assert mock_translator.translate.call_count == 2
 
     def test_concatenated_block_text_passed_to_translator(self, alto_xml_file, tmp_path, mock_translator):
         out = tmp_path / "out.xml"
