@@ -79,7 +79,7 @@ namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, 
 * 📊 **Per-document Translation CSV Logs**: Automatically produces a supplementary QA CSV file with columns
 `file, page_num, line_num, text_<source_lang>, text_<target_lang>` for easy manual review.
 * 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts,
-configuration snapshot) to the [paradata](paradata)📁 directory for auditing and performance reporting.
+configuration snapshot) to the [paradata](data_samples/translated_files/paradata) 📁 directory for auditing and performance reporting.
 * 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using
 **FastText** (Facebook) [^5]. In XML Metadata mode, if the detection confidence is below `0.2`, it defaults to Czech (`cs`);
 in ALTO mode detection is performed **once per `TextBlock`** so that all lines in a block share a consistent source language.
@@ -96,6 +96,23 @@ both the **AMCR OAI-PMH API** [^7] and the **TEATER GraphQL API** [^8] and merge
 * 🔗 **LINDAT API Integration**: Seamlessly connects to the LINDAT Translation API (v2) [^1].
 * 🔌 **Pluggable Translation Backends**: Switch seamlessly between the LINDAT Translation API, OpenAI-compatible LLM
 endpoints, and low-resource self-hosted CTranslate2 models (e.g., EuroLLM, MADLAD-400) using the `--backend` flag.
+
+
+### Performance: Page-Level Batching
+To minimize network latency and reduce overhead on translation backends (such as the LINDAT API or local LLMs),
+`atrium-translator` implements dynamic **Page-Level Batching**.
+
+Instead of translating each ALTO XML `TextBlock` and `TextLine` sequentially, the pipeline gathers all text elements on
+a single page, groups them by their detected language, and consolidates them into unified payloads separated by newline (`\n`) delimiters.
+
+* **API Efficiency:** This architecture reduces API calls from $1 + N$ (where $N$ is the number of text lines in a block)
+down to as few as 2 requests per language group per page.
+* **Zero-Regression Fallback:** The chunking algorithm strictly monitors structural alignment. If an NMT model
+hallucinates, merges, or drops line boundaries during a batched request, the pipeline automatically detects the
+mismatch and seamlessly falls back to a 1-by-1 safe loop. This guarantees that the original ALTO XML geometry and
+layout are never compromised by the translation step.
+
+
 ---
 
 ## 🛠️ Prerequisites
