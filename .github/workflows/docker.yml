@@ -15,5 +15,5 @@ jobs:
   build-and-push:
     uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@test
     with:
-      image-name: atrium-translator
+      image-name: ${{ github.repository }}
     secrets: inherit
