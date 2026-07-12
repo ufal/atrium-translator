@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ATRIUM Translator API",
     description="Automated pipeline for the translation and enrichment of archaeological archival collections.",
-    version="0.6.2",
+    version="0.8.1",
     lifespan=lifespan,
 )
 
