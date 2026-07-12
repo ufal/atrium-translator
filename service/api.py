@@ -6,6 +6,7 @@ Brings this repository into API parity with the rest of the ATRIUM pipeline.
 """
 
 import argparse
+import configparser
 import os
 import tempfile
 from contextlib import asynccontextmanager
@@ -23,6 +24,20 @@ from processors.identifier import LanguageIdentifier
 
 # Security limit: Default 50MB
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 50 * 1024 * 1024))
+
+
+def _read_tool_version() -> str:
+    """Read the tool version from para_config.txt [tool] section.
+
+    Single source of truth — security.reusable.yml already validates this value
+    against CITATION.cff and the release tag, so the API version can never drift
+    from the released version again.
+    """
+    config = configparser.ConfigParser()
+    config.read(Path(__file__).resolve().parent.parent / "para_config.txt", encoding="utf-8")
+    version = config.get("tool", "version", fallback="unknown")
+    return version[1:] if version.lower().startswith("v") else version
+
 
 models = {}
 
@@ -44,7 +59,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ATRIUM Translator API",
     description="Automated pipeline for the translation and enrichment of archaeological archival collections.",
-    version="0.8.1",
+    version=_read_tool_version(),
     lifespan=lifespan,
 )
 
