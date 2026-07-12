@@ -1,32 +1,25 @@
-name: Scheduled Smoke Testing Suite
+# atrium-translator — pre-commit in CI
+#
+# Runs this repo's .pre-commit-config.yaml in CI so the hooks (ruff,
+# whitespace/large-file guards) are enforced, not just available locally.
+# Mirrors the alto-postprocess / page-classification callers.
+
+name: pre-commit
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+  pull_request:
+    branches: [test, master]
+  push:
+    branches: [test, master]
 
 jobs:
-  smoke-test:
+  pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Execute Test Execution Suite
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          pip install -r requirements.txt -r requirements-test.txt
-          pytest tests/
-
-      - name: Log Issues on Processing Breaches
-        if: failure()
-        uses: actions/github-script@v9
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🚨 Scheduled Verification Failure :(',
-              body: 'Automated validation sequence encounters terminal processing errors. Review details within execution logs.'
-            })
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install pre-commit
+      - run: pre-commit run --all-files --show-diff-on-failure
