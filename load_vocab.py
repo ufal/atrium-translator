@@ -31,7 +31,7 @@ AMCR_NS = {
 
 TEATER_GRAPHQL = "https://teater.aiscr.cz/api/graphql"
 
-DEFAULT_OUT = Path("data_samples/vocabulary.csv")
+DEFAULT_OUT = Path("small_data_samples/vocabulary.csv")
 DEFAULT_DELAY = 0.3
 
 
