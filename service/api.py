@@ -73,12 +73,17 @@ app = FastAPI(
 )
 
 # Opus 4.8 Hardening: Restrictive CORS Configuration
-ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")]
+# Mirrors the atrium-page-classification exemplar: a wildcard origin must not be
+# combined with credentials (browsers reject that pairing); methods narrowed to
+# the family standard (GET/POST) rather than a wildcard.
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+if "*" in ALLOWED_ORIGINS and os.getenv("ALLOW_CREDENTIALS", "true").lower() == "true":
+    ALLOWED_ORIGINS.remove("*")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=ALLOWED_ORIGINS != ["*"],
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
