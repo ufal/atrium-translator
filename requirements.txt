@@ -3,5 +3,5 @@ requests==2.34.2
 python-multipart>=0.0.32
 numpy>=1.26.4,<2.0
 tqdm==4.69.0
-huggingface-hub==1.23.0
+huggingface-hub==1.24.0
 fasttext-wheel==0.9.2
