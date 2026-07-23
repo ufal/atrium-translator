@@ -9,3 +9,5 @@ python-multipart>=0.0.32
 numpy
 tqdm
 huggingface-hub
+# API meta-contract test deps (issue #32).
+openapi-spec-validator

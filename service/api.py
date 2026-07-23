@@ -6,14 +6,12 @@ Brings this repository into API parity with the rest of the ATRIUM pipeline.
 """
 
 import argparse
-import configparser
 import os
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from atrium_paradata import ParadataLogger
@@ -22,21 +20,16 @@ from processors.backend import get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
 
-# Security limit: Default 50MB
-MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 50 * 1024 * 1024))
+# Shared ATRIUM meta-contract helpers (§4). Byte-identical across every service,
+# enforced by para-drift.reusable.yml.
+try:
+    from .atrium_service import add_cors, attach_health, build_info, read_tool_version, resolve_max_upload_mb
+except ImportError:
+    from atrium_service import add_cors, attach_health, build_info, read_tool_version, resolve_max_upload_mb
 
-
-def _read_tool_version() -> str:
-    """Read the tool version from para_config.txt [tool] section.
-
-    Single source of truth — security.reusable.yml already validates this value
-    against CITATION.cff and the release tag, so the API version can never drift
-    from the released version again.
-    """
-    config = configparser.ConfigParser()
-    config.read(Path(__file__).resolve().parent.parent / "para_config.txt", encoding="utf-8")
-    version = config.get("tool", "version", fallback="unknown")
-    return version[1:] if version.lower().startswith("v") else version
+# Canonical upload limit (§4.5): MAX_UPLOAD_MB, with a deprecated MAX_UPLOAD_BYTES fallback.
+MAX_UPLOAD_MB = resolve_max_upload_mb(50)
+MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)  # retained: imported by tests/clients
 
 
 models = {}
@@ -59,19 +52,22 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ATRIUM Translator API",
     description="Automated pipeline for the translation and enrichment of archaeological archival collections.",
-    version=_read_tool_version(),
+    version=read_tool_version(Path(__file__).resolve().parent),
     lifespan=lifespan,
 )
 
-# Opus 4.8 Hardening: Restrictive CORS Configuration
-ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=ALLOWED_ORIGINS != ["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS — standard §4.5 configuration (ALLOWED_ORIGINS CSV, default "*").
+add_cors(app)
+
+
+def _deep_health() -> str | None:
+    """Deep readiness (§4.1): the translation backend has warmed up."""
+    if not models.get("translator"):
+        return "translation backend not warmed up"
+    return None
+
+
+attach_health(app, deep_check=_deep_health)
 
 
 # Opus 4.8 Hardening: Strict Content-Type Guards
@@ -95,7 +91,8 @@ async def translate_document(
     is_alto: bool = True,
 ):
     if not file.filename or not file.filename.endswith(".xml"):
-        raise HTTPException(status_code=400, detail="Only XML files are supported.")
+        # §4.4: unusable/invalid input is 422 (harmonized from 400).
+        raise HTTPException(status_code=422, detail="Only XML files are supported.")
 
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
@@ -185,8 +182,9 @@ async def translate_document(
 
 @app.get("/info")
 async def get_info():
-    return {
-        "name": "ATRIUM Translator Service",
-        "version": app.version,
-        "supported_formats": ["ALTO XML", "AMCR Metadata XML"],
-    }
+    return build_info(
+        app,
+        service="atrium-translator",
+        limits={"max_upload_mb": MAX_UPLOAD_MB},
+        supported_formats=["ALTO XML", "AMCR Metadata XML"],
+    )

@@ -22,7 +22,8 @@ def test_translate_rejects_non_xml():
     response = client.post(
         "/translate", files={"file": ("test.txt", b"dummy content", "text/plain")}, data={"is_alto": "true"}
     )
-    assert response.status_code == 400
+    # §4.4: unusable/invalid input is 422 (harmonized from 400).
+    assert response.status_code == 422
     assert "Only XML files" in response.json()["detail"]
 
 
