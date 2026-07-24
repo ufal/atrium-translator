@@ -6,16 +6,13 @@ Brings this repository into API parity with the rest of the ATRIUM pipeline.
 """
 
 import argparse
-import configparser
 import os
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse, Response
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 
 from atrium_paradata import ParadataLogger
 from main import process_single_file
@@ -23,29 +20,16 @@ from processors.backend import get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
 
-# Canonical upload limit (family standard): MAX_UPLOAD_MB, with the historical
-# MAX_UPLOAD_BYTES kept as a deprecated fallback for one release. Default 50 MB.
-if "MAX_UPLOAD_MB" in os.environ:
-    MAX_UPLOAD_MB = int(os.environ["MAX_UPLOAD_MB"])
-else:
-    MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_BYTES", 50 * 1024 * 1024)) // (1024 * 1024)
-MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+# Shared ATRIUM meta-contract helpers (§4). Byte-identical across every service,
+# enforced by para-drift.reusable.yml.
+try:
+    from .atrium_service import add_cors, attach_health, build_info, read_tool_version, resolve_max_upload_mb
+except ImportError:
+    from atrium_service import add_cors, attach_health, build_info, read_tool_version, resolve_max_upload_mb
 
-SERVICE_NAME = "atrium-translator"
-API_ENDPOINTS = ["/info", "/health", "/translate"]
-
-
-def _read_tool_version() -> str:
-    """Read the tool version from para_config.txt [tool] section.
-
-    Single source of truth — security.reusable.yml already validates this value
-    against CITATION.cff and the release tag, so the API version can never drift
-    from the released version again.
-    """
-    config = configparser.ConfigParser()
-    config.read(Path(__file__).resolve().parent.parent / "para_config.txt", encoding="utf-8")
-    version = config.get("tool", "version", fallback="unknown")
-    return version[1:] if version.lower().startswith("v") else version
+# Canonical upload limit (§4.5): MAX_UPLOAD_MB, with a deprecated MAX_UPLOAD_BYTES fallback.
+MAX_UPLOAD_MB = resolve_max_upload_mb(50)
+MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)  # retained: imported by tests/clients
 
 
 models = {}
@@ -68,24 +52,22 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ATRIUM Translator API",
     description="Automated pipeline for the translation and enrichment of archaeological archival collections.",
-    version=_read_tool_version(),
+    version=read_tool_version(Path(__file__).resolve().parent),
     lifespan=lifespan,
 )
 
-# Opus 4.8 Hardening: Restrictive CORS Configuration
-# Mirrors the atrium-page-classification exemplar: a wildcard origin must not be
-# combined with credentials (browsers reject that pairing); methods narrowed to
-# the family standard (GET/POST) rather than a wildcard.
-ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
-if "*" in ALLOWED_ORIGINS and os.getenv("ALLOW_CREDENTIALS", "true").lower() == "true":
-    ALLOWED_ORIGINS.remove("*")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=ALLOWED_ORIGINS != ["*"],
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-)
+# CORS — standard §4.5 configuration (ALLOWED_ORIGINS CSV, default "*").
+add_cors(app)
+
+
+def _deep_health() -> str | None:
+    """Deep readiness (§4.1): the translation backend has warmed up."""
+    if not models.get("translator"):
+        return "translation backend not warmed up"
+    return None
+
+
+attach_health(app, deep_check=_deep_health)
 
 
 # Opus 4.8 Hardening: Strict Content-Type Guards
@@ -109,11 +91,12 @@ async def translate_document(
     is_alto: bool = True,
 ):
     if not file.filename or not file.filename.endswith(".xml"):
+        # §4.4: unusable/invalid input is 422 (harmonized from 400).
         raise HTTPException(status_code=422, detail="Only XML files are supported.")
 
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=f"File too large. Max size is {MAX_UPLOAD_MB} MB.")
+        raise HTTPException(status_code=413, detail=f"File too large. Max size is {MAX_UPLOAD_BYTES} bytes.")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         work_dir = Path(tmpdir)
@@ -199,55 +182,9 @@ async def translate_document(
 
 @app.get("/info")
 async def get_info():
-    translator = models.get("translator")
-    return {
-        "service": SERVICE_NAME,
-        "name": "ATRIUM Translator Service",
-        "version": app.version,
-        "endpoints": API_ENDPOINTS,
-        "limits": {"max_upload_mb": MAX_UPLOAD_MB},
-        "supported_formats": ["ALTO XML", "AMCR Metadata XML"],
-        "translation_backend": getattr(translator, "name", None),
-    }
-
-
-@app.get("/health")
-async def health(deep: bool = False):
-    """Liveness (shallow) / readiness (deep=true, backend reachability) probe."""
-    if not models.get("translator") or not models.get("identifier"):
-        return JSONResponse(
-            {"status": "degraded", "detail": "translation backend not initialized"},
-            status_code=503,
-        )
-    payload = {"status": "ok", "translation_backend": models["translator"].name}
-    if deep:
-        base_url = getattr(models["translator"], "BASE_URL", None)
-        if base_url:
-            import urllib.request
-
-            try:
-                urllib.request.urlopen(
-                    urllib.request.Request(f"{base_url}/models", method="HEAD"), timeout=5
-                )
-                payload["backend_reachable"] = True
-            except Exception as exc:
-                return JSONResponse(
-                    {
-                        "status": "degraded",
-                        "detail": f"translation backend unreachable: {exc}",
-                        "translation_backend": models["translator"].name,
-                    },
-                    status_code=503,
-                )
-    return JSONResponse(payload)
-
-
-# Minimal demo frontend (file picker + language selectors + result download).
-_FRONTEND_DIR = Path(__file__).resolve().parent / "frontend"
-if _FRONTEND_DIR.exists():
-    app.mount("/frontend", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend")
-
-
-@app.get("/", include_in_schema=False)
-async def root():
-    return RedirectResponse(url="/frontend")
+    return build_info(
+        app,
+        service="atrium-translator",
+        limits={"max_upload_mb": MAX_UPLOAD_MB},
+        supported_formats=["ALTO XML", "AMCR Metadata XML"],
+    )
