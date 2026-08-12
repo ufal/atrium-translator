@@ -3,7 +3,7 @@ requests==2.34.2
 python-multipart>=0.0.32
 numpy>=1.26.4,<2.0
 tqdm==4.70.0
-huggingface-hub==1.26.0
+huggingface-hub==1.27.0
 fasttext-wheel==0.9.2
 # atrium_document.validate_document() — the Layer D output gate main.py now calls before
 # finalize() (issue atrium-project#10, D4). Declared here, in the RUNTIME set, not only in
