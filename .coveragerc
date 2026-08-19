@@ -3,16 +3,23 @@ source = .
 omit =
     tests/*
     setup/*
-    service/*
     *paradata.py
     check_version.py
     eval/*
     atrium_test_support.py
 
 [report]
-# Ratchet: set ~2 points below the measured fast-lane baseline of 83.07%
-# (2026-08-06, issue atrium-project#10 Phase 6). Raised from 70 — the suites grew
-# substantially in the 08-05/06 round, and a floor left far below the real number
-# stops being a ratchet: coverage can fall by twenty points and still pass.
+# Ratchet: ~2 points below the measured fast-lane baseline of 82.87%
+# (2026-08-19, issue atrium-project#10). Unchanged at 81 — the baseline moved by
+# 0.2 points, not enough to move the floor.
+#
+# `service/*` was in the omit list above until this round, which mattered because this
+# repo's HTTP 500 defect -- service/api.py omitting `backend` from its args, so every
+# real upload failed -- lived there. Every /translate test mocked the pipeline, so the
+# suite was green and the ratchet was not even looking at the file.
+#
+# Un-omitting was expected to crater the number and barely moved it (83.07% -> 82.87%):
+# service/ is covered 75-83%, so this was tested code hidden from the report rather than
+# untested code hidden from review.
 fail_under = 81
 show_missing = True

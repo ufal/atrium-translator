@@ -1,3 +1,22 @@
+# .github/workflows/scheduled-smoke.yml
+# Nightly re-run of the full suite in a FROM-SCRATCH environment.
+#
+# What this job is for, stated because it is easy to misread (issue atrium-project#10):
+# it runs the same hermetic suite the PR lane runs, so it adds no new test coverage. Its
+# signal is DEPENDENCY DRIFT -- the PR lane runs against a warm cache and a resolved
+# environment, while this installs requirements-test.txt, requirements.txt and
+# service/requirements.txt fresh every night. A transitive release that breaks the
+# install, or a floating pin that moves under us, shows up here and nowhere else.
+#
+# It is deliberately NOT `-m slow`: this repo has no slow-marked tests, and nlp-enrich
+# and llm-enrich both had nightlies that ran `pytest -m slow`, collected nothing, and
+# reported success for as long as they existed. Running the real suite is the point.
+#
+# What it does NOT cover: a live LINDAT backend. Every /translate test mocks the
+# pipeline, which is how service/api.py shipped omitting `backend` from its args and
+# returned HTTP 500 on every real upload. That gap needs an integration lane with a
+# reachable backend, not a marker.
+
 name: Scheduled Smoke Test
 
 # Mirrors the hub's e2e-pipeline-smoke.yml: a smoke run that is already executing is
@@ -40,7 +59,9 @@ jobs:
           pip install -r service/requirements.txt
 
       - name: Run Pytest
-        run: pytest tests/
+        # `-rs` prints every skip with its reason, so a dependency that quietly stops
+        # installing shows up as a growing skip list rather than as a still-green run.
+        run: pytest tests/ -rs
 
       - name: Open Issue on Failure
         if: failure()
