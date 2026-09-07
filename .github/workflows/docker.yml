@@ -29,6 +29,12 @@ jobs:
     uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@v1
     with:
       image-name: ${{ github.repository }}
+      # issue #55: `api` is a new Dockerfile stage. Before it existed this repo's
+      # FastAPI service was reachable only via a docker-compose entrypoint override on
+      # the batch image, so no runnable API image was published and there was nothing
+      # for ARÚP/ARÚB to deploy. Only `api` is probed — `base` is a batch CLI.
+      build-targets: '["base", "api"]'
+      probe-targets: '["api"]'
     secrets:
       # Explicit instead of `secrets: inherit` — the reusable declares and
       # needs only this one (#18). inherit handed it every repo secret.

@@ -8,17 +8,26 @@ services:
       - ./config.txt:/app/config.txt:ro
     # Default ENTRYPOINT runs the batch CLI if invoked without a profile
   api:
+    # issue #55: builds the Dockerfile's own `api` stage instead of overriding the batch
+    # image's entrypoint here. The old `entrypoint:` line was the ONLY place this
+    # service's start command existed, so no runnable API image was ever published
+    # (nothing to `docker pull` for Kubernetes) and the Dockerfile's HEALTHCHECK /
+    # STOPSIGNAL could not apply to it.
     build:
       context: .
-    image: ufal/atrium-translator:latest
-    # Override the ENTRYPOINT to launch the FastAPI service instead
-    entrypoint: ["uvicorn", "service.api:app", "--host", "0.0.0.0", "--port", "8000"]
+      target: api
+    image: ufal/atrium-translator:latest-api
     ports:
       - "8000:8000"
     volumes:
       - ./data:/data
       - ./config.txt:/app/config.txt:ro
     profiles: ["api"]
+    # HEALTHCHECK comes from the `api` stage — no override needed. stop_grace_period
+    # raised from Compose's 10s default: the stage allows uvicorn 20s to drain in-flight
+    # requests plus up to 25s in serve_lifecycle, so 10s would SIGKILL mid-drain. Matches
+    # atrium-project/docs/templates/k8s/atrium-service.deployment.yaml's budget.
+    stop_grace_period: 60s
   translator:
     image: ghcr.io/ufal/atrium-translator:${ATRIUM_VERSION:-dev}
     build:
