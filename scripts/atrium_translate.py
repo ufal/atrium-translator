@@ -15,6 +15,12 @@ Usage:
     python3 scripts/atrium_translate.py page.alto.xml -o -          # XML to stdout
     python3 scripts/atrium_translate.py --info
 
+    # ATRIUM Document JSON accretion (docs/document_schema.md, issue #13): upload a
+    # baseline and get it back with `translations` / `entities[].translation_en` updated,
+    # delivered alongside the XML as a multipart/mixed response
+    python3 scripts/atrium_translate.py page.alto.xml --document-json in.document.json \
+        --document-json-out-file out.document.json
+
 Exit codes:
     0 - success
     1 - client-side error (bad arguments, unreadable file)
@@ -33,6 +39,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
+from typing import Optional
 
 DEFAULT_BASE_URL = os.environ.get("ATRIUM_TR_URL", "http://localhost:8000")
 MAX_UPLOAD_MB = 50  # mirrors the server's MAX_UPLOAD_MB default
@@ -41,21 +48,27 @@ RETRY_ATTEMPTS = 3
 RETRY_WAIT_S = 10
 
 
-def build_multipart(file_field: str, file_path: Path) -> tuple[bytes, str]:
-    """Encode one file as multipart/form-data using only the stdlib."""
+def build_multipart(files: dict) -> tuple[bytes, str]:
+    """Encode one or more files as multipart/form-data using only the stdlib.
+
+    `files` maps the form field name to a `Path` (e.g. `{"file": page.xml,
+    "document_json": baseline.json}` for the accretion contract).
+    """
     boundary = uuid.uuid4().hex
-    lines = [
-        f"--{boundary}".encode(),
-        f'Content-Disposition: form-data; name="{file_field}"; filename="{file_path.name}"'.encode(),
-        b"Content-Type: application/xml",
-        b"",
-        file_path.read_bytes(),
-        f"--{boundary}--".encode(),
-        b"",
-    ]
+    lines = []
+    for field_name, file_path in files.items():
+        content_type = b"Content-Type: application/json" if field_name == "document_json" else b"Content-Type: application/xml"
+        lines.append(f"--{boundary}".encode())
+        lines.append(
+            f'Content-Disposition: form-data; name="{field_name}"; filename="{file_path.name}"'.encode()
+        )
+        lines.append(content_type)
+        lines.append(b"")
+        lines.append(file_path.read_bytes())
+    lines.append(f"--{boundary}--".encode())
+    lines.append(b"")
     body = b"\r\n".join(lines)
-    content_type = f"multipart/form-data; boundary={boundary}"
-    return body, content_type
+    return body, f"multipart/form-data; boundary={boundary}"
 
 
 def http_request(url: str, data: bytes = None, content_type: str = None, timeout: int = 900):
@@ -97,11 +110,49 @@ def attachment_name(headers: dict, fallback: str) -> str:
     return match.group(1) if match else fallback
 
 
-def translate_file(base_url: str, path: Path, source_lang: str, target_lang: str, is_alto: bool):
-    """Upload one XML to POST /translate; returns (xml_bytes, server_filename)."""
+def split_multipart_mixed(content: bytes, content_type: str) -> "dict[str, tuple[str, bytes]]":
+    """Split a `multipart/mixed` response body into {content_type: (filename, bytes)}.
+
+    Only what `/translate`'s accretion path (§ document_json) actually produces: one
+    `application/xml` part and one `application/json` part, each with a Content-Disposition
+    filename. Returns {} if `content_type` is not multipart/mixed.
+    """
+    match = re.search(r'boundary="?([^";]+)"?', content_type or "")
+    if not match:
+        return {}
+    boundary = ("--" + match.group(1)).encode()
+    parts = {}
+    for chunk in content.split(boundary)[1:-1]:
+        chunk = chunk.strip(b"\r\n")
+        if not chunk:
+            continue
+        header_blob, _, body = chunk.partition(b"\r\n\r\n")
+        headers = {}
+        for line in header_blob.decode("utf-8", errors="replace").splitlines():
+            if ":" in line:
+                key, _, value = line.partition(":")
+                headers[key.strip()] = value.strip()
+        ctype = headers.get("Content-Type", "").split(";")[0].strip()
+        fname = attachment_name(headers, fallback=f"part.{ctype.split('/')[-1]}")
+        parts[ctype] = (fname, body.rstrip(b"\r\n"))
+    return parts
+
+
+def translate_file(
+    base_url: str,
+    path: Path,
+    source_lang: str,
+    target_lang: str,
+    is_alto: bool,
+    document_json: Optional[Path] = None,
+):
+    """Upload one XML (and optional document_json baseline) to POST /translate.
+
+    Returns (xml_bytes, server_filename, document_record_or_None).
+    """
     if path.suffix.lower() != ".xml":
         print(f"Skipping {path}: only .xml files are supported", file=sys.stderr)
-        return None, None
+        return None, None, None
     size = path.stat().st_size
     if size > MAX_UPLOAD_MB * 1024 * 1024:
         print(
@@ -109,15 +160,28 @@ def translate_file(base_url: str, path: Path, source_lang: str, target_lang: str
             "split the document first",
             file=sys.stderr,
         )
-        return None, None
+        return None, None, None
 
     query = urllib.parse.urlencode(
         {"source_lang": source_lang, "target_lang": target_lang, "is_alto": str(is_alto).lower()}
     )
-    body, content_type = build_multipart(file_field="file", file_path=path)
+    files = {"file": path}
+    if document_json is not None:
+        files["document_json"] = document_json
+    body, content_type = build_multipart(files)
     content, headers = http_request(f"{base_url}/translate?{query}", data=body, content_type=content_type)
+
+    response_type = headers.get("Content-Type") or headers.get("content-type") or ""
+    if response_type.startswith("multipart/mixed"):
+        parts = split_multipart_mixed(content, response_type)
+        xml_name, xml_bytes = parts.get("application/xml", (None, None))
+        _, json_bytes = parts.get("application/json", (None, None))
+        fallback = f"{path.stem}_{target_lang}{path.suffix}"
+        record = json.loads(json_bytes.decode("utf-8")) if json_bytes else None
+        return xml_bytes, (xml_name or fallback), record
+
     fallback = f"{path.stem}_{target_lang}{path.suffix}"
-    return content, attachment_name(headers, fallback)
+    return content, attachment_name(headers, fallback), None
 
 
 def main() -> None:
@@ -146,6 +210,18 @@ def main() -> None:
         "Default: save next to the current directory under the server-proposed name",
     )
     parser.add_argument("--info", action="store_true", help="print service capabilities and limits, then exit")
+    parser.add_argument(
+        "--document-json",
+        metavar="PATH",
+        help="baseline ATRIUM Document JSON to accrete this tool's translations/entities[].translation_en "
+        "onto (docs/document_schema.md); requires exactly one input file",
+    )
+    parser.add_argument(
+        "--document-json-out-file",
+        metavar="PATH",
+        help="save the returned document_json record to PATH (default: next to the XML output, "
+        "using the server-proposed name)",
+    )
     args = parser.parse_args()
 
     base_url = args.base_url.rstrip("/")
@@ -160,6 +236,17 @@ def main() -> None:
     if args.output and len(args.files) != 1:
         parser.error("-o/--output requires exactly one input file")
 
+    document_json_path = None
+    if args.document_json:
+        if len(args.files) != 1:
+            parser.error("--document-json accretes onto a single document; pass exactly one input file")
+        document_json_path = Path(args.document_json)
+        if not document_json_path.is_file():
+            print(f"--document-json file not found: {document_json_path}", file=sys.stderr)
+            sys.exit(1)
+    if args.document_json_out_file and document_json_path is None:
+        parser.error("--document-json-out-file requires --document-json (translator accretes, it does not originate)")
+
     paths = [Path(f) for f in args.files]
     missing = [p for p in paths if not p.is_file()]
     if missing:
@@ -168,8 +255,13 @@ def main() -> None:
 
     produced = 0
     for path in paths:
-        content, out_name = translate_file(
-            base_url, path, source_lang=args.source_lang, target_lang=args.target_lang, is_alto=args.alto
+        content, out_name, record = translate_file(
+            base_url,
+            path,
+            source_lang=args.source_lang,
+            target_lang=args.target_lang,
+            is_alto=args.alto,
+            document_json=document_json_path,
         )
         if content is None:
             continue
@@ -179,6 +271,12 @@ def main() -> None:
             out_path = Path(args.output) if args.output else Path(out_name)
             out_path.write_bytes(content)
             print(f"Translated XML saved to {out_path}")
+        if record is not None:
+            record_path = Path(args.document_json_out_file) if args.document_json_out_file else Path(
+                f"{path.stem}.document.json"
+            )
+            record_path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+            print(f"Document JSON record written to {record_path}")
         produced += 1
 
     if not produced:

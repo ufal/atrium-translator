@@ -17,6 +17,8 @@ import urllib.request
 
 from lxml import etree
 
+from atrium_document import canonical_doc_id
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Hardened parsers
 # ──────────────────────────────────────────────────────────────────────────────
@@ -109,12 +111,34 @@ def _resolve_namespaces(root) -> dict:
 
 
 def process_metadata_xml(
-    input_path, output_path, xpaths, translator, src_lang, tgt_lang, xsd_schema=None, csv_writer=None, identifier=None
+    input_path,
+    output_path,
+    xpaths,
+    translator,
+    src_lang,
+    tgt_lang,
+    xsd_schema=None,
+    csv_writer=None,
+    identifier=None,
+    doc=None,
+    backend=None,
+    doc_id=None,
 ):
     try:
         tree = etree.parse(str(input_path), parser=_SECURE_PARSER)
         root = tree.getroot()
         xpath_ns = _resolve_namespaces(root)
+
+        # D3 (atrium-project#10): the CSV log's `file` column carries the SAME doc_id the
+        # caller keyed the document record on, passed in rather than re-derived per row.
+        # main.py already computed it via canonical_doc_id(); the old inline
+        # `input_path.name.split(".")[0]` was a third independent derivation of the same
+        # value, which is how a multi-dot filename ends up logged under one id and recorded
+        # under another. `doc_id=None` (a direct caller, e.g. a unit test) still derives it —
+        # through the shared function, never by hand.
+        log_doc_id = doc_id or canonical_doc_id(input_path)
+
+        translated_texts = []
 
         for xpath in xpaths:
             try:
@@ -134,13 +158,48 @@ def process_metadata_xml(
 
                     translated = translator.translate(original_text, actual_src_lang, tgt_lang)
                     elem.text = translated
+                    translated_texts.append(translated)
 
                     if csv_writer:
-                        doc_name = input_path.name.split(".")[0]
-                        csv_writer.writerow([doc_name, "", xpath, original_text, translated])
+                        csv_writer.writerow([log_doc_id, "", xpath, original_text, translated])
 
             except etree.XPathError as e:
                 print(f"[WARN] XPath error for '{xpath}': {e}")
+
+        # ATRIUM Document JSON accretion update for metadata blocks.
+        #
+        # `translations` is metadata about the language pair/backend, per the
+        # schema (`{source_lang, target_lang, backend}`) — NOT the translated
+        # corpus text itself, which already persists via `derived_from.translated_xml`.
+        #
+        # Entity translation (`entities[].translation_en`) is NOT attempted here, and as of
+        # today no code path in this repo writes that field at all — it is UNIMPLEMENTED,
+        # not merely deferred (atrium-project#10, finding D7).
+        #
+        # Why it is absent here: in the declared pipeline order (pc→alto→translate→nlp→llm),
+        # `entities[]` is produced by nlp-enrich, which runs AFTER the translator. `entities`
+        # does not exist yet at this point in any real run, so a per-entity translation pass
+        # in this function would be unreachable dead code (issue #13 alignment audit, P0.6).
+        #
+        # This repo is nonetheless the field's declared OWNER — see the ownership table in the
+        # hub's `docs/document_schema.md` and `BLOCK_FIELD_OWNERS["entities"]["translator"]` in
+        # atrium_document.py — so the gap is ours to close, not another tool's. Resolving it
+        # needs a SECOND pass over an already-enriched record: read `entities` via
+        # `doc.get_block("entities")`, translate each `surface`, and `merge_block("entities",
+        # rows, own_fields=["translation_en"])` back (followed by
+        # `assert_fields_survived("entities", rows, ["translation_en"])`, so a grant mistake
+        # cannot silently drop the field). That is a feature, tracked as still-open; the
+        # earlier citation here pointed at `agent_dev_logs/digests/13.digest.md`, which does
+        # not exist in this repo.
+        if doc is not None:
+            doc.set_block(
+                "translations",
+                {
+                    "source_lang": src_lang,
+                    "target_lang": tgt_lang,
+                    "backend": backend or "lindat",
+                },
+            )
 
         if xsd_schema:
             print(f"[INFO] Validating {output_path.name} against XSD …")
@@ -266,7 +325,17 @@ def _align_tokens_proportional(block_text, source_line_texts):
 
 
 def process_alto_xml(
-    input_path, output_path, translator, src_lang, tgt_lang, csv_writer=None, identifier=None, line_anchors=True
+    input_path,
+    output_path,
+    translator,
+    src_lang,
+    tgt_lang,
+    csv_writer=None,
+    identifier=None,
+    line_anchors=True,
+    doc=None,
+    backend=None,
+    doc_id=None,
 ):
     """
     Translate an ALTO XML document in place (dual-pass reconstruction).
@@ -274,8 +343,15 @@ def process_alto_xml(
     Implements Page-Level Batching (Issue #16): Pools block and line translation
     requests per page to eliminate heavy API call overhead, falling back to
     1-by-1 processing if the NMT model modifies layout boundaries.
+
+    *doc_id* is the caller's canonical doc_id for this document, used verbatim as the CSV
+    log's ``file`` column; see the metadata-path twin for why it is passed in (D3).
     """
     try:
+        # D3: one doc_id per document, supplied by the caller (main.py) or derived through
+        # the shared canonical_doc_id() — never hand-rolled here. See process_metadata_xml.
+        log_doc_id = doc_id or canonical_doc_id(input_path)
+
         tree = etree.parse(str(input_path), parser=_SECURE_PARSER)
         root = tree.getroot()
 
@@ -285,6 +361,8 @@ def process_alto_xml(
 
         pages = root.xpath("//alto:Page", namespaces=ns) if use_ns else root.xpath("//Page")
         total_pages = len(pages)
+
+        full_translated_blocks = []
 
         for page_idx, page in enumerate(pages, 1):
             text_blocks = page.xpath(".//alto:TextBlock", namespaces=ns) if use_ns else page.xpath(".//TextBlock")
@@ -411,6 +489,9 @@ def process_alto_xml(
                 sys.stdout.flush()
 
                 block_tgt = bdata["block_tgt"]
+                if block_tgt:
+                    full_translated_blocks.append(block_tgt)
+
                 lines_data = bdata["lines_data"]
 
                 if line_anchors:
@@ -438,13 +519,28 @@ def process_alto_xml(
                     ld["trans_line_text"] = " ".join(assigned_tokens)
 
                 if csv_writer:
-                    doc_name = input_path.name.split(".")[0]
                     for ld in lines_data:
                         if ld["orig_text"] or ld["trans_line_text"]:
-                            csv_writer.writerow([doc_name, page_idx, ld["id"], ld["orig_text"], ld["trans_line_text"]])
+                            csv_writer.writerow(
+                                [log_doc_id, page_idx, ld["id"], ld["orig_text"], ld["trans_line_text"]]
+                            )
 
             if num_blocks > 0:
                 print()
+
+        # ATRIUM Document JSON accretion update for ALTO blocks. See the metadata-path
+        # twin above for why `translations` carries language-pair metadata (not the
+        # translated corpus text), and for the state of `entities[].translation_en` — a
+        # field this repo owns and no code path here writes (D7, still open).
+        if doc is not None:
+            doc.set_block(
+                "translations",
+                {
+                    "source_lang": src_lang,
+                    "target_lang": tgt_lang,
+                    "backend": backend or "lindat",
+                },
+            )
 
         tree.write(str(output_path), encoding="utf-8", xml_declaration=True)
         print(f"[SUCCESS] Saved ALTO translation → {output_path}")

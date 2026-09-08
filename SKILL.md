@@ -27,6 +27,8 @@ the translation pipeline, and a zero-dependency client script
   translation of a long document still takes minutes. Do **not** treat a slow
   call as failure.
 - **Limits**: 50 MB per file; one XML document per request.
+- **Readiness**: `GET /health` is liveness (stays 200 while draining); `GET /ready` is the
+  orchestrator-facing readiness probe — 503 while warming up or shutting down.
 
 ## Modes & languages 🌍
 
@@ -73,7 +75,24 @@ python3 scripts/atrium_translate.py page.alto.xml -o -
 python3 scripts/atrium_translate.py --info
 ```
 
-### 3. Interpret output
+### 3. ATRIUM Document JSON accretion (optional)
+
+Translator accretes onto an existing baseline record — it does not originate one, since
+it is never the first pipeline stage (accretion contract, `docs/document_schema.md` in the
+hub repo):
+
+```bash
+python3 scripts/atrium_translate.py page.alto.xml --document-json in.document.json \
+    --document-json-out-file out.document.json
+```
+
+The server answers with a `multipart/mixed` response (one `application/xml` part, one
+`application/json` part) whenever `--document-json` is given; the client splits them
+automatically, writing the XML to `-o`/the default name and the record to
+`--document-json-out-file`. Only `translations` and `entities[].translation_en` are
+updated — every other tool's block passes through unchanged.
+
+### 4. Interpret output
 
 The result is the translated XML document itself, not a report: ALTO
 naming is preserved (page.alto.xml → page_en.alto.xml), metadata files get

@@ -28,6 +28,7 @@ except ImportError:
         print()
 
 
+from atrium_document import DocumentRecord, canonical_doc_id, load_document, validate_document
 from atrium_paradata import ParadataLogger
 from processors.backend import TranslationBackend, get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
@@ -57,6 +58,137 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
         "fasttext_confidence_threshold": 0.2,
     }
+
+
+#: (atrium-project#10, D4) One-shot latch for the "validation is unavailable" warning.
+#: The gate below runs once per input file and a batch run walks a whole directory, so
+#: repeating the line per document would bury every other diagnostic of the run. Loud
+#: once is the point; loud once per file is noise that gets filtered.
+_VALIDATION_UNAVAILABLE_WARNED = False
+
+
+def _doc_warn(message: str) -> None:
+    """stderr, in atrium_document's own ``[document]`` voice.
+
+    These lines interleave with the shared module's unconditional stderr diagnostics
+    ("baseline … not found", "contributed no block"), and the accretion trace of a run is
+    only readable if all of it lands in one stream with one prefix — hence stderr and the
+    ``[document]`` tag rather than this file's usual ``[WARN]`` on stdout.
+    """
+    print(f"[document] WARNING – {message}", file=sys.stderr)
+
+
+def _warn_validation_unavailable(reason: str) -> None:
+    """(D4) The gate could not run at all. Announced ONCE, loudly, never silently.
+
+    ``validate_document()`` deliberately raises rather than passing when ``jsonschema`` is
+    absent, because a gate that quietly becomes a no-op is indistinguishable from a passing
+    one. Degrading loudly preserves that property while honouring rule 3 — a missing optional
+    dependency must not stop a standalone run from producing its output.
+    """
+    global _VALIDATION_UNAVAILABLE_WARNED
+    if _VALIDATION_UNAVAILABLE_WARNED:
+        return
+    _VALIDATION_UNAVAILABLE_WARNED = True
+    _doc_warn(
+        f"schema validation is DISABLED for this run — {reason}. This is a DEGRADED gate, "
+        f"not a pass: records are being written unchecked. Install the missing dependency "
+        f"(requirements.txt declares jsonschema for exactly this call)."
+    )
+
+
+def _baseline_is_invalid(baseline: Path | None) -> bool:
+    """Validate the INHERITED baseline before the translator accretes onto it (D4).
+
+    Warns and returns True on a schema failure rather than refusing to run: the defect
+    belongs to whichever upstream tool wrote it, and turning one bad record into a stalled
+    pipeline is worse than passing it through (rule 6 already commits to carrying unknown
+    content forward). The flag downgrades the own-output gate below from raise to warn, so
+    this stage is not blamed for a defect it inherited.
+
+    A baseline that cannot be READ at all is not this function's problem —
+    ``DocumentRecord.open()`` reports on it a few lines later, with the right message.
+    """
+    if not baseline or not Path(baseline).exists():
+        return False
+    try:
+        record = load_document(str(baseline))
+    except Exception:
+        return False
+    try:
+        validate_document(record)
+    except (RuntimeError, FileNotFoundError) as exc:
+        # RuntimeError = jsonschema missing; FileNotFoundError = the schema itself was not
+        # vendored next to the module. Neither means "the record is bad".
+        _warn_validation_unavailable(str(exc))
+        return False
+    except Exception as exc:
+        _doc_warn(
+            f"inherited baseline {Path(baseline).name} does not validate against "
+            f"atrium_document.schema.json — {exc}. Accreting onto it anyway; this stage's "
+            f"own output gate is downgraded to a warning as a result."
+        )
+        return True
+    return False
+
+
+def record_doc_id(file_path: Path, baseline: Path | None) -> str:
+    """The doc_id the RECORD is keyed on — inherited from the baseline, not guessed (D1/D3).
+
+    The translator is the one stage whose input is never the original document. ALTO
+    postprocess splits pages out as ``PAGE_ALTO/<doc>/<doc>-1.alto.xml`` and that is what the
+    pipeline hands us, so ``canonical_doc_id()`` — which strips pipeline SUFFIXES and knows
+    nothing about page labels — correctly answers ``<doc>-1``. Correct for the file; wrong for
+    the record, and the E2E gate is where that showed up (hub run 31076188660): stage 3 wrote
+    ``CTX000000003-1`` into a chain whose other four stages all said ``CTX000000003``. Every
+    upstream block was still carried through, but under a key nothing downstream would ever
+    look up again — an orphan, which is exactly what `assert_doc_id_stable()` exists to catch.
+
+    Stripping a trailing ``-<n>`` here would be the wrong repair: ``sbn.2019-1`` is a legal
+    document name, so no filename rule can tell a page label from the document's own last
+    segment. The baseline does not have to guess — the originator already wrote the answer
+    into it. So: inherit when there is a baseline, fall back to `canonical_doc_id()` on the
+    filename when there is not (rule 3, a standalone run has no document context to inherit).
+
+    ``DocumentRecord`` applies the same rule to the record it writes, so this function is not
+    what keeps the id honest — it is what keeps the CSV log's `file` column and the paradata
+    key, both computed OUTSIDE the record, agreeing with what lands inside it.
+
+    An unreadable or id-less baseline falls back to the filename rather than raising:
+    ``DocumentRecord.open()`` reports that case a few lines later, with the right message.
+    """
+    derived = canonical_doc_id(file_path)
+    if not baseline or not Path(baseline).exists():
+        return derived
+    try:
+        inherited = canonical_doc_id(load_document(str(baseline)))
+    except Exception:
+        return derived
+    return inherited or derived
+
+
+def _validate_own_output(doc: DocumentRecord, baseline_was_invalid: bool) -> None:
+    """The Layer D gate on the translator's own output, called before ``finalize()`` (D4).
+
+    Raises on a schema failure so the record is never emitted — ``DocumentRecord``'s context
+    manager only finalises when the body leaves without an exception, so raising here is what
+    makes "no doc.json is emitted if validation fails" true. The one exception is an
+    already-invalid baseline: the failure is then almost certainly the inherited one, and
+    refusing to write would discard this stage's work along with the upstream stage's.
+    """
+    try:
+        validate_document(doc.to_dict())
+    except (RuntimeError, FileNotFoundError) as exc:
+        _warn_validation_unavailable(str(exc))
+    except Exception as exc:
+        if baseline_was_invalid:
+            _doc_warn(
+                f"translator output for {doc.doc_id} does not validate — {exc}. Emitting it "
+                f"anyway: the inherited baseline was already invalid, so this is very likely "
+                f"not our defect to refuse."
+            )
+            return
+        raise
 
 
 def fetch_xml_from_url(url: str, download_dir: Path) -> Path | None:
@@ -136,6 +268,18 @@ def parse_arguments():
         type=Path,
         default=None,
         help="Path to a CSV vocabulary file (source_lemma,target_translation).",
+    )
+    parser.add_argument(
+        "--document-json",
+        type=Path,
+        default=None,
+        help="Optional baseline ATRIUM Document JSON to append to (accretion model).",
+    )
+    parser.add_argument(
+        "--document-json-out",
+        type=Path,
+        default=None,
+        help="Destination path for the updated ATRIUM Document JSON.",
     )
     parser.add_argument(
         "--download-dir",
@@ -227,7 +371,27 @@ def process_single_file(
     """
     translator.reset_protected_count()
 
-    csv_log_path = output_file.with_name(f"{file_path.name.split('.')[0]}_log.csv")
+    # D3 (atrium-project#10): one derivation for the whole run, through the shared module.
+    # The old `file_path.name.split(".")[0]` agreed with canonical_doc_id() only by luck of
+    # the sample naming convention — a doc_id with an embedded dot (`CTX01.v2.alto.xml`)
+    # truncated to `CTX01` here while every other tool kept `CTX01.v2`, forking this repo's
+    # record away from the rest of the pipeline for the same physical document.
+    #
+    # `file_key` names what THIS INVOCATION READ; `doc_id` names the DOCUMENT the record is
+    # keyed on, and the two are not the same thing whenever the input is a page split out of
+    # a multi-page original — which, in the ecosystem pipeline, is always (see
+    # record_doc_id). The CSV log keeps the per-FILE name because it holds per-line rows and
+    # a document-level name would make page 2 of a batch truncate page 1's log. The record
+    # takes `doc_id` everywhere: in its key, in its default filename (rule 1's
+    # `<doc_id>.document.json`, and what DocumentRecord.finalize() would pick on its own), in
+    # the log's `file` column, and in the paradata key — a record whose NAME disagreed with
+    # the id INSIDE it is the same class of defect as the fork this derivation now avoids.
+    file_key = canonical_doc_id(file_path)
+    doc_id = record_doc_id(file_path, args.document_json)
+    csv_log_path = output_file.with_name(f"{file_key}_log.csv")
+    paradata_ref = str(Path(_logger.paradata_dir) / f"{_logger.run_id}_{_logger.program}.json")
+
+    doc_json_out = args.document_json_out or output_file.with_name(f"{doc_id}.document.json")
     success = False
 
     with open(csv_log_path, "w", encoding="utf-8", newline="") as csv_file:
@@ -243,32 +407,63 @@ def process_single_file(
         )
 
         try:
-            if args.alto:
-                process_alto_xml(
-                    file_path,
-                    output_file,
-                    translator,
-                    args.source_lang,
-                    args.target_lang,
-                    csv_writer,
-                    identifier,
-                    line_anchors=not args.fast_align,
-                )
-            else:
-                process_metadata_xml(
-                    file_path,
-                    output_file,
-                    xpaths_list,
-                    translator,
-                    args.source_lang,
-                    args.target_lang,
-                    xsd_schema=xsd_schema,
-                    csv_writer=csv_writer,
-                    identifier=identifier,
-                )
+            # D4: validate what we INHERITED before writing onto it. Warn-and-continue, but
+            # remember the verdict — it decides whether our own gate below raises or warns.
+            baseline_was_invalid = _baseline_is_invalid(args.document_json)
+
+            with DocumentRecord.open(
+                doc_id=doc_id,
+                program="translator",
+                baseline=args.document_json,
+                run_id=_logger.run_id,
+                paradata_ref=paradata_ref,
+            ) as doc:
+                if args.alto:
+                    process_alto_xml(
+                        file_path,
+                        output_file,
+                        translator,
+                        args.source_lang,
+                        args.target_lang,
+                        csv_writer,
+                        identifier,
+                        line_anchors=not args.fast_align,
+                        doc=doc,
+                        backend=args.backend,
+                        doc_id=doc_id,
+                    )
+                else:
+                    process_metadata_xml(
+                        file_path,
+                        output_file,
+                        xpaths_list,
+                        translator,
+                        args.source_lang,
+                        args.target_lang,
+                        xsd_schema=xsd_schema,
+                        csv_writer=csv_writer,
+                        identifier=identifier,
+                        doc=doc,
+                        backend=args.backend,
+                        doc_id=doc_id,
+                    )
+
+                # Append derived step outputs and licenses to the accretion model
+                doc.add_derived_from("translated_xml", output_file.name)
+                doc.add_license_detail(_logger.get_license_block())
+
+                # D4: the Layer D gate, at this repo's single document-write chokepoint.
+                # Raising here (rather than after finalize()) is what makes "no doc.json is
+                # emitted if validation fails" true: DocumentRecord.__exit__ only finalises a
+                # body that left without an exception.
+                _validate_own_output(doc, baseline_was_invalid)
+
+                doc.finalize(str(doc_json_out))
 
             _logger.log_success("xml")
             _logger.log_success("csv")
+            if args.document_json or args.document_json_out:
+                _logger.log_success("json")
             success = True
 
         except Exception as e:
@@ -303,7 +498,7 @@ def main():
         program="translator",
         config=_build_paradata_config(args, config),
         paradata_dir=str(out_dir / "paradata"),
-        output_types=["xml", "csv"],
+        output_types=["xml", "csv", "json"],
     ) as _logger:
         if not args.alto and not args.xpaths:
             print("[ERROR] Specify either the --alto flag or provide --xpaths / 'fields' in config.")
@@ -413,7 +608,11 @@ def main():
                 _components_logged = True
 
             if translator.vocabulary:
-                doc_name = file_path.name.split(".")[0]
+                # D3: the paradata key must be the same doc_id the record and the CSV log
+                # use, or `vocabulary_protected_terms` cannot be joined back to a document.
+                # Same derivation as process_single_file's, baseline included — keyed on the
+                # page a document was split into, this map joins to nothing.
+                doc_name = record_doc_id(file_path, args.document_json)
                 protected_by_doc[doc_name] = protected
                 if getattr(translator, "supports_glossary", False):
                     print(f"[INFO] Prompt glossary: {protected} term(s) applied in {file_path.name}")

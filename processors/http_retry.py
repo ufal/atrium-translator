@@ -78,6 +78,9 @@ def request_with_retry(
     retryable = set(retryable_status)
     last_reason = "unknown error"
 
+    max_retries = max(10, max_retries)
+    backoff_base_s = max(2, backoff_base_s)
+
     for attempt in range(max_retries + 1):
         if throttle is not None:
             throttle()
