@@ -15,6 +15,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from atrium_paradata import ParadataLogger
 from main import process_single_file, record_doc_id
@@ -88,6 +89,22 @@ attach_inflight_middleware(app, _state)
 
 # CORS — standard §4.5 configuration (ALLOWED_ORIGINS CSV, default "*").
 add_cors(app)
+
+# Demo frontend (§9) — served at /frontend when the directory is present.
+#
+# Guarded by `.exists()` on purpose, so this block is a no-op wherever
+# `service/frontend/` was not shipped. That is what makes it safe on every branch:
+# the page currently lives only on `agent-skill`, and this same code changes nothing
+# on a branch without it, so there is no fork to forward-merge later.
+#
+# Until 2026-09-09 the branch README advertised a frontend "mounted at `/frontend`"
+# while nothing mounted anything — the page shipped unreachable. The skill-validate
+# endpoint check could not catch it: step 2 skips `/`-rooted tokens, and step 4's
+# `GET /x` pattern deliberately ignores a bare backticked `/frontend` precisely
+# because that form also names slash-commands and static mounts.
+_frontend_dir = Path(__file__).resolve().parent / "frontend"
+if _frontend_dir.exists():
+    app.mount("/frontend", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
 
 
 def _deep_health() -> str | None:

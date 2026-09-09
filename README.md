@@ -92,9 +92,10 @@ Update any install with `git pull` inside the cloned skill directory.
 
 ## Server setup 🖥️
 
-The server exposes three endpoints (see [`service/README.md`](service/README.md)
-for details): `GET /info`, `GET /health`, `POST /translate`. A minimal demo
-frontend is mounted at `/frontend`.
+The server exposes four endpoints (see [`service/README.md`](service/README.md)
+for details): `GET /info`, `GET /health`, `GET /ready`, `POST /translate`. A minimal
+demo frontend — which documents the same calls as a `curl` recipe — is mounted at
+`/frontend`.
 
 ```bash
 bash scripts/server.sh          # auto: Docker Compose api service, else local uvicorn
