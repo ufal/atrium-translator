@@ -29,15 +29,44 @@ translator uses this to avoid freezing a singular vocabulary translation onto a
 plural source token (which breaks English number agreement, e.g. "several
 feature").  The original 2-tuple API is preserved so existing callers and tests
 are unaffected.
+
+Endpoint (atrium-project#63)
+----------------------------
+The UDPipe endpoint is an attachable backing service: pass ``url=`` explicitly,
+or set ``UDPIPE_URL`` in the environment, to reach a self-hosted UDPipe 2
+instance instead of LINDAT's public one.  The variable name is shared with
+``atrium-nlp-enrich``, which calls the same service from its own pipeline.
 """
+
+import os
 
 import requests
 
 from .chunking import chunk_text
 
+#: LINDAT's public UDPipe 2 endpoint — the default, not a hard requirement.
+DEFAULT_UDPIPE_URL = "https://lindat.mff.cuni.cz/services/udpipe/api/process"
+
+
+def resolve_udpipe_url(url: str | None = None) -> str:
+    """Resolve the UDPipe endpoint (atrium-project#63, factor IV).
+
+    Precedence: explicit *url* argument → ``UDPIPE_URL`` in the environment →
+    :data:`DEFAULT_UDPIPE_URL`. The variable name is shared with
+    ``atrium-nlp-enrich``, which reaches the same service for its own pipeline;
+    one service, one spelling.
+
+    Exposed as a module function rather than inlined in ``__init__`` so that any
+    caller needing to *record* the endpoint (paradata) resolves it exactly the
+    way the request does, instead of re-deriving a literal that can drift.
+    """
+    if url is not None:
+        return url.strip()
+    return (os.environ.get("UDPIPE_URL", "") or DEFAULT_UDPIPE_URL).strip()
+
 
 class LindatLemmatizer:
-    URL = "https://lindat.mff.cuni.cz/services/udpipe/api/process"
+    URL = DEFAULT_UDPIPE_URL
 
     MODELS = {
         "cs": "czech-pdt-ud-2.15-241121",
@@ -50,6 +79,15 @@ class LindatLemmatizer:
         "uk": "ukrainian-iu-ud-2.15-241121",
     }
     DEFAULT_MODEL = "czech-pdt-ud-2.15-241121"
+
+    def __init__(self, url: str | None = None) -> None:
+        """*url* overrides ``UDPIPE_URL``, which overrides :attr:`URL`.
+
+        Deliberately network-free: the lemmatizer is constructed eagerly by
+        ``LindatTranslator`` whenever a vocabulary loads, and the tests rely on
+        construction staying hermetic.
+        """
+        self.url = resolve_udpipe_url(url)
 
     def _chunk_text(self, text: str, chunk_size: int = 4000) -> list[str]:
         """
@@ -97,7 +135,7 @@ class LindatLemmatizer:
 
             try:
                 resp = requests.post(
-                    self.URL,
+                    self.url,
                     data={
                         "model": model,
                         "tokenizer": "",

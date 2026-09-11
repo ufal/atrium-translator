@@ -21,6 +21,7 @@ from main import process_single_file, record_doc_id
 from processors.backend import get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
+from processors.translator import resolve_translation_url
 
 # Shared ATRIUM meta-contract helpers (§4). Byte-identical across every service,
 # enforced by para-drift.reusable.yml.
@@ -209,10 +210,24 @@ async def translate_document(
             "chunk_limit": DEFAULT_CHUNK_SIZE,
             "translation_backend": backend_name,
         }
-        # Only record the hardcoded LINDAT URL when the active backend is
-        # actually lindat — avoids misrepresenting LLM / CT2 runs (M1).
+        # Only record the translation endpoint when the active backend is
+        # actually lindat — avoids misrepresenting LLM / CT2 runs (M1) — and
+        # record the endpoint the warmed backend will ACTUALLY call rather than
+        # a literal (atrium-project#63). Now that the host is configurable, a
+        # repeated literal would eventually name somewhere the request never
+        # went, and paradata is this project's provenance claim: a record that
+        # is confidently wrong is a data-integrity defect, not a cosmetic one.
+        #
+        # Read off the live instance first — it is the same object that issues
+        # the requests, so the two cannot diverge. resolve_translation_url()
+        # covers a backend that exposes no base_url (a test double), and returns
+        # what the real backend would have resolved. The trailing slash keeps
+        # the shape this field has carried since it was introduced.
         if backend_name == "lindat":
-            para_config["translation_api"] = "https://lindat.mff.cuni.cz/services/translation/api/v2/"
+            effective_url = getattr(models["translator"], "base_url", None)
+            if not isinstance(effective_url, str) or not effective_url.strip():
+                effective_url = resolve_translation_url()
+            para_config["translation_api"] = effective_url.rstrip("/") + "/"
 
         with ParadataLogger(
             program="translator-api",

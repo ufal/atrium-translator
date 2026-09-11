@@ -35,11 +35,22 @@ running server. The repo-root `README.md` covers the CLI and the translation log
 | `MAX_UPLOAD_MB`       | `50`      | canonical upload limit                                                                    |
 | `ALLOWED_ORIGINS`     | `*`       | CSV of CORS origins                                                                       |
 | `TRANSLATION_BACKEND` | `lindat`  | backend seam shared with the CLI (issue #4)                                               |
+| `TRANSLATION_URL`     | LINDAT    | translation API base URL for the `lindat` backend; `LINDAT_BASE_URL` is an alias (issue #63) |
+| `UDPIPE_URL`          | LINDAT    | UDPipe 2 endpoint for vocabulary lemma matching; same name as atrium-nlp-enrich (issue #63) |
 | `PORT`                | `8000`    | port the service **binds**, and the one `service/healthcheck.py` probes (issues #55, #58) |
 | `HOST`                | `0.0.0.0` | bind address (issue #58). ⚠️ see the warning below                                        |
 | `GRACEFUL_SHUTDOWN_S` | `20`      | seconds uvicorn waits for in-flight requests (issue #55)                                  |
 | `RELOAD`              | `false`   | filesystem auto-reload — development only, never in a deployment                          |
 | `LOG_LEVEL`           | `INFO`    | root logger level for the `python -m service.api` start path (issue #61)                  |
+
+`TRANSLATION_URL` and `UDPIPE_URL` make the two LINDAT-hosted backing services
+attachable (12-factor IV): set either to reach a self-hosted or stubbed instance
+without a code change. Unset, both reach the same hosts as before. The endpoint
+the `lindat` backend actually resolved is what `/translate` writes into the
+`translation_api` paradata field — the record names the host the request went
+to, never a literal, since a provenance claim that is confidently wrong is worse
+than one that is absent. The `LINDAT_MIN_INTERVAL_S` / `LINDAT_MAX_RETRIES` /
+`LINDAT_BACKOFF_BASE_S` transport dials are separate and unchanged.
 
 `PORT` and `HOST` are read by `service/api.py`'s `__main__` block, which is what the `api`
 image's `ENTRYPOINT` (`python -m service.api`) runs. Before issue #58 the entrypoint baked

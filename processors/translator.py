@@ -115,6 +115,15 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_str(*names: str, default: str) -> str:
+    """First non-empty value among *names* in the environment, else *default*."""
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return default
+
+
 # Minimum seconds between outbound LINDAT requests (0 = disabled).
 _MIN_INTERVAL_S = _env_float("LINDAT_MIN_INTERVAL_S", 0.0)
 # Retries on transient failure (network error, HTTP 429/5xx).
@@ -124,9 +133,34 @@ _BACKOFF_BASE_S = _env_float("LINDAT_BACKOFF_BASE_S", 1.0)
 # HTTP status codes worth retrying.
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
+#: LINDAT's public CUBBITT translation API — the default, not a hard requirement.
+DEFAULT_TRANSLATION_URL = "https://lindat.mff.cuni.cz/services/translation/api/v2"
+
+
+def resolve_translation_url(base_url: str | None = None) -> str:
+    """Resolve the translation endpoint (atrium-project#63, factor IV).
+
+    Precedence: explicit *base_url* → ``TRANSLATION_URL`` → ``LINDAT_BASE_URL``
+    → :data:`DEFAULT_TRANSLATION_URL`.
+
+    ``TRANSLATION_URL`` is the documented name: it names the *role*, and the
+    whole point of an attachable backing service is that the host behind it need
+    not be LINDAT.  ``LINDAT_BASE_URL`` is accepted as the spelling issue #63
+    proposed, so either works.  The ``LINDAT_*`` transport dials
+    (``LINDAT_MIN_INTERVAL_S`` and friends) keep their names — those genuinely
+    describe tuning for a shared public endpoint.
+
+    A module function, not just constructor logic, so that paradata writers with
+    no live backend instance (``main.py``) record the same value the request
+    uses instead of re-deriving a literal.
+    """
+    if base_url is not None:
+        return base_url.strip()
+    return _env_str("TRANSLATION_URL", "LINDAT_BASE_URL", default=DEFAULT_TRANSLATION_URL)
+
 
 class LindatTranslator:
-    BASE_URL = "https://lindat.mff.cuni.cz/services/translation/api/v2"
+    BASE_URL = DEFAULT_TRANSLATION_URL
 
     # ── NMT-safe placeholder sentinel ─────────────────────────────────────────
     # A purely alphabetic marker (no '_' / digits-as-punctuation) that NMT models
@@ -200,7 +234,12 @@ class LindatTranslator:
             comps += ["udpipe2_engine", "udpipe2_models", "amcr_vocab", "teater_data"]
         return comps
 
-    def __init__(self, vocab_path=None):
+    def __init__(self, vocab_path=None, *, base_url: str | None = None):
+        # MUST precede _fetch_models(): that call reads self.base_url, so
+        # resolving the endpoint afterwards would send the very first request of
+        # the process to the default host regardless of the configuration.
+        self.base_url = resolve_translation_url(base_url).rstrip("/")
+
         self.supported_models = self._fetch_models()
         self.vocabulary: dict = {}
         self._multiword_terms: list = []
@@ -434,7 +473,7 @@ class LindatTranslator:
         translated_chunks = []
         chunk_iter = tqdm(chunks, desc="Translating chunks", leave=False) if len(chunks) > 1 else chunks
 
-        url = f"{self.BASE_URL}/models/{model_name}?src={src_lang}&tgt={tgt_lang}"
+        url = f"{self.base_url}/models/{model_name}?src={src_lang}&tgt={tgt_lang}"
         for chunk in chunk_iter:
             # _post_with_retry raises TranslationError on unrecoverable failure;
             # we deliberately do NOT catch it here so the per-file handler in
@@ -445,7 +484,7 @@ class LindatTranslator:
 
     def _fetch_models(self) -> list:
         try:
-            resp = requests.get(f"{self.BASE_URL}/models", timeout=10)
+            resp = requests.get(f"{self.base_url}/models", timeout=10)
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, dict) and "_embedded" in data:

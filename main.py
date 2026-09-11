@@ -42,22 +42,44 @@ from utils import load_xsd, process_alto_xml, process_metadata_xml
 
 def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
     """Return a JSON-serialisable snapshot of all run-time parameters."""
-    return {
+    backend_name = str(getattr(args, "backend", "") or "lindat")
+
+    cfg = {
         "input_path": str(args.input_path),
         "output_dir": str(args.output or config.get("DEFAULT", "output", fallback="")),
         "source_lang": str(args.source_lang),
         "target_lang": str(args.target_lang),
         "formats": str(args.formats),
         "mode": "alto" if args.alto else "metadata",
-        "translation_backend": str(getattr(args, "backend", "") or "lindat"),
+        "translation_backend": backend_name,
         "xpaths_file": str(args.xpaths or ""),
         "xsd_url": str(args.xsd or ""),
         "vocabulary": str(args.vocabulary or ""),
         "chunk_limit": DEFAULT_CHUNK_SIZE,
         "lang_id_model": "facebook/fasttext-language-identification",
-        "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
-        "fasttext_confidence_threshold": 0.2,
     }
+
+    # Two fixes to one line (atrium-project#63):
+    #
+    # 1. The guard. This field was recorded unconditionally, so every CLI run on
+    #    the LLM or CT2 backend claimed a LINDAT endpoint it never contacted.
+    #    service/api.py has had the backend guard since finding M1; the CLI path
+    #    never got it.
+    # 2. The value. Resolved through the same function LindatTranslator uses, so
+    #    the record names the host the run actually calls once the endpoint is
+    #    configurable — paradata is a provenance claim, and one that is
+    #    confidently wrong is worse than one that is absent.
+    #
+    # Imported inside the function: the translator instance does not exist until
+    # later in main(), and a module-level import here would pull requests/tqdm
+    # into every run regardless of backend.
+    if backend_name == "lindat":
+        from processors.translator import resolve_translation_url
+
+        cfg["translation_api"] = resolve_translation_url().rstrip("/") + "/"
+
+    cfg["fasttext_confidence_threshold"] = 0.2
+    return cfg
 
 
 #: (atrium-project#10, D4) One-shot latch for the "validation is unavailable" warning.

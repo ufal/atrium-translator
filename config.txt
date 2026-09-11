@@ -28,3 +28,18 @@ vocabulary = data_samples/vocabulary.csv
 #                         LLM_LANGUAGES). See docs/translation-backends.md.
 # Overridden by --backend on the CLI and by the TRANSLATION_BACKEND env var.
 translation_backend = lindat
+
+# Backing service endpoints (atrium-project#63). Both are attachable: point them
+# at a self-hosted UDPipe 2 / translation service, or a local stub, with no code
+# change. They are environment variables, not keys in this file, because they
+# vary per deployment rather than per run:
+#   TRANSLATION_URL  -> translation API base URL, used by the lindat backend.
+#                       LINDAT_BASE_URL is accepted as an alias.
+#                       Default: https://lindat.mff.cuni.cz/services/translation/api/v2
+#   UDPIPE_URL       -> UDPipe 2 endpoint used for vocabulary lemma matching.
+#                       Same variable name as atrium-nlp-enrich, which calls the
+#                       same service.
+#                       Default: https://lindat.mff.cuni.cz/services/udpipe/api/process
+# Unset, both reach the LINDAT hosts they always have. The LINDAT_* transport
+# dials (LINDAT_MIN_INTERVAL_S, LINDAT_MAX_RETRIES, LINDAT_BACKOFF_BASE_S) are
+# unrelated and keep their names.
