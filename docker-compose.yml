@@ -17,8 +17,14 @@ services:
       context: .
       target: api
     image: ufal/atrium-translator:latest-api
+    environment:
+      PORT: ${PORT:-8000}
+    # PORT is passed through so `PORT=9000 docker compose --profile api up` moves the
+    # listener, the published port and the container's own HEALTHCHECK together — the
+    # service reads it in service/api.py's __main__ block and service/healthcheck.py
+    # probes it. (atrium-project#58)
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     volumes:
       - ./data:/data
       - ./config.txt:/app/config.txt:ro

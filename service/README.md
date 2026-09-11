@@ -9,6 +9,8 @@ rewritten XML with its markup intact. The service version is read from
 
 ```bash
 pip install -r requirements.txt -r service/requirements.txt
+python -m service.api                          # honours PORT/HOST; default 0.0.0.0:8000
+# or, for development with auto-reload:
 uvicorn service.api:app --host 0.0.0.0 --port 8000
 # or:
 docker compose --profile api up -d
@@ -28,20 +30,36 @@ running server. The repo-root `README.md` covers the CLI and the translation log
 
 ## Configuration (environment)
 
-| Variable               | Default  | Meaning                                              |
-|------------------------|----------|------------------------------------------------------|
-| `MAX_UPLOAD_MB`        | `50`     | canonical upload limit                               |
-| `ALLOWED_ORIGINS`      | `*`      | CSV of CORS origins                                  |
-| `TRANSLATION_BACKEND`  | `lindat` | backend seam shared with the CLI (issue #4)          |
-| `PORT`                 | `8000`   | port `service/healthcheck.py` probes (issue #55)     |
+| Variable              | Default   | Meaning                                                                                   |
+|-----------------------|-----------|-------------------------------------------------------------------------------------------|
+| `MAX_UPLOAD_MB`       | `50`      | canonical upload limit                                                                    |
+| `ALLOWED_ORIGINS`     | `*`       | CSV of CORS origins                                                                       |
+| `TRANSLATION_BACKEND` | `lindat`  | backend seam shared with the CLI (issue #4)                                               |
+| `PORT`                | `8000`    | port the service **binds**, and the one `service/healthcheck.py` probes (issues #55, #58) |
+| `HOST`                | `0.0.0.0` | bind address (issue #58). ⚠️ see the warning below                                        |
+| `GRACEFUL_SHUTDOWN_S` | `20`      | seconds uvicorn waits for in-flight requests (issue #55)                                  |
+| `RELOAD`              | `false`   | filesystem auto-reload — development only, never in a deployment                          |
+| `LOG_LEVEL`           | `INFO`    | root logger level for the `python -m service.api` start path (issue #61)                  |
+
+`PORT` and `HOST` are read by `service/api.py`'s `__main__` block, which is what the `api`
+image's `ENTRYPOINT` (`python -m service.api`) runs. Before issue #58 the entrypoint baked
+`--port 8000` into an exec-form array — which runs no shell, so `$PORT` could not expand —
+while `service/healthcheck.py` read it. Setting `PORT` therefore moved the health *probe*
+and not the listener, and the container reported unhealthy forever.
+
+> ⚠️ `HOST=127.0.0.1` yields a container that reports **healthy** and serves nobody:
+> `service/healthcheck.py` always probes loopback by design and never reads `HOST`, so a
+> loopback bind passes every probe while being unreachable from outside the container.
 
 ## Shutdown behavior (issue #55)
 
 The published `api` image (`ghcr.io/ufal/atrium-translator:<version>-api`, new in that
 issue — before it this service was only reachable via a compose entrypoint override, so no
 API image existed to deploy) declares `HEALTHCHECK` (shallow `GET /health`, via the
-vendored `service/healthcheck.py`) and `STOPSIGNAL SIGTERM`, and its `ENTRYPOINT` passes
-`--timeout-graceful-shutdown 20`.
+vendored `service/healthcheck.py`) and `STOPSIGNAL SIGTERM`, and sets
+`ENV GRACEFUL_SHUTDOWN_S=20`, which `service/api.py`'s `__main__` block passes to uvicorn
+as `timeout_graceful_shutdown`. (It was the `--timeout-graceful-shutdown 20` CLI flag until
+issue #58 moved the whole start command into that block so `$PORT` could be honoured.)
 
 On `SIGTERM` the service flips `GET /ready` to **503** at once so an orchestrator stops
 routing to it, answers new `/translate` calls with 503, and lets in-flight translation
@@ -56,8 +74,8 @@ signal could not be processed at all.
 
 ⚠️ This is the fleet's slowest request shape: one **retried** LINDAT call per chunk, so a
 large document can legitimately run for minutes and outlive the 20s drain budget. Raise
-`--timeout-graceful-shutdown` and the deployment's grace period together for that
-workload — see `docs/k8s_deployment.md` ("Known limits") in the hub.
+`GRACEFUL_SHUTDOWN_S` and the deployment's grace period together for that workload — see
+`docs/k8s_deployment.md` ("Known limits") in the hub.
 
 A clean shutdown exits **143** (128 + SIGTERM), not 0: uvicorn re-raises the captured
 signal on purpose so a supervisor sees the real cause. That is a normal stop, not a crash.
