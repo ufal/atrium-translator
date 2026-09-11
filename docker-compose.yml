@@ -3,6 +3,14 @@ services:
     build:
       context: .
     image: ufal/atrium-translator:latest
+    environment:
+      # This service had no environment block at all. Its default ENTRYPOINT is
+      # the batch CLI (main.py), which reaches BOTH backing services and records
+      # the resolved translation endpoint in paradata — so it is the one service
+      # here where a missing passthrough also produces a wrong provenance claim.
+      # (atrium-project#63; empty default = "unset", see the api service below.)
+      TRANSLATION_URL: ${TRANSLATION_URL:-}
+      UDPIPE_URL: ${UDPIPE_URL:-}
     volumes:
       - ./data:/data
       - ./config.txt:/app/config.txt:ro
@@ -19,6 +27,14 @@ services:
     image: ufal/atrium-translator:latest-api
     environment:
       PORT: ${PORT:-8000}
+      # Backing service endpoints (atrium-project#63). Compose injects ONLY what
+      # is listed here, so without these the endpoints are attachable inside the
+      # process and unreachable from outside the container — same shape as PORT
+      # above (atrium-project#58). The empty default keeps the LINDAT literal in
+      # one place: blank means "unset" to every resolver that reads it, and
+      # /translate's paradata then records the endpoint actually used.
+      TRANSLATION_URL: ${TRANSLATION_URL:-}
+      UDPIPE_URL: ${UDPIPE_URL:-}
     # PORT is passed through so `PORT=9000 docker compose --profile api up` moves the
     # listener, the published port and the container's own HEALTHCHECK together — the
     # service reads it in service/api.py's __main__ block and service/healthcheck.py
@@ -47,6 +63,11 @@ services:
       ATRIUM_RUNNER_REPO: https://github.com/ufal/atrium-translator
       ATRIUM_RUNNER_REF: ${ATRIUM_RUNNER_REF:-dev}
       HF_HOME: /cache/huggingface
+      # As above (atrium-project#63): the CLI path reaches the same two backing
+      # services, and main.py records the resolved translation endpoint in
+      # paradata, so the batch service needs the passthrough too.
+      TRANSLATION_URL: ${TRANSLATION_URL:-}
+      UDPIPE_URL: ${UDPIPE_URL:-}
     volumes:
       - ./data:/data
       - hf-cache:/cache/huggingface
