@@ -7,6 +7,7 @@ Brings this repository into API parity with the rest of the ATRIUM pipeline.
 
 import argparse
 import asyncio
+import logging
 import os
 import tempfile
 import uuid
@@ -48,6 +49,8 @@ except ImportError:
         serve_lifecycle,
     )
 
+logger = logging.getLogger(__name__)
+
 # Canonical upload limit (§4.5): MAX_UPLOAD_MB, with a deprecated MAX_UPLOAD_BYTES fallback.
 MAX_UPLOAD_MB = resolve_max_upload_mb(50)
 MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)  # retained: imported by tests/clients
@@ -65,7 +68,7 @@ async def lifespan(app: FastAPI):
     # Matches the CLI seam in main.py so the service can be pointed at the
     # OpenAI-compatible LLM backend without code changes (issue #4).
     backend = os.getenv("TRANSLATION_BACKEND")
-    print(f"[INFO] Warming up translation backend ({backend or 'lindat'})...")
+    logger.info("Warming up translation backend (%s)", backend or "lindat")
     models["translator"] = get_backend(backend, vocab_path=None)
     models["identifier"] = LanguageIdentifier()
     _state.warm = True
@@ -75,7 +78,7 @@ async def lifespan(app: FastAPI):
     # still translating.
     async with serve_lifecycle(_state):
         yield
-    print("[INFO] Shutting down service...")
+    logger.info("Shutting down service")
     models.clear()
 
 
