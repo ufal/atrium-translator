@@ -22,6 +22,7 @@ from main import process_single_file, record_doc_id
 from processors.backend import get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
+from processors.language import SourceLanguagePolicy, allowed_source_languages
 from processors.translator import resolve_translation_url
 from utils import DEFAULT_OUTPUT_MODE, normalize_output_mode
 
@@ -385,6 +386,14 @@ async def translate_document(
             "chunk_limit": DEFAULT_CHUNK_SIZE,
             "translation_backend": backend_name,
         }
+        # The source-language policy in force (processors/language.py) — the same keys
+        # the CLI records, so a /translate run and a batch run are comparable. The
+        # accepted-language set is derived from the backend that actually warmed up.
+        para_config.update(
+            SourceLanguagePolicy.from_env(
+                allowed=allowed_source_languages(models["translator"], target_lang)
+            ).describe()
+        )
         # Only record the translation endpoint when the active backend is
         # actually lindat — avoids misrepresenting LLM / CT2 runs (M1) — and
         # record the endpoint the warmed backend will ACTUALLY call rather than

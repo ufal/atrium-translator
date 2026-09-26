@@ -20,7 +20,10 @@ default_source_lang = cs
 # Use "alto.xml"  when the input directory contains only ALTO XML files.
 formats = alto.xml
 
-output = ./data_samples/translated_files
+# Shipped samples are laid out as <mode>/<alto|xml>: in-place_translated_files/ holds
+# replace-mode results, appended_translated_files/ append-mode ones (see
+# data_samples/README.md). This default matches formats = alto.xml + output_mode = replace.
+output = ./data_samples/in-place_translated_files/alto
 
 fields = amcr-fields.txt
 

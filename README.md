@@ -83,7 +83,8 @@ namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, 
 * ✅ **XSD Validation**: Optionally validates metadata outputs against an XSD schema (e.g.,
 `https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd`) to guarantee structural integrity after translation.
 * 📊 **Per-document Translation CSV Logs**: Automatically produces a supplementary QA CSV file with columns
-`file, page_num, line_num, text_<source_lang>, text_<target_lang>` for easy manual review.
+`file, page_num, line_num, text_<source_lang>, text_<target_lang>, status` for easy manual review — `status` flags
+lines that were re-run, placed by word count, or left untranslated.
 * 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts,
 configuration snapshot) to the [paradata](data_samples/in-place_translated_files/alto/paradata) 📁 directory for auditing and performance reporting.
 * 🕵️ **Language Detection with Intelligent Fallback**: With `--source_lang auto` the source language is identified
@@ -272,7 +273,9 @@ atrium-translator/
 └── data_samples/
     ├── vocabulary.csv         # 📘 Czech→English domain vocabulary (AMCR/TEATER terms)
     ├── my_documents/          # 📂 Sample inputs (ALTO XML, downloaded AMCR metadata)
-    └── translated_files/      # 📂 Sample outputs, CSV logs and paradata/
+    ├── in-place_translated_files/   # 📂 replace-mode outputs: alto/ and xml/, each with CSV logs,
+    │                                #    document records and paradata/
+    └── appended_translated_files/   # 📂 append-mode outputs, same layout (see data_samples/README.md)
 ```
 
 ---
@@ -294,8 +297,9 @@ python main.py ./data_samples/my_documents --alto --formats alto.xml --target_la
 > mode even without the explicit `--alto` flag.
 
 Example of ALTO XML processing:
-- **Input**: [MTX201501307.alto.xml](data_samples/my_documents/MTX201501307.alto.xml) 📎
-- **Output**: [MTX201501307_en.alto.xml](data_samples/in-place_translated_files/alto/MTX201501307_anon_en.alto.xml) 📎
+- **Input**: [MTX201501307_anon.alto.xml](data_samples/my_documents/MTX201501307_anon.alto.xml) 📎
+- **Output** (replace): [MTX201501307_anon_en.alto.xml](data_samples/in-place_translated_files/alto/MTX201501307_anon_en.alto.xml) 📎
+- **Output** (append): [MTX201501307_anon_en.alto.xml](data_samples/appended_translated_files/alto/MTX201501307_anon_en.alto.xml) 📎
 
 Translation is driven at the `TextBlock` level for semantic quality, but the resulting
 words are **realigned and redistributed back into the individual `CONTENT` attributes**
@@ -512,7 +516,7 @@ source_lang = auto
 target_lang = en
 formats = alto.xml
 fields = amcr-fields.txt
-output = ./data_samples/in-place_translated_files
+output = ./data_samples/in-place_translated_files/alto
 
 # Optional: path to a vocabulary CSV file (source_lemma,target_translation).
 # Leave blank or comment out to disable.
@@ -860,7 +864,7 @@ element retains its original position, and that no token from the block translat
 ## 📊 Translation CSV Logs
 
 The wrapper generates a **per-document** CSV log for every processed XML file, named
-`<original_filename>_log.csv` (e.g., [MTX201501307_log.csv](data_samples/in-place_translated_files/alto/MTX201501307_anon_log.csv)📎). These logs are written to the same output directory
+`<original_filename>_log.csv` (e.g., [MTX201501307_anon_log.csv](data_samples/in-place_translated_files/alto/MTX201501307_anon_log.csv)📎). These logs are written to the same output directory
 as the translated XML files and are intended for **line-by-line manual QA review**.
 
 | Column               | ALTO value                                        | XML Metadata value     |
@@ -901,8 +905,8 @@ C-TX-202500252,,//amcr:amcr/amcr:dokument/amcr:popis,"Stará Boleslav - odvodně
 
 The wrapper generates a **run-level** JSON provenance record after every execution, named
 `YYMMDD-HHmmss_translator.json`. It is written to the run's **output directory** alongside the
-translated files (the in-repo [paradata](data_samples%2Ftranslated_files%2Fparadata) 📁 directory
-holds only example logs for development).
+translated files (the in-repo [paradata](data_samples/in-place_translated_files/alto/paradata) 📁 directories
+under `data_samples/` hold only example logs for development).
 
 They are separate from the per-document translation CSV logs above: CSV logs capture what was
 translated line by line; paradata JSONs capture *how the run was configured and what it produced in

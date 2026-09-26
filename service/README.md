@@ -30,13 +30,17 @@ running server. The repo-root `README.md` covers the CLI and the translation log
 
 ### `POST /translate` (multipart form)
 
-| Field           | In    | Type    | Default | Meaning                                                                |
-|-----------------|-------|---------|---------|------------------------------------------------------------------------|
-| `file`          | form  | file    | —       | **Required.** The XML document. Filename must end in `.xml`.           |
-| `document_json` | form  | file    | —       | Optional baseline ATRIUM Document JSON to accrete onto.                |
-| `source_lang`   | query | string  | `auto`  | ISO 639-1 code, or `auto` to detect with FastText.                     |
-| `target_lang`   | query | string  | `en`    | ISO 639-1 code.                                                        |
-| `is_alto`       | query | boolean | `true`  | `true` → ALTO dual-pass reconstruction; `false` → XPath metadata mode. |
+| Field           | In            | Type    | Default       | Meaning                                                                                                                                                                      |
+|-----------------|---------------|---------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `file`          | form          | file    | —             | **Required.** The XML document. Filename must end in `.xml`.                                                                                                                 |
+| `document_json` | form          | file    | —             | Optional baseline ATRIUM Document JSON to accrete onto.                                                                                                                      |
+| `source_lang`   | form or query | string  | `auto`        | ISO 639-1 code, or `auto`: FastText per block/field, trusted only when confident and translatable, else the element's label, the document's language, `DEFAULT_SOURCE_LANG`. |
+| `target_lang`   | form or query | string  | `en`          | ISO 639-1 code.                                                                                                                                                              |
+| `is_alto`       | form or query | boolean | `true`        | `true` → ALTO dual-pass reconstruction; `false` → XPath metadata mode.                                                                                                       |
+| `output_mode`   | form or query | string  | `OUTPUT_MODE` | `replace` or `append` (issue #46). Unset → the `OUTPUT_MODE` env var, then `replace`; an unknown value degrades to the default with a warning.                               |
+
+Every field is read from the multipart body first and the query string second (issue #46), so either calling
+style works.
 
 ```bash
 curl -sf -F "file=@page.alto.xml" \
@@ -98,20 +102,26 @@ shape. A client should not assume `detail` is a string.
 
 ## Configuration (environment)
 
-| Variable              | Default   | Meaning                                                                                                                                                                                                                        |
-|-----------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `MAX_UPLOAD_MB`       | `50`      | canonical upload limit                                                                                                                                                                                                         |
-| `ALLOWED_ORIGINS`     | `*`       | CSV of CORS origins. The code default is the `*` wildcard (credentials are then disabled, per the CORS spec); `.env.example` ships it commented (`# ALLOWED_ORIGINS=*`) so the default stays `*` until an operator narrows it. |
-| `TRANSLATION_BACKEND` | `lindat`  | backend seam shared with the CLI (issue #4)                                                                                                                                                                                    |
-| `OUTPUT_MODE`         | `replace` | `replace` overwrites the source-language field; `append` keeps it and adds an `xml:lang`-marked sibling (ALTO labels rather than duplicates). Shared with the CLI's `--output-mode` (issue #46) |
-| `AMCR_FIELDS_PATH`    | `amcr-fields.txt` | file of AMCR XPath targets for metadata mode, one per line; relative paths resolve against the repo root. Absent ⇒ metadata requests are refused 422, ALTO unaffected (issue #46) |
-| `TRANSLATION_URL`     | LINDAT    | translation API base URL for the `lindat` backend; `LINDAT_BASE_URL` is an alias (issue #63)                                                                                                                                   |
-| `UDPIPE_URL`          | LINDAT    | UDPipe 2 endpoint for vocabulary lemma matching; same name as atrium-nlp-enrich (issue #63)                                                                                                                                    |
-| `PORT`                | `8000`    | port the service **binds**, and the one `service/healthcheck.py` probes (issues #55, #58)                                                                                                                                      |
-| `HOST`                | `0.0.0.0` | bind address (issue #58). ⚠️ see the warning below                                                                                                                                                                             |
-| `GRACEFUL_SHUTDOWN_S` | `20`      | seconds uvicorn waits for in-flight requests (issue #55)                                                                                                                                                                       |
-| `RELOAD`              | `false`   | filesystem auto-reload — development only, never in a deployment                                                                                                                                                               |
-| `LOG_LEVEL`           | `INFO`    | root logger level for the `python -m service.api` start path (issue #61)                                                                                                                                                       |
+| Variable                    | Default           | Meaning                                                                                                                                                                                                                                                   |
+|-----------------------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `MAX_UPLOAD_MB`             | `50`              | canonical upload limit                                                                                                                                                                                                                                    |
+| `ALLOWED_ORIGINS`           | `*`               | CSV of CORS origins. The code default is the `*` wildcard (credentials are then disabled, per the CORS spec); `.env.example` ships it commented (`# ALLOWED_ORIGINS=*`) so the default stays `*` until an operator narrows it.                            |
+| `TRANSLATION_BACKEND`       | `lindat`          | backend seam shared with the CLI (issue #4)                                                                                                                                                                                                               |
+| `OUTPUT_MODE`               | `replace`         | `replace` overwrites the source-language field; `append` keeps it and adds an `xml:lang`-marked sibling (ALTO: keeps every `String`'s `CONTENT` and adds `<ALTERNATIVE PURPOSE="translation:<lang>">`). Shared with the CLI's `--output-mode` (issue #46) |
+| `DEFAULT_SOURCE_LANG`       | `cs`              | with `source_lang=auto` (the `/translate` default): the language used when detection cannot be trusted and neither the element's label nor the document's language settles it                                                                             |
+| `LANG_ID_MIN_CONFIDENCE`    | `0.5`             | FastText score a detected language needs before it is used (`auto` only)                                                                                                                                                                                  |
+| `LANG_ID_MIN_LETTERS`       | `20`              | texts with fewer letters are not sent to FastText; they inherit their label / the document language (`auto` only)                                                                                                                                         |
+| `LINDAT_GUARD_RETRIES`      | `2`               | re-requests of an HTTP-200 LINDAT reply that is degenerate (repetition loop, empty, runaway)                                                                                                                                                              |
+| `TRANSLATION_RERUN_ROUNDS`  | `1`               | end-of-document re-run rounds for segments still degenerate after the retries; `0` keeps them as source immediately                                                                                                                                       |
+| `TRANSLATION_RERUN_DELAY_S` | `10.0`            | cool-down before each re-run round — **added to the request's duration** whenever a document has a flagged segment                                                                                                                                        |
+| `AMCR_FIELDS_PATH`          | `amcr-fields.txt` | file of AMCR XPath targets for metadata mode, one per line; relative paths resolve against the repo root. Absent ⇒ metadata requests are refused 422, ALTO unaffected (issue #46)                                                                         |
+| `TRANSLATION_URL`           | LINDAT            | translation API base URL for the `lindat` backend; `LINDAT_BASE_URL` is an alias (issue #63)                                                                                                                                                              |
+| `UDPIPE_URL`                | LINDAT            | UDPipe 2 endpoint for vocabulary lemma matching; same name as atrium-nlp-enrich (issue #63)                                                                                                                                                               |
+| `PORT`                      | `8000`            | port the service **binds**, and the one `service/healthcheck.py` probes (issues #55, #58)                                                                                                                                                                 |
+| `HOST`                      | `0.0.0.0`         | bind address (issue #58). ⚠️ see the warning below                                                                                                                                                                                                        |
+| `GRACEFUL_SHUTDOWN_S`       | `20`              | seconds uvicorn waits for in-flight requests (issue #55)                                                                                                                                                                                                  |
+| `RELOAD`                    | `false`           | filesystem auto-reload — development only, never in a deployment                                                                                                                                                                                          |
+| `LOG_LEVEL`                 | `INFO`            | root logger level for the `python -m service.api` start path (issue #61)                                                                                                                                                                                  |
 
 `TRANSLATION_URL` and `UDPIPE_URL` make the two LINDAT-hosted backing services
 attachable (12-factor IV): set either to reach a self-hosted or stubbed instance
@@ -121,6 +131,13 @@ the `lindat` backend actually resolved is what `/translate` writes into the
 to, never a literal, since a provenance claim that is confidently wrong is worse
 than one that is absent. The `LINDAT_MIN_INTERVAL_S` / `LINDAT_MAX_RETRIES` /
 `LINDAT_BACKOFF_BASE_S` transport dials are separate and unchanged.
+
+**Degenerate replies cost time, not correctness.** A LINDAT reply that comes back as a repetition loop is
+re-requested (`LINDAT_GUARD_RETRIES`, with back-off), and a segment still degenerate after that is re-run once
+the document is done (`TRANSLATION_RERUN_ROUNDS` × `TRANSLATION_RERUN_DELAY_S`); one that never recovers keeps
+its source text. All of that happens inside the synchronous `/translate` request, so on a bad day for the
+backend a request takes longer — size `GRACEFUL_SHUTDOWN_S` (and the orchestrator's grace period) with that in
+mind, or lower `TRANSLATION_RERUN_DELAY_S` for the service.
 
 `PORT` and `HOST` are read by `service/api.py`'s `__main__` block, which is what the `api`
 image's `ENTRYPOINT` (`python -m service.api`) runs. Before issue #58 the entrypoint baked

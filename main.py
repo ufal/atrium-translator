@@ -675,6 +675,21 @@ def main() -> int:
                 files_to_process.extend(f for f in input_path.rglob(pattern) if f.is_file())
             files_to_process = list(dict.fromkeys(files_to_process))
 
+            # `formats = xml` also matches `*.alto.xml`. In metadata mode an ALTO file
+            # matches none of the XPath targets, so it used to be "translated" into an
+            # unchanged copy with an empty log and counted as a success — which is how
+            # both data_samples/*/xml/ folders came to hold an MTX…_en.alto.xml. ALTO
+            # files are translated by ALTO mode; a directory scan in metadata mode
+            # leaves them out and says so. (An explicitly named file is still processed.)
+            if not args.alto:
+                alto_files = [f for f in files_to_process if f.name.lower().endswith(".alto.xml")]
+                if alto_files:
+                    files_to_process = [f for f in files_to_process if f not in alto_files]
+                    print(
+                        f"[INFO] Skipping {len(alto_files)} ALTO file(s) (*.alto.xml) in metadata mode; "
+                        "translate them with --alto (or formats = alto.xml)."
+                    )
+
         else:
             if any(input_path.name.endswith(fmt) for fmt in allowed_formats):
                 files_to_process = [input_path]
@@ -750,6 +765,11 @@ def main() -> int:
                 self_cfg["vocabulary_protected_terms"] = dict(protected_by_doc)
                 self_cfg["vocabulary_protected_terms_total"] = sum(protected_by_doc.values())
 
+        # The paradata folder is created when the run STARTS; a long run can outlive
+        # it — e.g. git removing the folder once its last tracked record was deleted.
+        # Re-create it so the record of a finished run is always written. (Belongs in
+        # the vendored atrium_paradata.finalize too; that file is hub-owned.)
+        os.makedirs(_logger.paradata_dir, exist_ok=True)
         _logger.finalize(input_total=total_inputs)
 
     print(f"\n{'=' * 60}")

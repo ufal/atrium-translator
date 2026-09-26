@@ -84,10 +84,13 @@ Archive managers can choose processing modes based on their specific document ty
 
 A core contribution of this project is minimizing manual preprocessing and providing immediate review tools:
 
-* **Language Identification:** Source text is automatically analyzed using
-**FastText** [^5]. If the confidence score is low (< 0.2), the system safely defaults
-to Czech (`cs`) to keep the pipeline moving. In ALTO mode, detection runs once per
-`TextBlock` so every line in a block shares a consistent source language.
+* **Language Identification:** With `--source_lang auto`, source text is analyzed using
+**FastText** [^5] once per ALTO `TextBlock` (so every line in a block shares one source
+language) or metadata field, plus once for the whole document. A guess is used only if
+the text is long enough, the score high enough and the language one the backend can
+translate; otherwise the element's own label (`LANG` / `xml:lang`), then the document's
+language, then the default source language (`cs`) apply — so an exotic guess on a short
+OCR fragment never becomes a source language (`processors/language.py`).
 * **Sentence-Aware Chunking:** Long texts are split at the highest-priority boundary found
 in each window, tried in strict order — newline (`\n`) → sentence-terminal punctuation
 (`. `, `! `, `? `) → clause-level punctuation (`; `, `, `) → word boundary — before being sent
@@ -95,7 +98,9 @@ to the translation API. Keeping whole sentences together preserves NMT context; 
 boundary is a fallback and a hard cut is the last resort, so mid-word truncation never occurs.
 The same shared chunker (`processors/chunking.py`) feeds the UDPipe lemmatiser.
 * **QA Logging:** Automatically produces a supplementary CSV file (`file, page_num,
-line_num, text_src, text_tgt`) for easy line-by-line manual QA review.
+line_num, text_src, text_tgt, status`) for easy line-by-line manual QA review; `status`
+marks lines recovered by the end-of-document re-run, placed by word count, or left
+untranslated because the backend kept returning degenerate output.
 * **Schema Validation:** Optionally validates metadata outputs against an XSD schema to
 guarantee post-translation structural integrity.
 
