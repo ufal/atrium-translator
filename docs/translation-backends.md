@@ -303,6 +303,30 @@ and `"ct2"` are the other two registered names.  New backends are registered by
 adding an adapter class and a registry entry — no changes to `main.py`,
 `utils.py`, or `service/api.py` are needed.
 
+### Output guard: the failure contract every backend shares
+
+An HTTP 200 is not a translation. On the 2026-09-26 sample refresh roughly a third of
+all LINDAT replies were one Czech word repeated up to ~150 times, nondeterministically,
+on the ALTO and the metadata path alike (issue #46 follow-up, see
+`agent_dev_logs/digests/46.digest.md`). The contract is now:
+
+* `processors/quality.py::degeneration_reason(source, translated)` is the single
+  judge — empty output, runaway length, truncation, repetition loops, each compared
+  with the source. It is dependency-free, so any backend can use it.
+* A backend that gives up on a reply raises `DegenerateTranslationError` (a
+  `TranslationError` subclass, in `processors/translator.py`). `LindatTranslator`
+  re-requests first (`LINDAT_GUARD_RETRIES`, default 2); the LLM and CT2 guards raise
+  it for their ratio checks and for loops the ratio cannot see.
+* `utils.py` treats that error — and any reply that fails the detector, which also
+  covers backends with no guard of their own — as a **per-segment** failure: flagged,
+  re-run after the whole document (`TRANSLATION_RERUN_ROUNDS`,
+  `TRANSLATION_RERUN_DELAY_S`), and kept as source text with `status=untranslated` in
+  the CSV log if it never recovers. Any other `TranslationError` (transport, config)
+  still skips the whole file.
+
+A new backend therefore needs no guard to be safe, but should raise
+`DegenerateTranslationError` rather than return text it knows is bad.
+
 ---
 
 ## Recommendation

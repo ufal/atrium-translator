@@ -38,9 +38,12 @@ Archival OCR text is noisy and must be translated, not "fixed".  This adapter
 mirrors ``translator.py``'s fail-loud philosophy:
   * temperature 0 and a strict system prompt (translate only, preserve numbers /
     codes / line structure, do not explain or correct garbled tokens);
-  * a post-check that raises :class:`TranslationError` on an empty response or an
-    implausible output/input length ratio, so a hallucinated or truncated chunk
-    skips the file instead of corrupting the archive.
+  * a post-check that raises :class:`DegenerateTranslationError` (a
+    ``TranslationError``) on an empty response, an implausible output/input length
+    ratio, or a repetition loop (``processors.quality.degeneration_reason``), so a
+    hallucinated or truncated chunk is never written. ``utils.py`` treats that as a
+    per-segment failure: flagged, re-run at the end of the document, and kept as
+    source text if it never recovers.
 
 Glossary (``supports_glossary = True``)
 --------------------------------------
@@ -58,7 +61,8 @@ import requests
 
 from .chunking import chunk_text
 from .http_retry import Throttle, request_with_retry
-from .translator import TranslationError
+from .quality import degeneration_reason
+from .translator import DegenerateTranslationError, TranslationError
 from .vocab import get_matching_terms, load_vocabulary
 
 
@@ -265,12 +269,18 @@ class LLMTranslator:
     @staticmethod
     def _guard_output(source: str, translated: str) -> None:
         if not translated or not translated.strip():
-            raise TranslationError("LLM returned an empty translation for a non-empty source chunk.")
+            raise DegenerateTranslationError("LLM returned an empty translation for a non-empty source chunk.")
         src_len = len(source.strip())
         if src_len >= _MIN_RATIO_CHARS:
             ratio = len(translated.strip()) / src_len
             if ratio < _MIN_LEN_RATIO or ratio > _MAX_LEN_RATIO:
-                raise TranslationError(
+                raise DegenerateTranslationError(
                     f"LLM output/input length ratio {ratio:.2f} outside "
                     f"[{_MIN_LEN_RATIO}, {_MAX_LEN_RATIO}] — suspected hallucination or truncation."
                 )
+        # The ratio check skips short sources and cannot see a loop that happens to
+        # fit the ratio; the shared detector compares token repetition and length
+        # against the source itself, so it covers both.
+        reason = degeneration_reason(source, translated)
+        if reason:
+            raise DegenerateTranslationError(f"LLM output rejected — {reason}.")

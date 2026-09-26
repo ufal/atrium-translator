@@ -55,7 +55,8 @@ import os
 from pathlib import Path
 
 from .chunking import chunk_text
-from .translator import TranslationError
+from .quality import degeneration_reason
+from .translator import DegenerateTranslationError, TranslationError
 from .vocab import get_matching_terms, load_vocabulary
 
 
@@ -334,13 +335,20 @@ class CT2Translator:
 
     @staticmethod
     def _guard(source: str, translated: str) -> None:
+        # DegenerateTranslationError is a TranslationError: callers that only know
+        # the base class still fail loudly, while utils.py flags the segment, re-runs
+        # it at the end of the document, and keeps the source if it never recovers.
         if not translated or not translated.strip():
-            raise TranslationError("CT2 backend returned an empty translation for a non-empty source chunk.")
+            raise DegenerateTranslationError("CT2 backend returned an empty translation for a non-empty source chunk.")
         src_len = len(source.strip())
         if src_len >= _MIN_RATIO_CHARS:
             ratio = len(translated.strip()) / src_len
             if ratio < _MIN_LEN_RATIO or ratio > _MAX_LEN_RATIO:
-                raise TranslationError(
+                raise DegenerateTranslationError(
                     f"CT2 output/input length ratio {ratio:.2f} outside "
                     f"[{_MIN_LEN_RATIO}, {_MAX_LEN_RATIO}] — suspected hallucination or truncation."
                 )
+        # Repetition loops that fit the ratio, and any loop on a short source.
+        reason = degeneration_reason(source, translated)
+        if reason:
+            raise DegenerateTranslationError(f"CT2 output rejected — {reason}.")

@@ -203,3 +203,72 @@ class TestEdgeCases:
         assert isinstance(buckets, list)
         assert all(isinstance(b, list) for b in buckets)
         assert all(isinstance(tok, str) for b in buckets for tok in b)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Source-aware alignment — what process_alto_xml actually calls
+# ════════════════════════════════════════════════════════════════════════════
+#
+# On the 2026-09-26 sample refresh a degenerate batched reply filled some anchor
+# slots with 50+ words ("pravidla pravidla …") and left the others empty. The
+# anchor-trusting rule above turned that into lines holding 71 words next to lines
+# holding none. With the SOURCE line texts supplied, an anchor must be a plausible
+# translation of its own line before it may steer the split.
+
+
+class TestSourceAwareAlignment:
+    SOURCES = ["jedna dva", "tri ctyri pet", "sest sedm"]
+    BLOCK = "one two three four five six seven"
+
+    @staticmethod
+    def _flat(buckets):
+        return [tok for bucket in buckets for tok in bucket]
+
+    def test_clean_anchors_behave_like_the_original_aligner(self):
+        anchors = ["one two", "three four five", "six seven"]
+        guarded = _align_tokens_to_lines(self.BLOCK, anchors, self.SOURCES)
+        assert guarded == _align_tokens_to_lines(self.BLOCK, anchors)
+        assert guarded == [["one", "two"], ["three", "four", "five"], ["six", "seven"]]
+
+    def test_degenerate_anchor_cannot_flood_its_line(self):
+        anchors = ["pravidla " * 60, "", ""]
+        buckets = _align_tokens_to_lines(self.BLOCK, anchors, self.SOURCES)
+        assert self._flat(buckets) == self.BLOCK.split(), "conservation"
+        assert [len(b) for b in buckets] == [2, 3, 2], "placed by source word count"
+
+    def test_empty_anchor_for_a_text_line_does_not_starve_it(self):
+        anchors = ["one two", "", "six seven"]
+        buckets = _align_tokens_to_lines(self.BLOCK, anchors, self.SOURCES)
+        assert all(buckets), "every line with source text receives tokens"
+        assert self._flat(buckets) == self.BLOCK.split()
+
+    def test_legacy_call_keeps_the_empty_anchor_rule(self):
+        """Without source texts the original behaviour is unchanged (tested above too)."""
+        buckets = _align_tokens_to_lines(self.BLOCK, ["one two", "", "six seven"])
+        assert buckets[1] == []
+
+    def test_empty_source_line_still_gets_an_empty_bucket(self):
+        sources = ["jedna dva", "", "tri ctyri"]
+        buckets = _align_tokens_to_lines("one two three four", ["one two", "", "three four"], sources)
+        assert buckets == [["one", "two"], [], ["three", "four"]]
+
+    def test_remainder_goes_to_the_last_line_with_text(self):
+        """A trailing line with no String text cannot swallow the remainder."""
+        sources = ["jedna dva", "tri ctyri", ""]
+        buckets = _align_tokens_to_lines("one two three four five", ["one two", "three four", ""], sources)
+        assert buckets[-1] == []
+        assert self._flat(buckets) == "one two three four five".split()
+
+    def test_a_long_anchor_cannot_take_tokens_later_lines_need(self):
+        sources = ["a b", "c", "d"]
+        # Plausible for a 2-word line (under the runaway bound) yet far too long.
+        anchors = ["w1 w2 w3 w4 w5 w6 w7 w8", "x", "y"]
+        buckets = _align_tokens_to_lines("t1 t2 t3 t4", anchors, sources)
+        assert all(buckets), "the later lines keep at least one token each"
+        assert self._flat(buckets) == ["t1", "t2", "t3", "t4"]
+
+    def test_approximated_lines_are_reported(self):
+        from utils import _align_block
+
+        _, approximated = _align_block(self.BLOCK, ["one two", "pravidla " * 40, "six seven"], self.SOURCES)
+        assert approximated == {1}

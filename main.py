@@ -329,8 +329,9 @@ def parse_arguments():
             "How the translation is written into the document (issue #46). "
             "'replace' (default) overwrites the source-language field. "
             "'append' keeps it and adds an xml:lang-marked sibling beside it, "
-            "following AMCR's own heslo/heslo_en convention. ALTO labels rather "
-            "than duplicates in append mode. Precedence: this flag, then "
+            "following AMCR's own heslo/heslo_en convention. For ALTO, append keeps "
+            "every String's CONTENT and adds the translation as "
+            '<ALTERNATIVE PURPOSE="translation:<lang>">. Precedence: this flag, then '
             "config.txt's 'output_mode', then the OUTPUT_MODE env var, then 'replace'."
         ),
     )
@@ -454,6 +455,9 @@ def process_single_file(
 
     with open(csv_log_path, "w", encoding="utf-8", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
+        # `status` (last column): ok | rerun | approx_alignment | untranslated — how the
+        # line's translation was obtained, so a reviewer can go straight to the lines
+        # that were flagged during processing (see utils.STATUS_*).
         csv_writer.writerow(
             [
                 "file",
@@ -461,6 +465,7 @@ def process_single_file(
                 "line_num",
                 f"text_{args.source_lang}",
                 f"text_{args.target_lang}",
+                "status",
             ]
         )
 

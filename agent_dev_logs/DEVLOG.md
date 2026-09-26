@@ -203,6 +203,30 @@ now returns 3.11 and nothing else); `.env` actually reaches the container (`env_
 August; and the README finally documents Docker, the API, the environment and deployment, having contained none of
 them.
 
+
+## 2026-09-26
+
+- **#46 — ALTO alignment regression, root-caused and fixed.** The `8522167` sample refresh ("TODO: fix alto alignment")
+produced 2489 blanked `String`s in replace mode and 1300 in append, against 224 in the June v0.5.0 sample. Three causes,
+measured on the committed logs:
+  * **LINDAT answered HTTP 200 with garbage** — one Czech word (`"pravidla"`) repeated up to ~150 times, for headings and
+    whole sentences, on the ALTO *and* the metadata path (11–12 of 37 fields), **nondeterministically** (the same field
+    was garbage in one run and fine in the next; the four sample runs overlapped in time). No backend checked content.
+  * **The aligner trusted unvalidated anchors.** Page-level batching (v0.8.0, after the June run: 2084 s then vs 614 s
+    now) sends all line anchors of a page as one request and checked only its line count. Degenerate anchors are never
+    logged, so the damage was invisible: in the append run only 21 blocks had garbage block text, yet 368 lines got
+    0 tokens next to lines holding 60–70.
+  * **Append mode lost the source** (it was replace + `LANG="en"`), and replace left ABBYY's `LANG="cs"` on English.
+- Fix: `processors/quality.py::degeneration_reason` (0 false flags on June's 1193 blocks / 2069 lines / 37 fields;
+  every looping block and field of both September runs caught); `LindatTranslator` re-requests degenerate replies
+  (`LINDAT_GUARD_RETRIES`); LLM/CT2 guards raise the new `DegenerateTranslationError`; batches are accepted only when
+  every item is plausible; line anchors are validated against their own source line and replaced by a proportional share
+  when unusable; failed blocks/anchors/fields are **flagged and re-run at the end of the same document**
+  (`TRANSLATION_RERUN_ROUNDS`, `TRANSLATION_RERUN_DELAY_S`) and kept as source if they never recover; the `_log.csv`
+  gained a `status` column (`ok` / `rerun` / `approx_alignment` / `untranslated`) and is written in document order.
+  ALTO append now keeps `CONTENT` and adds `<ALTERNATIVE PURPOSE="translation:en">`; replace relabels existing `LANG`.
+  `data_samples/` still need a refresh against the live endpoint (unreachable from the development sandbox).
+
 ---
 
 *Timeline index refreshed 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the

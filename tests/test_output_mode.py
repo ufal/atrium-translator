@@ -18,10 +18,15 @@ What is asserted here, and why each assertion exists:
 * **Append is idempotent.** Replace mode re-translates English into English on a second
   pass with nothing to notice it. Append can do better, because the `xml:lang` marker
   that makes the output readable also makes the re-run detectable.
-* **ALTO labels, never duplicates.** Per-`String` append would be a fiction: the
-  word-to-box correspondence is manufactured by `difflib` bucketing over one block
-  translation, so a per-word "alternative" is whichever token the bucketing landed
-  there, not a reading of that box.
+* **ALTO append keeps the source.** Every `String` keeps its `CONTENT` and geometry and
+  gains `<ALTERNATIVE PURPOSE="translation:<tgt>">` — ALTO's own element for "an
+  alternative for the word" — carrying exactly what replace mode would have written
+  into that box. The block keeps its source-language label; the `String` inventory
+  stays 1:1; a second pass skips blocks that already carry a translation. (This
+  supersedes the first design, which labelled blocks `LANG=<tgt>` and overwrote
+  `CONTENT` — i.e. replace with a label, losing the Czech from the ALTO.)
+* **Replace relabels what is already labelled.** Scanner ALTO arrives with
+  `TextBlock LANG="cs"`; replace used to leave that on English text.
 * **The batch fallback is counted.** It used to degrade from ~2 calls per page to one
   per block plus one per line behind `except Exception: pass`, changing wall-clock by
   an order of magnitude and the output not at all.
@@ -44,6 +49,8 @@ from utils import (
     process_alto_xml,
     process_metadata_xml,
 )
+
+ALTO_NS = "http://www.loc.gov/standards/alto/ns-v4#"
 
 AMCR_NS = "https://api.aiscr.cz/schema/amcr/2.2/"
 
@@ -286,14 +293,19 @@ def test_output_mode_reaches_the_document_record(tmp_path):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# ALTO — labels, never duplicates
+# ALTO — append keeps the source and adds ALTERNATIVEs; replace relabels
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def test_alto_append_labels_without_changing_the_string_inventory(tmp_path):
-    """Per-String append is deliberately not implemented; see process_alto_xml's docstring."""
+def _alternatives(string_elem):
+    return [c for c in string_elem if isinstance(c.tag, str) and etree.QName(c).localname == "ALTERNATIVE"]
+
+
+def test_alto_append_keeps_content_and_adds_translation_alternatives(tmp_path):
+    """The Czech stays in CONTENT; the English sits beside it, one ALTERNATIVE per box."""
     src = _write(tmp_path, "in.alto.xml", _ALTO_XML)
-    before = len(_find(_parse(src), "String"))
+    source_strings = _find(_parse(src), "String")
+    source_content = [s.get("CONTENT") for s in source_strings]
 
     out = tmp_path / "out.alto.xml"
     process_alto_xml(
@@ -307,17 +319,58 @@ def test_alto_append_labels_without_changing_the_string_inventory(tmp_path):
     )
 
     root = _parse(out)
-    assert len(_find(root, "String")) == before, "ALTO must stay 1:1 with the source"
+    strings = _find(root, "String")
+    assert len(strings) == len(source_strings), "ALTO must stay 1:1 with the source"
+    assert [s.get("CONTENT") for s in strings] == source_content, "append must not touch CONTENT"
+    for s in strings:
+        assert s.get("HPOS") and s.get("WIDTH"), "geometry is untouched"
+
+    alternatives = [_alternatives(s) for s in strings]
+    assert all(len(a) == 1 for a in alternatives), "exactly one translation ALTERNATIVE per filled String"
+    assert all(a[0].get("PURPOSE") == "translation:en" for a in alternatives)
+    assert [a[0].text for a in alternatives] == ["EN:Zachranny", "vyzkum", "Vrani", "kanalizace"]
+    # Serialised in the document's own namespace, not under an invented prefix.
+    assert all(etree.QName(a[0]).namespace == ALTO_NS for a in alternatives)
+    assert b"ns0:" not in out.read_bytes()
+
     blocks = _find(root, "TextBlock")
-    assert blocks and all(b.get("LANG") == "en" for b in blocks), "blocks carry the target language"
+    assert blocks and all(b.get("LANG") == "cs" for b in blocks), "CONTENT is Czech, so the block says so"
+
+
+def test_alto_append_is_idempotent(tmp_path):
+    """A second append pass must not call the backend nor stack a second ALTERNATIVE."""
+    src = _write(tmp_path, "in.alto.xml", _ALTO_XML)
+    first = tmp_path / "pass1.alto.xml"
+    process_alto_xml(src, first, _StubTranslator(), "cs", "en", output_mode=OUTPUT_MODE_APPEND)
+
+    second_translator = _StubTranslator()
+    second = tmp_path / "pass2.alto.xml"
+    process_alto_xml(first, second, second_translator, "cs", "en", output_mode=OUTPUT_MODE_APPEND)
+
+    assert second_translator.calls == [], "a translated block must not be sent again"
+    assert first.read_bytes() == second.read_bytes()
+    assert all(len(_alternatives(s)) == 1 for s in _find(_parse(second), "String"))
 
 
 def test_alto_replace_mode_adds_no_language_attribute(tmp_path):
-    """Replace remains exactly as it shipped — labelling is an append-mode behaviour."""
+    """An unlabelled input stays unlabelled in replace mode."""
     src = _write(tmp_path, "in.alto.xml", _ALTO_XML)
     out = tmp_path / "out.alto.xml"
     process_alto_xml(src, out, _StubTranslator(), "cs", "en", line_anchors=False)
     assert all(b.get("LANG") is None for b in _find(_parse(out), "TextBlock"))
+
+
+def test_alto_replace_relabels_an_existing_source_language(tmp_path):
+    """ABBYY writes TextBlock LANG="cs"; once the CONTENT is English, the label must say so."""
+    labelled = _ALTO_XML.replace(b'<TextBlock ID="B1">', b'<TextBlock ID="B1" LANG="cs">')
+    src = _write(tmp_path, "in.alto.xml", labelled)
+    out = tmp_path / "out.alto.xml"
+    process_alto_xml(src, out, _StubTranslator(), "cs", "en", line_anchors=False)
+
+    root = _parse(out)
+    assert [b.get("LANG") for b in _find(root, "TextBlock")] == ["en"]
+    assert _find(root, "String")[0].get("CONTENT") == "EN:Zachranny"
+    assert all(not _alternatives(s) for s in _find(root, "String")), "replace adds no ALTERNATIVE"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -338,12 +391,31 @@ def test_counter_separates_mismatch_from_transport_error():
     counter = BatchFallbackCounter()
     counter.fallback_mismatch = 2
     counter.fallback_error = 1
+    counter.fallback_implausible = 4
     counter.items_retried = 17
-    assert counter.fallbacks == 3
+    assert counter.fallbacks == 7
     summary = counter.summary()
     assert "2 line-count mismatch" in summary
     assert "1 transport error" in summary
+    assert "4 implausible reply" in summary
     assert "17 extra requests" in summary
+
+
+def test_counter_reports_flagged_recovered_and_untranslated_segments():
+    counter = BatchFallbackCounter()
+    counter.segments_flagged = 3
+    counter.segments_recovered = 2
+    counter.segments_untranslated = 1
+    counter.anchors_flagged = 5
+    counter.anchors_recovered = 5
+    counter.anchors_approximated = 4
+    assert counter.needs_attention
+    summary = counter.summary()
+    assert "3 segment(s) and 5 line anchor(s) flagged" in summary
+    assert "2 segment(s) and 5 anchor(s) recovered" in summary
+    assert "1 segment(s) left untranslated" in summary
+    assert "4 line(s) placed by source word count" in summary
+    assert counter.as_dict()["segments_untranslated"] == 1
 
 
 def test_alto_run_counts_a_line_count_mismatch(tmp_path, caplog):

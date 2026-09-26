@@ -113,10 +113,39 @@ a single page, groups them by their detected language, and consolidates them int
 
 * **API Efficiency:** This architecture reduces API calls from $1 + N$ (where $N$ is the number of text lines in a block)
 down to as few as 2 requests per language group per page.
-* **Zero-Regression Fallback:** The chunking algorithm strictly monitors structural alignment. If an NMT model
-hallucinates, merges, or drops line boundaries during a batched request, the pipeline automatically detects the
-mismatch and seamlessly falls back to a 1-by-1 safe loop. This guarantees that the original ALTO XML geometry and
-layout are never compromised by the translation step.
+* **Zero-Regression Fallback:** A batched reply is accepted only if it keeps the request's line count **and** every
+line is a plausible translation of its own item (see *Degenerate-output guard* below). If an NMT model merges or drops
+line boundaries, or answers any item with a repetition loop, an empty line or a runaway/truncated one, the line
+mapping of that reply is not trusted and the whole batch falls back to a 1-by-1 safe loop.
+* **Anchors only where they matter:** the line-anchor pass is sent only for translated blocks that have at least two
+text lines — a single-line block takes its block translation as it is, so its anchor was never used.
+
+### Degenerate-output guard, flagging and re-run
+
+A backend can answer HTTP 200 with something that is not a translation. On the 2026-09-26 sample refresh, roughly a
+third of all LINDAT replies came back as one Czech word repeated up to ~150 times (`"pravidla pravidla …"`) — for
+one-word headings and for whole sentences, on the ALTO and on the metadata path, and **nondeterministically** (the
+same field was garbage in one run and correct in the next). Nothing looked at reply content, so the garbage went into
+the XML and the QA log, and — through the ALTO line anchors, which are never logged — into the word-to-box alignment
+of every block on the page (2489 blanked `String`s instead of 224).
+
+Every translated segment is now checked by `processors/quality.py::degeneration_reason` against its own source
+(empty output, runaway length, truncation, repetition loops — each rule compares with the source, so dot leaders,
+number tables and names kept verbatim pass; calibrated at 0 false flags on all 1193 June blocks and 37 metadata
+fields, 100 % of the looping ones caught):
+
+1. **Backend re-request.** `LindatTranslator` re-requests a degenerate reply up to `LINDAT_GUARD_RETRIES` times
+   (default 2); the LLM and CT2 backends reject it in their output guards.
+2. **Flag.** A block, line anchor or metadata field that is still unusable is **flagged** and left untouched for now.
+3. **Re-run during the same document.** After the whole document has been processed, the flagged segments are
+   re-requested one by one after a cool-down (`TRANSLATION_RERUN_ROUNDS`, default 1; `TRANSLATION_RERUN_DELAY_S`,
+   default 10 s).
+4. **Keep the source.** A segment that never recovers keeps its source text (ALTO `String`s keep their `CONTENT` and
+   geometry; a metadata field is not overwritten and gets no appended sibling) and is logged as `untranslated` in the
+   `status` column of the `_log.csv`. The file is still written; one bad reply costs one segment, never the document.
+
+A per-document summary line (WARNING when anything was flagged or fell back) reports batches accepted, fallbacks by
+cause, segments flagged / recovered / left untranslated, and lines placed by word count.
 
 
 ---
@@ -151,10 +180,10 @@ pip install -r requirements.txt
 Published images, one per entry point. Both are built from the same `Dockerfile`
 and run as a non-root user (`atrium`, uid 10001):
 
-| Image                                      | Stage  | Entry point               | Purpose        |
-|--------------------------------------------|--------|---------------------------|----------------|
-| `ghcr.io/ufal/atrium-translator:<version>` | `base` | `python main.py`          | batch CLI      |
-| `ghcr.io/ufal/atrium-translator:<version>-api` | `api` | `python -m service.api` | HTTP service   |
+| Image                                          | Stage  | Entry point             | Purpose      |
+|------------------------------------------------|--------|-------------------------|--------------|
+| `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python main.py`        | batch CLI    |
+| `ghcr.io/ufal/atrium-translator:<version>-api` | `api`  | `python -m service.api` | HTTP service |
 
 ### Batch translation
 
@@ -226,6 +255,7 @@ atrium-translator/
 │   ├── identifier.py          # 🌍 FastText language identification (ISO 639-3 → 639-1)
 │   ├── chunking.py            # ✂️ Shared sentence-aware text chunker (priority-ordered)
 │   ├── http_retry.py          # 🔁 Shared throttle + bounded exponential back-off
+│   ├── quality.py             # 🛡️ Degenerate-output detector (loops, empty, runaway, truncation)
 │   └── vocab.py               # 📘 Vocabulary CSV loader
 ├── service/                   # 🌐 The HTTP surface — see service/README.md
 │   ├── api.py                 # FastAPI app: /translate, /info, /health, /ready
@@ -533,14 +563,33 @@ python main.py ./data_samples/my_documents \
 (its `maxOccurs`) is still an open question, and the validator answers it directly. A validation
 failure there is the answer, not a defect in this feature.
 
-**ALTO labels rather than duplicates.** In append mode an ALTO document gets `LANG` on its
-`TextBlock` elements and keeps a `String` inventory identical to the source. Appending a translation
-per `String` would be incoherent: the word-to-box correspondence in the output is manufactured by
-splitting one block translation on whitespace and re-bucketing it, so a per-word "alternative" is
-whichever token the bucketing happened to land there — not a reading of that box.
+**ALTO in append mode keeps the source and adds the translation as an `ALTERNATIVE`.** Every
+`String` keeps its `CONTENT` (the scanned text and its geometry are untouched) and gains ALTO's own
+element for "an alternative for the word", carrying the same English that replace mode would have
+written into that box:
+
+```xml
+<TextBlock ID="B1" LANG="cs">
+  <TextLine ID="L1">
+    <String CONTENT="Záchranný" HPOS="…" …><ALTERNATIVE PURPOSE="translation:en">Rescue</ALTERNATIVE></String>
+    <String CONTENT="výzkum" HPOS="…" …><ALTERNATIVE PURPOSE="translation:en">archaeological research</ALTERNATIVE></String>
+  </TextLine>
+</TextBlock>
+```
+
+The block keeps (or, when missing, gains) its **source** `LANG`, because its `CONTENT` is still in the
+source language; the translation half is labelled by the `PURPOSE`. The `String` inventory stays 1:1
+with the source. The per-`String` split is still one block translation distributed over the scanned
+boxes (see [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction)), not a word-by-word
+translation. `PURPOSE` exists on `ALTERNATIVE` from ALTO 2.1 on.
+
+**ALTO in replace mode** writes the English into `CONTENT` and moves any language label the block
+already carries (ABBYY writes `LANG="cs"` / `"sk"`) to the target language, so the output no longer
+claims Czech for English text. An unlabelled input stays unlabelled.
 
 Append mode is also **idempotent**: because its output is self-describing, a second pass over an
-already-translated document skips those fields instead of translating English into English.
+already-translated document skips those fields (and ALTO blocks that already carry a translation
+`ALTERNATIVE`) instead of translating English into English.
 
 The effective mode is recorded in the paradata record and in the document record's `translations`
 block, so an artifact always says which contract produced it.
@@ -613,16 +662,19 @@ formats, vocabulary, XPath targets — lives in [config.txt](config.txt) 📎 in
 
 The most commonly changed values:
 
-| Variable              | Default            | Effect                                                        |
-|-----------------------|--------------------|---------------------------------------------------------------|
-| `TRANSLATION_URL`     | LINDAT             | Translation endpoint — point it at a self-hosted service      |
-| `UDPIPE_URL`          | LINDAT             | UDPipe 2 endpoint used for vocabulary lemma matching          |
-| `TRANSLATION_BACKEND` | `lindat`           | `lindat` or `openai_compatible` (then set the `LLM_*` values) |
-| `PORT` / `HOST`       | `8000` / `0.0.0.0` | What the service binds, and what `healthcheck.py` probes      |
-| `LOG_LEVEL`           | `INFO`             | Root logger level; logs go to stdout as an event stream       |
-| `MAX_UPLOAD_MB`       | `50`               | Upload limit, enforced while reading rather than after        |
-| `ALLOWED_ORIGINS`     | `*`                | CORS origins (CSV). Narrow this for a deployment              |
-| `GRACEFUL_SHUTDOWN_S` | `20`               | How long uvicorn waits for in-flight requests on `SIGTERM`    |
+| Variable                    | Default            | Effect                                                         |
+|-----------------------------|--------------------|----------------------------------------------------------------|
+| `TRANSLATION_URL`           | LINDAT             | Translation endpoint — point it at a self-hosted service       |
+| `UDPIPE_URL`                | LINDAT             | UDPipe 2 endpoint used for vocabulary lemma matching           |
+| `TRANSLATION_BACKEND`       | `lindat`           | `lindat` or `openai_compatible` (then set the `LLM_*` values)  |
+| `PORT` / `HOST`             | `8000` / `0.0.0.0` | What the service binds, and what `healthcheck.py` probes       |
+| `LOG_LEVEL`                 | `INFO`             | Root logger level; logs go to stdout as an event stream        |
+| `MAX_UPLOAD_MB`             | `50`               | Upload limit, enforced while reading rather than after         |
+| `ALLOWED_ORIGINS`           | `*`                | CORS origins (CSV). Narrow this for a deployment               |
+| `GRACEFUL_SHUTDOWN_S`       | `20`               | How long uvicorn waits for in-flight requests on `SIGTERM`     |
+| `LINDAT_GUARD_RETRIES`      | `2`                | Re-requests of a degenerate (looping / empty / runaway) reply  |
+| `TRANSLATION_RERUN_ROUNDS`  | `1`                | End-of-document re-run rounds for flagged segments (`0` = off) |
+| `TRANSLATION_RERUN_DELAY_S` | `10.0`             | Cool-down before each re-run round                             |
 
 **How `.env` reaches the process** — the distinction matters: `docker compose`
 injects it (both services declare `env_file`), but `python -m service.api` and
@@ -708,35 +760,53 @@ The wrapper resolves this tension per `TextBlock` in six stages (implemented in
 2. **Aggregate** — concatenate all line texts into a single block-level string.
 3. **Detect language** — run FastText **once for the whole block** (when `--source_lang auto`),
    so every line in the block is translated with a consistent source language.
-4. **Pass 1 — block translation** — translate the full block text in a single API call.
+4. **Pass 1 — block translation** — translate the full block text (all blocks of a page in one
+   batched request, see [Page-Level Batching](#performance-page-level-batching)).
    This is the **high-quality semantic translation** whose tokens are written back to the document.
-5. **Pass 2 — line translations** — translate each non-empty line **individually**. These
-   per-line translations are *not* written to the output; they serve only as **structural
-   anchors** that tell the aligner roughly how many words each physical line should receive.
-6. **Alignment + redistribution**:
-   * `_align_tokens_to_lines` partitions the Pass-1 block tokens into one bucket per line.
-     For each line (except the last) it searches a sliding window of ±50 % around the line's
-     expected word count and picks the split point that maximises
-     `difflib.SequenceMatcher` similarity against that line's Pass-2 anchor translation.
-     The final line receives all remaining tokens.
+5. **Pass 2 — line translations** — translate each non-empty line of every translated block that has
+   at least two text lines (batched per page). These per-line translations are *not* written to the
+   output; they serve only as **structural anchors** that tell the aligner roughly how many words
+   each physical line should receive.
+6. **Validation, flagging, re-run** — every block translation and every anchor is checked against
+   its own source (see [Degenerate-output guard](#degenerate-output-guard-flagging-and-re-run)). A block
+   or anchor that is still unusable is **flagged**, and all flagged segments are re-run after the last
+   page. A block that never recovers keeps its source text and is not redistributed at all.
+7. **Alignment + redistribution**:
+   * `_align_block` partitions the Pass-1 block tokens into one bucket per line. An anchor is used
+     only if it is a plausible translation **of its own source line**; then the original rule
+     applies — a sliding window of ±50 % around the anchor's word count, choosing the split point
+     that maximises `difflib.SequenceMatcher` similarity against the anchor. A line whose anchor is
+     empty, looping, runaway or truncated instead gets a **proportional share of the remaining
+     tokens by the remaining source word counts** (logged `approx_alignment`), so one bad anchor can
+     neither starve nor flood its neighbours. No line with source text is left empty while tokens
+     remain, and the **last line with source text** receives the remainder.
    * Within each line, the bucket's tokens are distributed across that line's `String`
      elements with a **greedy 1-to-1 mapping**: each `String` except the last gets one token
      (empty string if the bucket is exhausted), and the **last `String` of the line absorbs
      all remaining tokens**.
+   * The values go into `CONTENT` in `replace` mode, or into a
+     `<ALTERNATIVE PURPOSE="translation:<lang>">` child of the untouched `String` in `append` mode.
 
 This guarantees that translated words never cross line boundaries, that every `String`
 element retains its original position, and that no token from the block translation is lost.
 
-> **Per-block API cost:** A block with *N* non-empty lines triggers **1 + N** translation
-> calls (one block pass + one per line). With a vocabulary loaded, each of those calls also
-> runs the Tag-and-Protect pipeline.
+> **Why the anchors are validated:** the 2026-09-26 refresh showed what an unvalidated anchor does.
+> With page-level batching the anchors are one request per page; a degenerate reply filled some anchor
+> slots with 50+ words and left the others empty, and the anchor-trusting aligner turned that into
+> lines holding 71 words next to lines holding none — invisibly, since anchors are never logged.
+
+> **Per-page API cost:** normally **2** batched calls per language group (blocks + anchors). A
+> fallback costs one call per block or line on that page; a flagged segment costs up to
+> `LINDAT_GUARD_RETRIES` re-requests plus `TRANSLATION_RERUN_ROUNDS` re-runs. With a vocabulary loaded,
+> each call also runs the Tag-and-Protect pipeline.
 
 > **Edge cases:**
-> * A block with a **single line** skips the alignment search — all block tokens go to that line.
+> * A block with a **single text line** skips the alignment search — all block tokens go to that line.
 > * Lines whose original text is empty receive an empty bucket (and no anchor translation).
 > * If Pass 1 yields **fewer** tokens than there are `String` elements in a line, the trailing
->   `String` elements are set to empty `CONTENT`; if it yields **more**, the surplus is crammed
->   into the line's last `String`.
+>   `String` elements are set to empty `CONTENT` (append: no `ALTERNATIVE`); if it yields **more**,
+>   the surplus is crammed into the line's last `String`.
+> * `--fast-align` skips Pass 2 and places every line by source word count.
 
 ---
 
@@ -753,10 +823,19 @@ as the translated XML files and are intended for **line-by-line manual QA review
 | `line_num`           | `TextLine` element ID                             | full XPath expression  |
 | `text_<source_lang>` | original `CONTENT` text of the line               | original element text  |
 | `text_<target_lang>` | translated text **as redistributed to that line** | translated text        |
+| `status`             | how the line's translation was obtained (below)   | same                   |
+
+| `status`           | Meaning                                                                                                     |
+|--------------------|-------------------------------------------------------------------------------------------------------------|
+| `ok`               | Translated and aligned normally.                                                                            |
+| `rerun`            | Flagged during processing (degenerate reply) and recovered by the end-of-document re-run.                   |
+| `approx_alignment` | ALTO only: the line's anchor was unusable, so its words were placed by source word count.                   |
+| `untranslated`     | Still degenerate after the re-run: the **source text was kept** in the output and the target cell is empty. |
 
 > **Note (ALTO):** Because the target column reflects the tokens *aligned and redistributed*
 > to each physical line (not a standalone re-translation), it shows exactly what was written
-> into that line's `String` elements — making the CSV a faithful audit of the reconstruction.
+> into that line's `String` elements (or their `ALTERNATIVE`s in append mode) — making the CSV a
+> faithful audit of the reconstruction. Rows are written once per document, in document order.
 
 The column names for the source and target text are dynamic: they reflect the actual
 language codes in use (e.g., `text_auto` / `text_en` when running with
@@ -765,8 +844,8 @@ language codes in use (e.g., `text_auto` / `text_en` when running with
 **Example** ([C-TX-202500252.xml](data_samples/my_documents/C-TX-202500252.xml)📎):
 
 ```
-file,page_num,line_num,text_auto,text_en
-C-TX-202500252,,//amcr:amcr/amcr:dokument/amcr:popis,"Stará Boleslav - odvodnění ohradní kamenné zdi …","Old Boleslav - drainage of enclosure stone wall …"
+file,page_num,line_num,text_auto,text_en,status
+C-TX-202500252,,//amcr:amcr/amcr:dokument/amcr:popis,"Stará Boleslav - odvodnění ohradní kamenné zdi …","Old Boleslav - drainage of enclosure stone wall …",ok
 ```
 
 ---

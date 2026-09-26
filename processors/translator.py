@@ -33,6 +33,21 @@ This module now:
     per-file handler in ``main.py`` logs a skip and the broken file is never
     written.
 
+Degenerate-output guard (issue #46 follow-up)
+---------------------------------------------
+An HTTP 200 is not a translation. On 2026-09-26 the public endpoint answered about a
+third of all requests with one Czech word repeated up to ~150 times, for headings and
+full sentences alike, and nondeterministically — the same field was garbage in one run
+and correct in the next. Every reply is therefore checked with
+``processors.quality.degeneration_reason`` (line by line when the reply keeps the
+request's line count, as a whole otherwise). A degenerate reply is **re-requested** up
+to ``LINDAT_GUARD_RETRIES`` times (default 2) with back-off; if it is still degenerate
+the call raises :class:`DegenerateTranslationError`. That is a ``TranslationError``
+subclass on purpose: callers that only know the base class still fail loudly, while
+``utils.py`` catches the subclass per segment, flags it, re-runs it at the end of the
+document, and keeps the source text if it never recovers — so one bad reply costs one
+segment, never the file and never the alignment of its neighbours.
+
 Rate limiting (fix for review finding #4)
 -----------------------------------------
 An optional minimum inter-request interval throttles the shared public LINDAT
@@ -82,6 +97,7 @@ KNOWN LIMITATIONS:
 """
 
 import functools
+import logging
 import os
 import re
 import time
@@ -101,7 +117,10 @@ except ImportError:
 from .chunking import chunk_text
 from .http_retry import request_with_retry
 from .lemmatizer import LindatLemmatizer
+from .quality import degeneration_reason
 from .vocab import load_vocabulary
+
+logger = logging.getLogger(__name__)
 
 # ── failure / retry / throttle configuration ──────────────────────────────────
 
@@ -112,6 +131,18 @@ class TranslationError(RuntimeError):
     Propagates up through ``translate`` → ``process_*_xml`` → ``main`` so the
     offending file is logged as a skip instead of being written with corrupt
     content.
+    """
+
+
+class DegenerateTranslationError(TranslationError):
+    """The backend answered, but the answer is not a translation of the input.
+
+    Raised when a reply is still degenerate (repetition loop, empty, runaway or
+    truncated — see ``processors.quality.degeneration_reason``) after the
+    backend's own re-requests. Unlike its base class this is a *per-segment*
+    failure: ``utils.py`` catches it, flags the segment for the end-of-document
+    re-run, and keeps the source text if the re-run fails too. Code that only
+    knows ``TranslationError`` still treats it as fatal, which is the safe default.
     """
 
 
@@ -146,6 +177,10 @@ _MAX_RETRIES = _env_int("LINDAT_MAX_RETRIES", 4)
 _BACKOFF_BASE_S = _env_float("LINDAT_BACKOFF_BASE_S", 1.0)
 # HTTP status codes worth retrying.
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+# Re-requests of a reply that came back HTTP 200 but degenerate (see
+# _translate_chunk_guarded). Separate from _MAX_RETRIES: that one is about the
+# transport, this one about the content.
+_GUARD_RETRIES = _env_int("LINDAT_GUARD_RETRIES", 2)
 
 
 @functools.lru_cache(maxsize=None)
@@ -207,10 +242,12 @@ class LindatTranslator:
     _TAG_RE = re.compile(rf"{_TAG_PREFIX}\d+{_TAG_SUFFIX}", re.IGNORECASE)
 
     # Tolerant matcher for restoration: allows stray spaces the NMT model may
-    # inject between the letters/digits of the sentinel.
+    # inject between the letters/digits of the sentinel. Spaces and tabs only,
+    # never newlines: a batched ALTO request is newline-delimited, and a match
+    # that swallowed a "\n" would merge two items and break the line mapping.
     @classmethod
     def _tag_fuzzy_re(cls, index: int) -> re.Pattern:
-        body = r"\s*".join(list(f"{cls._TAG_PREFIX}{index}{cls._TAG_SUFFIX}"))
+        body = r"[ \t]*".join(list(f"{cls._TAG_PREFIX}{index}{cls._TAG_SUFFIX}"))
         return re.compile(body, re.IGNORECASE)
 
     # Catches any *leftover* sentinel debris (a fragment that could not be
@@ -459,9 +496,11 @@ class LindatTranslator:
         cleaned = cls._TAG_FRAGMENT_RE.sub("", text)
         cleaned = cls._GUARD_DEBRIS_RE.sub("", cleaned)
         # Collapse whitespace left behind by removed fragments and tidy spacing
-        # before punctuation.
+        # before punctuation. `[ \t]`, not `\s`: a batched ALTO request is one item
+        # per line, and eating the "\n" before a line that starts with ")" or ","
+        # would merge two items and break the batch's line mapping.
         cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
-        cleaned = re.sub(r"\s+([)\].,;:!?])", r"\1", cleaned)
+        cleaned = re.sub(r"[ \t]+([)\].,;:!?])", r"\1", cleaned)
         cleaned = re.sub(r"\(\s+", "(", cleaned)
         return cleaned.strip(" ") if cleaned.strip() else text
 
@@ -517,9 +556,61 @@ class LindatTranslator:
             # _post_with_retry raises TranslationError on unrecoverable failure;
             # we deliberately do NOT catch it here so the per-file handler in
             # main.py can skip the file instead of writing corrupt content.
-            translated_chunks.append(self._post_with_retry(url, {"input_text": chunk}))
+            # _translate_chunk_guarded adds the content check on top and raises
+            # the per-segment DegenerateTranslationError instead.
+            translated_chunks.append(self._translate_chunk_guarded(url, chunk))
 
         return "\n".join(translated_chunks)
+
+    def _translate_chunk_guarded(self, url: str, chunk: str) -> str:
+        """POST one chunk and re-request it while the reply is degenerate.
+
+        The failure this exists for is nondeterministic — the same request that
+        came back as ``"pravidla pravidla …"`` succeeds when repeated — so a short
+        back-off and a re-request recover most of it at the cheapest possible
+        level. After ``LINDAT_GUARD_RETRIES`` re-requests the chunk is given up on
+        with :class:`DegenerateTranslationError`, and the caller decides what the
+        segment becomes (``utils.py`` re-runs it later and otherwise keeps the
+        source).
+        """
+        reason = None
+        for attempt in range(_GUARD_RETRIES + 1):
+            if attempt:
+                time.sleep(_BACKOFF_BASE_S * (2 ** (attempt - 1)))
+            translated = self._post_with_retry(url, {"input_text": chunk})
+            reason = self._reply_degeneration(chunk, translated)
+            if reason is None:
+                return translated
+            logger.warning(
+                "LINDAT reply looks degenerate (%s); attempt %d/%d for a %d-character chunk.",
+                reason,
+                attempt + 1,
+                _GUARD_RETRIES + 1,
+                len(chunk),
+            )
+        raise DegenerateTranslationError(
+            f"LINDAT returned degenerate output after {_GUARD_RETRIES + 1} attempt(s): {reason}"
+        )
+
+    @staticmethod
+    def _reply_degeneration(chunk: str, translated: str) -> str | None:
+        """Why *translated* is unusable as a translation of *chunk*, or ``None``.
+
+        A batched ALTO request carries one item per line and LINDAT keeps the
+        line structure, so when the line counts agree each line is judged against
+        its own source line — one looping line among forty is still caught. When
+        they disagree the reply is judged as a whole; the caller's line-count
+        check deals with the mismatch itself.
+        """
+        src_lines = chunk.split("\n")
+        out_lines = translated.split("\n")
+        if len(src_lines) == len(out_lines):
+            for src_line, out_line in zip(src_lines, out_lines):
+                reason = degeneration_reason(src_line, out_line)
+                if reason:
+                    return reason
+            return None
+        return degeneration_reason(chunk, translated)
 
     def _fetch_models(self) -> list:
         try:

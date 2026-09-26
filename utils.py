@@ -13,12 +13,16 @@ access that ``xs:import``-based schemas may require.
 
 import difflib
 import logging
+import os
 import sys
+import time
 import urllib.request
 
 from lxml import etree
 
 from atrium_document import canonical_doc_id
+from processors.quality import degeneration_reason
+from processors.translator import DegenerateTranslationError
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +83,12 @@ def normalize_output_mode(value, *, source="output mode"):
 
 
 class BatchFallbackCounter:
-    """Counts how often page-level batching degraded to one call per item.
+    """Counts how often page-level batching degraded, and what happened to the segments.
 
-    `_translate_batch` sends a whole page's blocks (and separately its lines) as
-    ONE newline-joined request, then silently reverts to one request per item when
-    the reply does not come back with the same number of lines. The difference is
+    `_translate_items` sends a whole page's blocks (and separately its lines) as
+    ONE newline-joined request, then reverts to one request per item when the
+    reply does not come back with the same number of lines — or, since the
+    2026-09-26 regression, when any item in it is implausible. The difference is
     roughly 2 calls per page versus one per block plus one per line — for the
     79-page sample in `data_samples/`, ~158 calls against ~3288 — and until this
     counter existed nothing distinguished the two. A run that took twenty minutes
@@ -91,38 +96,220 @@ class BatchFallbackCounter:
 
     That matters most for the in-production experiment (#46): "it was slow" is not
     actionable feedback, "it fell back on 61 of 79 pages because CUBBITT collapsed
-    the newlines" is.
+    the newlines" is. The segment counts say what the degenerate-output guard did:
+    how many blocks / line anchors were flagged, how many the end-of-document
+    re-run recovered, and how many were left as source text.
     """
 
-    __slots__ = ("batched", "fallback_mismatch", "fallback_error", "items_retried")
+    __slots__ = (
+        "batched",
+        "fallback_mismatch",
+        "fallback_error",
+        "fallback_implausible",
+        "items_retried",
+        "segments_flagged",
+        "segments_recovered",
+        "segments_untranslated",
+        "anchors_flagged",
+        "anchors_recovered",
+        "anchors_approximated",
+    )
 
     def __init__(self):
-        self.batched = 0
-        self.fallback_mismatch = 0
-        self.fallback_error = 0
-        self.items_retried = 0
+        for name in self.__slots__:
+            setattr(self, name, 0)
 
     @property
     def fallbacks(self) -> int:
-        return self.fallback_mismatch + self.fallback_error
+        return self.fallback_mismatch + self.fallback_error + self.fallback_implausible
+
+    @property
+    def needs_attention(self) -> bool:
+        """True when anything other than clean batching happened (→ WARNING summary)."""
+        return bool(self.fallbacks or self.segments_flagged or self.anchors_flagged or self.anchors_approximated)
 
     def as_dict(self) -> dict:
-        return {
-            "batched": self.batched,
-            "fallback_mismatch": self.fallback_mismatch,
-            "fallback_error": self.fallback_error,
-            "fallbacks": self.fallbacks,
-            "items_retried": self.items_retried,
-        }
+        data = {name: getattr(self, name) for name in self.__slots__}
+        data["fallbacks"] = self.fallbacks
+        return data
 
     def summary(self) -> str:
         total = self.batched + self.fallbacks
-        return (
-            f"{self.batched}/{total} batch calls held their line count; "
+        parts = [
+            f"{self.batched}/{total} batch calls were accepted as sent; "
             f"{self.fallbacks} fell back to per-item requests "
-            f"({self.fallback_mismatch} line-count mismatch, {self.fallback_error} transport error), "
+            f"({self.fallback_mismatch} line-count mismatch, {self.fallback_error} transport error, "
+            f"{self.fallback_implausible} implausible reply), "
             f"costing {self.items_retried} extra requests"
+        ]
+        if self.segments_flagged or self.anchors_flagged:
+            parts.append(
+                f"{self.segments_flagged} segment(s) and {self.anchors_flagged} line anchor(s) flagged for the "
+                f"end-of-document re-run, {self.segments_recovered} segment(s) and "
+                f"{self.anchors_recovered} anchor(s) recovered"
+            )
+        if self.segments_untranslated:
+            parts.append(f"{self.segments_untranslated} segment(s) left untranslated (source text kept)")
+        if self.anchors_approximated:
+            parts.append(f"{self.anchors_approximated} line(s) placed by source word count (anchor unusable)")
+        return "; ".join(parts)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Degenerate output: validation, flagging and the end-of-document re-run
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# On 2026-09-26 roughly a third of all LINDAT replies came back as one word
+# repeated up to ~150 times, nondeterministically. Only the line count of a
+# reply was ever checked, so the garbage went into the XML and the CSV, and —
+# through the ALTO line anchors, which are never logged — into the word-to-box
+# alignment of every block on the page. Every translated segment now goes
+# through `degeneration_reason`; one that is still unusable after the backend's
+# own retries is FLAGGED, re-run once the whole document has been processed, and
+# kept as source text if it never recovers. See agent_dev_logs/digests/46.digest.md.
+
+#: Per-line status written to the last column of the `_log.csv`.
+STATUS_OK = "ok"
+#: Flagged during processing and recovered by the end-of-document re-run.
+STATUS_RERUN = "rerun"
+#: ALTO only: the line's anchor was unusable, so its words were placed by source
+#: word count instead of by similarity to its own translation.
+STATUS_APPROX = "approx_alignment"
+#: Still degenerate after the re-run: the source text was kept, target left empty.
+STATUS_UNTRANSLATED = "untranslated"
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, "") or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, "") or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _rerun_policy() -> tuple[int, float]:
+    """``(rounds, cool-down seconds)`` for re-running flagged segments.
+
+    Read per document rather than at import, so a long-running service picks up a
+    changed value and a test can set it. ``TRANSLATION_RERUN_ROUNDS=0`` disables
+    the re-run: flagged segments are then kept as source straight away.
+    """
+    rounds = max(0, _env_int("TRANSLATION_RERUN_ROUNDS", 1))
+    delay_s = max(0.0, _env_float("TRANSLATION_RERUN_DELAY_S", 10.0))
+    return rounds, delay_s
+
+
+def _translate_one(translator, text, src_lang, tgt_lang):
+    """Translate ONE segment. Returns ``(translation, None)`` or ``(None, reason)``.
+
+    ``None`` means the backend could not produce a usable translation: it raised
+    :class:`DegenerateTranslationError` (after its own retries), or the reply fails
+    :func:`degeneration_reason` — which also covers backends and test doubles with
+    no guard of their own. Any other exception propagates unchanged: a transport
+    failure still skips the whole file, exactly as before.
+    """
+    try:
+        translated = translator.translate(text, src_lang, tgt_lang)
+    except DegenerateTranslationError as exc:
+        return None, str(exc)
+    if not isinstance(translated, str):
+        return None, f"backend returned {type(translated).__name__}, not text"
+    reason = degeneration_reason(text, translated)
+    if reason:
+        return None, reason
+    return translated, None
+
+
+def _translate_items(translator, texts, lang, tgt_lang, counter):
+    """Translate *texts* as ONE newline-joined request; returns ``(results, failed)``.
+
+    ``results`` has one entry per input (``""`` for blank inputs and for failures);
+    ``failed`` is the set of indices that are still unusable and must be flagged.
+
+    The reply is accepted only if it keeps the line count AND every line is a
+    plausible translation of its own item. One implausible item means the reply's
+    line mapping cannot be trusted — a count-preserving reply can still have one
+    slot swallowing its neighbours' text and the neighbours left blank — so EVERY
+    item is then re-requested on its own, not just the flagged one. Counted in
+    ``counter`` either way.
+    """
+    results = [""] * len(texts)
+    failed: set[int] = set()
+
+    # Filter out empty line/block placeholders to preserve spacing structures
+    valid = [(i, t) for i, t in enumerate(texts) if t and t.strip()]
+    if not valid:
+        return results, failed
+    valid_texts = [t for _, t in valid]
+
+    try:
+        translated_joined = translator.translate("\n".join(valid_texts), lang, tgt_lang)
+        translated_lines = [t.strip() for t in str(translated_joined).split("\n")]
+
+        if len(translated_lines) == len(valid_texts):
+            implausible = [
+                (k, reason)
+                for k, (src, out) in enumerate(zip(valid_texts, translated_lines))
+                if (reason := degeneration_reason(src, out))
+            ]
+            if not implausible:
+                counter.batched += 1
+                for (idx, _), res_line in zip(valid, translated_lines):
+                    results[idx] = res_line
+                return results, failed
+
+            counter.fallback_implausible += 1
+            logger.warning(
+                "Batch reply kept its %d line(s) but %d item(s) are implausible (first: %s); its line "
+                "mapping is not trusted — retrying all %d item(s) individually.",
+                len(translated_lines),
+                len(implausible),
+                implausible[0][1],
+                len(valid_texts),
+            )
+        else:
+            # The model answered, but collapsed or added newlines, so the
+            # reply cannot be mapped back onto the layout. Counted, not
+            # silent: this is the common degradation and it is invisible in
+            # the output — only the wall-clock changes (issue #46).
+            counter.fallback_mismatch += 1
+            logger.debug(
+                "Batch line count %d != %d expected; retrying %d item(s) individually.",
+                len(translated_lines),
+                len(valid_texts),
+                len(valid_texts),
+            )
+    except DegenerateTranslationError as exc:
+        counter.fallback_implausible += 1
+        logger.warning("Batch reply was degenerate (%s); retrying %d item(s) individually.", exc, len(valid_texts))
+    except Exception as exc:
+        # Was `except Exception: pass`. Swallowing the reason is what
+        # made a 20x slowdown indistinguishable from a fast run.
+        counter.fallback_error += 1
+        logger.warning(
+            "Batch translation call failed (%s: %s); retrying %d item(s) individually.",
+            type(exc).__name__,
+            exc,
+            len(valid_texts),
         )
+
+    # Safe fallback: one request per item. Items that are still unusable are
+    # returned as failed — flagged by the caller, never silently accepted.
+    counter.items_retried += len(valid_texts)
+    for idx, text in valid:
+        translated, reason = _translate_one(translator, text, lang, tgt_lang)
+        if translated is None:
+            failed.add(idx)
+            logger.debug("Flagged for re-run (%s): %.80r", reason, text)
+        else:
+            results[idx] = translated.strip()
+    return results, failed
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -278,6 +465,74 @@ def _already_appended(elem, tgt_lang) -> bool:
     return nxt is not None and nxt.tag == elem.tag and nxt.get(XML_LANG) == tgt_lang
 
 
+def _write_metadata_translation(elem, translated, src_lang, tgt_lang, output_mode) -> int:
+    """Apply one field's translation in the chosen mode; returns 1 if a sibling was appended."""
+    if output_mode == OUTPUT_MODE_APPEND:
+        return 1 if _append_translation_sibling(elem, translated, src_lang, tgt_lang) is not None else 0
+    elem.text = translated
+    return 0
+
+
+def _rerun_flagged_metadata(flagged, translator, tgt_lang, output_mode, log_doc_id) -> int:
+    """End-of-document re-run of metadata fields flagged as degenerate.
+
+    Same policy as the ALTO path (:func:`_rerun_flagged_alto`): after the whole
+    record has been processed, wait ``TRANSLATION_RERUN_DELAY_S`` and re-request
+    each flagged field on its own, for ``TRANSLATION_RERUN_ROUNDS`` rounds. A
+    recovered field is written as usual and logged ``rerun``; a field that never
+    recovers keeps its source text — replace mode leaves it as it was, append mode
+    adds no sibling — and is logged ``untranslated`` with an empty target.
+    Returns how many siblings were appended.
+    """
+    rounds, delay_s = _rerun_policy()
+    logger.warning(
+        "%s: %d field(s) were flagged during processing; re-running them (%d round(s), %.1f s cool-down).",
+        log_doc_id,
+        len(flagged),
+        rounds,
+        delay_s,
+    )
+    appended = 0
+    recovered = 0
+    for _round in range(rounds):
+        todo = [item for item in flagged if not item.get("done")]
+        if not todo:
+            break
+        if delay_s > 0:
+            time.sleep(delay_s)
+        for item in todo:
+            translated, reason = _translate_one(translator, item["text"], item["lang"], tgt_lang)
+            if translated is None:
+                item["reason"] = reason
+                continue
+            appended += _write_metadata_translation(item["elem"], translated, item["lang"], tgt_lang, output_mode)
+            item["row"][4] = translated
+            item["row"][5] = STATUS_RERUN
+            item["done"] = True
+            recovered += 1
+
+    untranslated = 0
+    for item in flagged:
+        if item.get("done"):
+            continue
+        untranslated += 1
+        item["row"][5] = STATUS_UNTRANSLATED
+        logger.warning(
+            "%s: %s is still degenerate after the re-run (%s); its source text is kept: %.80r",
+            log_doc_id,
+            item["row"][2],
+            item["reason"],
+            item["text"],
+        )
+    logger.warning(
+        "%s: %d flagged field(s) recovered on the re-run, %d left untranslated (source text kept).",
+        log_doc_id,
+        recovered,
+        untranslated,
+    )
+    return appended
+
+
 def process_metadata_xml(
     input_path,
     output_path,
@@ -308,9 +563,12 @@ def process_metadata_xml(
         # through the shared function, never by hand.
         log_doc_id = doc_id or canonical_doc_id(input_path)
 
-        translated_texts = []
         appended = 0
         skipped_existing = 0
+        # The QA log is buffered and written once at the end, in document order,
+        # because a flagged field only gets its final value after the re-run.
+        rows = []
+        flagged = []
 
         for xpath in xpaths:
             try:
@@ -338,21 +596,30 @@ def process_metadata_xml(
                         skipped_existing += 1
                         continue
 
-                    translated = translator.translate(original_text, actual_src_lang, tgt_lang)
+                    row = [log_doc_id, "", xpath, original_text, "", STATUS_OK]
+                    rows.append(row)
 
-                    if output_mode == OUTPUT_MODE_APPEND:
-                        _append_translation_sibling(elem, translated, actual_src_lang, tgt_lang)
-                        appended += 1
-                    else:
-                        elem.text = translated
+                    translated, reason = _translate_one(translator, original_text, actual_src_lang, tgt_lang)
+                    if translated is None:
+                        # Degenerate even after the backend's own retries: leave the
+                        # field exactly as it is for now and re-run it at the end.
+                        flagged.append(
+                            {"elem": elem, "text": original_text, "lang": actual_src_lang, "row": row, "reason": reason}
+                        )
+                        continue
 
-                    translated_texts.append(translated)
-
-                    if csv_writer:
-                        csv_writer.writerow([log_doc_id, "", xpath, original_text, translated])
+                    appended += _write_metadata_translation(elem, translated, actual_src_lang, tgt_lang, output_mode)
+                    row[4] = translated
 
             except etree.XPathError as e:
                 print(f"[WARN] XPath error for '{xpath}': {e}")
+
+        if flagged:
+            appended += _rerun_flagged_metadata(flagged, translator, tgt_lang, output_mode, log_doc_id)
+
+        if csv_writer:
+            for row in rows:
+                csv_writer.writerow(row)
 
         # ATRIUM Document JSON accretion update for metadata blocks.
         #
@@ -431,11 +698,21 @@ def process_metadata_xml(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _align_tokens_to_lines(block_text, line_translations):
+def _align_tokens_to_lines(block_text, line_translations, source_line_texts=None):
     """
     Partitions the high-quality block translation into buckets corresponding
     to physical XML lines, using the lower-quality line translations as anchors.
+
+    Called WITHOUT *source_line_texts* this is the original anchor-trusting
+    aligner, kept byte-for-byte for existing callers: an empty anchor gets an
+    empty bucket, and the final line absorbs the remainder.
+
+    Called WITH the source line texts (what ``process_alto_xml`` does) it cannot be
+    steered by a bad anchor — see :func:`_align_block`.
     """
+    if source_line_texts is not None:
+        return _align_block(block_text, line_translations, source_line_texts)[0]
+
     block_tokens = block_text.split() if block_text else []
     if not block_tokens:
         return [[] for _ in line_translations]
@@ -478,6 +755,87 @@ def _align_tokens_to_lines(block_text, line_translations):
     return assigned_buckets
 
 
+def _best_anchor_split(remaining, anchor, lo, hi):
+    """Split index in ``[lo, hi]`` whose prefix of *remaining* best matches *anchor*.
+
+    The ±50 % window around the anchor's word count and the ``difflib`` ratio are
+    the original aligner's; *lo* / *hi* are the guard rails the caller adds.
+    """
+    expected_len = len(anchor.split())
+    min_idx = max(lo, int(expected_len * 0.5) - 1)
+    max_idx = min(hi, int(expected_len * 1.5) + 2)
+    if min_idx > max_idx:
+        min_idx = max_idx
+    best_idx, best_ratio = min_idx, -1.0
+    for split_idx in range(min_idx, max_idx + 1):
+        ratio = difflib.SequenceMatcher(None, " ".join(remaining[:split_idx]), anchor).ratio()
+        if ratio > best_ratio:
+            best_ratio, best_idx = ratio, split_idx
+    return best_idx
+
+
+def _align_block(block_text, line_translations, source_line_texts):
+    """Source-aware line alignment. Returns ``(buckets, approximated_line_indices)``.
+
+    This is what went wrong on the 2026-09-26 samples: the Pass-2 line anchors
+    are one batched request per page, a degenerate or shifted reply fills some
+    anchor slots with 50+ words and leaves others empty, and the anchor-trusting
+    aligner turned that into lines holding 71 words next to lines holding none.
+    Anchors are never written anywhere, so none of it was visible in the CSV.
+
+    Here every anchor is checked against its OWN source line before it is used:
+
+    * a line with no source text gets an empty bucket (unchanged invariant);
+    * a *usable* anchor (non-empty, and not degenerate relative to its source
+      line per :func:`processors.quality.degeneration_reason`) drives the
+      original ``difflib`` window search;
+    * an unusable anchor is replaced by a proportional share of the REMAINING
+      tokens by the REMAINING source word counts — so an error cannot accumulate
+      down the block — and the line is reported as approximated;
+    * no line with source text is starved while tokens remain: each takes at
+      least one, and none may take the tokens every later text line needs;
+    * the last line WITH source text receives the remainder, so every token is
+      kept, in order, on a line that has ``String`` elements to hold it.
+    """
+    source_line_texts = list(source_line_texts)
+    n = len(source_line_texts)
+    block_tokens = block_text.split() if block_text else []
+    if not block_tokens:
+        return [[] for _ in range(n)], set()
+    if n <= 1:
+        return [block_tokens], set()
+
+    src_counts = [len(text.split()) if text else 0 for text in source_line_texts]
+    anchors = list(line_translations or []) + [""] * n
+    text_lines = [i for i, count in enumerate(src_counts) if count]
+    if not text_lines:
+        return [[] for _ in range(n - 1)] + [block_tokens], set()
+    last_text_line = text_lines[-1]
+
+    def _usable(i):
+        anchor = anchors[i] or ""
+        return bool(anchor.strip()) and degeneration_reason(source_line_texts[i], anchor) is None
+
+    approximated = {i for i in text_lines if not _usable(i)} if len(text_lines) > 1 else set()
+
+    buckets = [[] for _ in range(n)]
+    remaining = block_tokens
+    for i in text_lines[:-1]:
+        if not remaining:
+            break
+        later_text_lines = sum(1 for j in text_lines if j > i)
+        hi = max(1, len(remaining) - later_text_lines)
+        if i in approximated:
+            share = len(remaining) * src_counts[i] / sum(src_counts[j] for j in text_lines if j >= i)
+            take = min(hi, max(1, round(share)))
+        else:
+            take = _best_anchor_split(remaining, anchors[i], 1, hi)
+        buckets[i] = remaining[:take]
+        remaining = remaining[take:]
+    buckets[last_text_line] = remaining
+    return buckets, approximated
+
+
 def _align_tokens_proportional(block_text, source_line_texts):
     """
     Anchor-free alternative to :func:`_align_tokens_to_lines` (review finding #4).
@@ -491,7 +849,9 @@ def _align_tokens_proportional(block_text, source_line_texts):
       * the final line absorbs the remainder.
 
     Used only when ``process_alto_xml(..., line_anchors=False)`` (the ``--fast-align``
-    CLI flag). The default path still uses the similarity-anchored aligner.
+    CLI flag). The default path uses the anchor-guided :func:`_align_block`, which
+    falls back to this same proportional rule line by line whenever an anchor
+    cannot be trusted.
     """
     block_tokens = block_text.split() if block_text else []
     if not block_tokens:
@@ -520,40 +880,263 @@ def _align_tokens_proportional(block_text, source_line_texts):
     return buckets
 
 
+def _distribute_tokens(num_strings, tokens):
+    """Spread one line's bucket over its ``String`` elements — the greedy 1:1 rule.
+
+    Each ``String`` but the last takes one token (``""`` once the bucket runs
+    out); the last takes whatever is left, so no token is dropped. Returns one
+    value per ``String``. The same values go into ``CONTENT`` (replace) or into a
+    translation ``ALTERNATIVE`` (append), so both modes place words identically.
+    """
+    values = []
+    for i in range(num_strings):
+        if i < num_strings - 1:
+            values.append(tokens[i] if i < len(tokens) else "")
+        else:
+            values.append(" ".join(tokens[i:]))
+    return values
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # ALTO XML processing
 # ──────────────────────────────────────────────────────────────────────────────
 
+#: ``PURPOSE`` of the ``<ALTERNATIVE>`` that carries a ``String``'s translation in
+#: append mode. ALTO (2.1+) defines ``ALTERNATIVE`` as "any alternative for the
+#: word" with a free-text ``PURPOSE``; there is no language attribute on it, so
+#: the target language travels in the purpose string.
+ALTO_TRANSLATION_PURPOSE = "translation:{lang}"
 
-def _label_alto_language(root, tgt_lang) -> int:
-    """Stamp the target language on ALTO text elements. Returns how many were touched.
+# Attributes ALTO uses for a language label: ``LANG`` (TextBlock/TextLine/String
+# in ALTO 2+), and the older ``language`` on TextBlock.
+_ALTO_LANG_ATTRS = ("LANG", "language")
 
-    ALTO 4 defines a ``LANG`` attribute on ``TextBlock``, ``TextLine`` and
-    ``String``; ALTO 3 defines ``language`` on ``TextBlock``. This writes ``LANG``
-    on the block level only — one attribute per block rather than per word, which
-    is where the claim is actually true: the block text IS a translation of the
-    block, while the per-``String`` split is manufactured (see the caller's
-    docstring).
 
-    Without this the output is unlabelled English. That is the defect worth fixing
-    regardless of which way the replace/append question is finally settled: a
-    consumer currently cannot distinguish a translated ALTO from a Czech original
-    except by reading the text.
+def _alto_localname(elem):
+    # `.iter()` also yields comments/PIs, whose `.tag` is a callable that
+    # etree.QName rejects — real scanner ALTO routinely carries comments.
+    return etree.QName(elem).localname if isinstance(elem.tag, str) else None
+
+
+def _translation_purpose(tgt_lang):
+    return ALTO_TRANSLATION_PURPOSE.format(lang=tgt_lang)
+
+
+def _block_has_translation(block, tgt_lang) -> bool:
+    """True when an append-mode pass already put a *tgt_lang* translation in *block*."""
+    purpose = _translation_purpose(tgt_lang)
+    return any(_alto_localname(elem) == "ALTERNATIVE" and elem.get("PURPOSE") == purpose for elem in block.iter())
+
+
+def _set_translation_alternative(string_elem, value, tgt_lang) -> bool:
+    """Append mode: put *value* in the String's translation ``ALTERNATIVE``.
+
+    ``CONTENT`` is never touched. At most one translation alternative per target
+    language exists afterwards (a re-run replaces it rather than stacking a
+    second). Schema order inside ``String`` is ``Shape?, ALTERNATIVE*, Glyph*``, so
+    the new element goes after any ``Shape`` / existing ``ALTERNATIVE`` and before
+    any ``Glyph``. An empty *value* writes nothing. Returns whether one was written.
+    """
+    purpose = _translation_purpose(tgt_lang)
+    existing = [
+        child for child in string_elem if _alto_localname(child) == "ALTERNATIVE" and child.get("PURPOSE") == purpose
+    ]
+    for extra in existing[1:]:
+        string_elem.remove(extra)
+    if not value:
+        if existing:
+            string_elem.remove(existing[0])
+        return False
+    if existing:
+        existing[0].text = value
+        return True
+
+    namespace = etree.QName(string_elem).namespace
+    tag = f"{{{namespace}}}ALTERNATIVE" if namespace else "ALTERNATIVE"
+    # SubElement inherits the parent's namespace map, so the element serialises
+    # in the document's default namespace instead of growing an `ns0:` prefix.
+    alternative = etree.SubElement(string_elem, tag)
+    alternative.set("PURPOSE", purpose)
+    alternative.text = value
+    position = 0
+    for index, child in enumerate(string_elem):
+        if child is alternative:
+            break
+        if _alto_localname(child) in ("Shape", "ALTERNATIVE"):
+            position = index + 1
+    string_elem.insert(position, alternative)
+    return True
+
+
+def _relabel_translated_block(block, tgt_lang) -> int:
+    """Replace mode: move EXISTING language labels in *block* to *tgt_lang*.
+
+    Scanner ALTO arrives labelled — the shipped ABBYY sample carries
+    ``TextBlock LANG="cs"`` (and ``"sk"``) on every block — and replace mode used to
+    leave that label on English text, so the output asserted Czech about English.
+    Only labels that already exist are changed; none is added, so an unlabelled
+    input stays unlabelled exactly as before.
     """
     if not tgt_lang:
         return 0
     touched = 0
-    # `root.iter()` yields comments and processing instructions as well as elements,
-    # and their `.tag` is a callable rather than a string — `etree.QName` raises
-    # ValueError on those. Real ALTO from a scanner routinely carries comments, so
-    # this guard is what keeps append mode from dying on ordinary production input.
-    for elem in root.iter():
+    for elem in block.iter():
         if not isinstance(elem.tag, str):
             continue
-        if etree.QName(elem).localname == "TextBlock":
-            elem.set("LANG", tgt_lang)
-            touched += 1
+        for attr in _ALTO_LANG_ATTRS:
+            current = elem.get(attr)
+            if current is not None and current != tgt_lang:
+                elem.set(attr, tgt_lang)
+                touched += 1
     return touched
+
+
+def _label_source_block(block, src_lang) -> bool:
+    """Append mode: make sure the block states the language its ``CONTENT`` is in.
+
+    The ``CONTENT`` stays in the source language, so that is the block's language.
+    Labels already present are left alone; a missing one is added when the source
+    language is actually known (not ``auto``). The translation half is labelled by
+    its ``ALTERNATIVE``'s ``PURPOSE``, so both halves are self-describing — the
+    ALTO counterpart of the metadata pair ``xml:lang="cs"`` / ``xml:lang="en"``.
+    """
+    if not src_lang or src_lang == "auto":
+        return False
+    if any(block.get(attr) is not None for attr in _ALTO_LANG_ATTRS):
+        return False
+    block.set("LANG", src_lang)
+    return True
+
+
+def _request_block_anchors(bdata, translator, tgt_lang, counter):
+    """Pass-2 anchors for ONE block (used when a block is recovered by the re-run)."""
+    lines_data = bdata["lines_data"]
+    if sum(1 for ld in lines_data if ld["orig_text"]) < 2:
+        return
+    results, failed = _translate_items(
+        translator, [ld["orig_text"] for ld in lines_data], bdata["actual_src_lang"], tgt_lang, counter
+    )
+    for k, (ld, tgt) in enumerate(zip(lines_data, results)):
+        ld["line_tgt"] = tgt
+        ld["anchor_failed"] = k in failed
+
+
+def _rerun_flagged_alto(pending, translator, tgt_lang, line_anchors, counter, log_doc_id):
+    """End-of-document re-run of every block and line anchor flagged during processing.
+
+    The failure it exists for is transient — the same request that looped on
+    ``"pravidla"`` succeeds minutes later — so the flagged segments are retried
+    after the whole document has been processed, after a cool-down, one segment
+    per request (``TRANSLATION_RERUN_ROUNDS`` rounds, ``TRANSLATION_RERUN_DELAY_S``
+    before each). A recovered block also gets its line anchors. Whatever is still
+    failing afterwards is left for the caller to keep as source.
+    """
+    rounds, delay_s = _rerun_policy()
+    flagged_blocks = [b for b in pending if b["block_failed"]]
+    flagged_anchors = [ld for b in pending if not b["block_failed"] for ld in b["lines_data"] if ld["anchor_failed"]]
+    counter.segments_flagged += len(flagged_blocks)
+    counter.anchors_flagged += len(flagged_anchors)
+    logger.warning(
+        "%s: %d block(s) and %d line anchor(s) were flagged during processing; re-running them "
+        "(%d round(s), %.1f s cool-down).",
+        log_doc_id,
+        len(flagged_blocks),
+        len(flagged_anchors),
+        rounds,
+        delay_s,
+    )
+
+    for _round in range(rounds):
+        todo_blocks = [b for b in pending if b["block_failed"]]
+        todo_anchors = [
+            (b, ld) for b in pending if not b["block_failed"] for ld in b["lines_data"] if ld["anchor_failed"]
+        ]
+        if not todo_blocks and not todo_anchors:
+            break
+        if delay_s > 0:
+            time.sleep(delay_s)
+
+        for bdata in todo_blocks:
+            translated, _reason = _translate_one(translator, bdata["block_text"], bdata["actual_src_lang"], tgt_lang)
+            if translated is None:
+                continue
+            bdata["block_tgt"] = translated.strip()
+            bdata["block_failed"] = False
+            bdata["block_rerun"] = True
+            counter.segments_recovered += 1
+            if line_anchors:
+                _request_block_anchors(bdata, translator, tgt_lang, counter)
+
+        for bdata, ld in todo_anchors:
+            translated, _reason = _translate_one(translator, ld["orig_text"], bdata["actual_src_lang"], tgt_lang)
+            if translated is None:
+                continue
+            ld["line_tgt"] = translated.strip()
+            ld["anchor_failed"] = False
+            ld["anchor_rerun"] = True
+            counter.anchors_recovered += 1
+
+    for bdata in pending:
+        if bdata["block_failed"]:
+            counter.segments_untranslated += 1
+            logger.warning(
+                "%s: page %s block %s is still degenerate after the re-run; its source text is kept "
+                "and its lines are flagged 'untranslated' in the CSV log: %.80r",
+                log_doc_id,
+                bdata["page_idx"],
+                bdata["block_idx"],
+                bdata["block_text"],
+            )
+
+
+def _finalize_alto_block(bdata, output_mode, tgt_lang, line_anchors, counter) -> int:
+    """Write one block's translation into its Strings; set each line's CSV text/status.
+
+    Returns how many translation ``ALTERNATIVE`` elements were written (append).
+    """
+    lines_data = bdata["lines_data"]
+    if bdata["block_failed"]:
+        # Never recovered: the Strings keep their source text and geometry, and the
+        # CSV says so instead of carrying garbage or a silent blank.
+        for ld in lines_data:
+            ld["trans_line_text"] = ""
+            ld["status"] = STATUS_UNTRANSLATED if ld["orig_text"] else STATUS_OK
+        return 0
+
+    source_texts = [ld["orig_text"] for ld in lines_data]
+    if line_anchors:
+        buckets, approximated = _align_block(
+            bdata["block_tgt"], [ld.get("line_tgt", "") for ld in lines_data], source_texts
+        )
+    else:
+        buckets, approximated = _align_tokens_proportional(bdata["block_tgt"], source_texts), set()
+    counter.anchors_approximated += len(approximated)
+
+    written = 0
+    for index, (ld, tokens) in enumerate(zip(lines_data, buckets)):
+        strings = ld["strings"]
+        if strings:
+            for string_elem, value in zip(strings, _distribute_tokens(len(strings), tokens)):
+                if output_mode == OUTPUT_MODE_APPEND:
+                    written += _set_translation_alternative(string_elem, value, tgt_lang)
+                else:
+                    string_elem.set("CONTENT", value)
+            ld["trans_line_text"] = " ".join(tokens)
+
+        if not ld["orig_text"]:
+            ld["status"] = STATUS_OK
+        elif index in approximated:
+            ld["status"] = STATUS_APPROX
+        elif bdata["block_rerun"] or ld.get("anchor_rerun"):
+            ld["status"] = STATUS_RERUN
+        else:
+            ld["status"] = STATUS_OK
+
+    if output_mode == OUTPUT_MODE_APPEND:
+        _label_source_block(bdata["block"], bdata["actual_src_lang"])
+    else:
+        _relabel_translated_block(bdata["block"], tgt_lang)
+    return written
 
 
 def process_alto_xml(
@@ -571,34 +1154,47 @@ def process_alto_xml(
     output_mode=DEFAULT_OUTPUT_MODE,
 ):
     """
-    Translate an ALTO XML document in place (dual-pass reconstruction).
+    Translate an ALTO XML document (dual-pass reconstruction).
 
     Implements Page-Level Batching (Issue #16): Pools block and line translation
     requests per page to eliminate heavy API call overhead, falling back to
-    1-by-1 processing if the NMT model modifies layout boundaries.
+    1-by-1 processing if the NMT model modifies layout boundaries — or, since the
+    2026-09-26 regression, if any item of a batched reply is implausible.
 
     *doc_id* is the caller's canonical doc_id for this document, used verbatim as the CSV
     log's ``file`` column; see the metadata-path twin for why it is passed in (D3).
 
-    OUTPUT MODE (issue #46). ALTO honours the flag by LABELLING, never by
-    duplicating. Appending a translation per ``String`` would be incoherent here:
-    the word-to-box correspondence in the output is manufactured by
-    :func:`_align_tokens_to_lines`, which splits ONE block translation on
-    whitespace and re-buckets it by ``difflib`` similarity — so a per-``String``
-    English "alternative" would not be an alternative reading of that word, it
-    would be whichever token the bucketing happened to land there. Duplicating it
-    would multiply a fiction rather than preserve evidence.
+    VALIDATION, FLAGGING AND RE-RUN (issue #46 follow-up). No reply is trusted on
+    its line count alone. Every batched item — block translations and line anchors
+    alike — is checked against its own source with
+    :func:`processors.quality.degeneration_reason`; one implausible item means the
+    batch's line mapping is not trusted and every item is re-requested on its own.
+    A block or anchor that is STILL unusable is flagged, and all flagged segments
+    are re-run once the whole document has been processed (see
+    :func:`_rerun_flagged_alto`). A block that never recovers keeps its source text
+    — it is never blanked and never filled with garbage. Line anchors are judged
+    against their source lines before they may steer the alignment
+    (:func:`_align_block`). The CSV log is written once, in document order, with a
+    ``status`` per line: ``ok``, ``rerun``, ``approx_alignment`` or ``untranslated``.
 
-    What append mode does instead is make the artifact honest about itself: the
-    target language is stamped on the text elements and a processing step is
-    recorded, so a consumer can tell the file is machine-translated English rather
-    than inferring it by reading. The ``String`` inventory stays 1:1 with the
-    source in BOTH modes. See ``agent_dev_logs/digests/46.digest.md`` for the
-    measurement behind this (224 blanked and 304 over-filled boxes of 7229 on the
-    shipped sample, none resized).
+    OUTPUT MODE (issue #46).
+
+    * ``replace`` writes the aligned tokens into ``String/@CONTENT``, and moves any
+      language label the block already carries (ABBYY writes ``LANG="cs"``) to the
+      target language.
+    * ``append`` keeps ``CONTENT`` — the source text and its geometry stay exactly
+      as scanned — and adds the same aligned tokens as
+      ``<ALTERNATIVE PURPOSE="translation:<tgt>">`` inside each ``String``: ALTO's own
+      element for "an alternative for the word". The block keeps (or gains) its
+      source-language label. The ``String`` inventory is 1:1 with the source in both
+      modes, and a second append pass skips blocks that already carry a translation.
+
+    The per-``String`` split is still a distribution of ONE block translation over
+    the scanned boxes, not a word-by-word translation — the ``ALTERNATIVE`` says what
+    English landed on that box, which is exactly what replace mode writes into it.
     """
     output_mode = normalize_output_mode(output_mode)
-    fallback_counter = BatchFallbackCounter()
+    counter = BatchFallbackCounter()
     try:
         # D3: one doc_id per document, supplied by the caller (main.py) or derived through
         # the shared canonical_doc_id() — never hand-rolled here. See process_metadata_xml.
@@ -614,7 +1210,12 @@ def process_alto_xml(
         pages = root.xpath("//alto:Page", namespaces=ns) if use_ns else root.xpath("//Page")
         total_pages = len(pages)
 
-        full_translated_blocks = []
+        # Every translatable block in document order (the CSV is written from this),
+        # and the ones flagged for the end-of-document re-run.
+        document_blocks = []
+        pending = []
+        skipped_existing = 0
+        alternatives_written = 0
 
         for page_idx, page in enumerate(pages, 1):
             text_blocks = page.xpath(".//alto:TextBlock", namespaces=ns) if use_ns else page.xpath(".//TextBlock")
@@ -630,6 +1231,12 @@ def process_alto_xml(
             # ──────────────────────────────────────────────────────────────────
             page_blocks_data = []
             for block_idx, block in enumerate(text_blocks, 1):
+                # Append is idempotent: a block that already carries a translation
+                # ALTERNATIVE for this target is not sent to the backend again.
+                if output_mode == OUTPUT_MODE_APPEND and _block_has_translation(block, tgt_lang):
+                    skipped_existing += 1
+                    continue
+
                 lines = block.xpath(".//alto:TextLine", namespaces=ns) if use_ns else block.xpath(".//TextLine")
 
                 all_strings = []
@@ -646,6 +1253,10 @@ def process_alto_xml(
                             "strings": strings,
                             "orig_text": orig_line_text,
                             "trans_line_text": "",
+                            "line_tgt": "",
+                            "anchor_failed": False,
+                            "anchor_rerun": False,
+                            "status": STATUS_OK,
                         }
                     )
                     all_strings.extend(strings)
@@ -664,16 +1275,21 @@ def process_alto_xml(
 
                 page_blocks_data.append(
                     {
+                        "page_idx": page_idx,
                         "block_idx": block_idx,
+                        "block": block,
                         "lines_data": lines_data,
                         "block_text": block_text,
                         "actual_src_lang": actual_src_lang,
                         "block_tgt": "",
+                        "block_failed": False,
+                        "block_rerun": False,
                     }
                 )
 
             if not page_blocks_data:
                 continue
+            document_blocks.extend(page_blocks_data)
 
             # ──────────────────────────────────────────────────────────────────
             # PHASE 2: Page-Level Batch Translation (Grouped by Language)
@@ -682,79 +1298,35 @@ def process_alto_xml(
             for bdata in page_blocks_data:
                 lang_groups.setdefault(bdata["actual_src_lang"], []).append(bdata)
 
-            def _translate_batch(texts, lang):
-                """Helper to join texts with newlines, translate, and validate boundaries."""
-                if not texts:
-                    return []
-
-                # Filter out empty line/block placeholders to preserve spacing structures
-                valid_map = [(i, t) for i, t in enumerate(texts) if t.strip()]
-                if not valid_map:
-                    return [""] * len(texts)
-
-                valid_indices, valid_texts = zip(*valid_map)
-                joined_text = "\n".join(valid_texts)
-
-                try:
-                    translated_joined = translator.translate(joined_text, lang, tgt_lang)
-                    translated_lines = [t.strip() for t in translated_joined.split("\n")]
-
-                    # Validate the layout structure matches original elements exactly
-                    if len(translated_lines) == len(valid_texts):
-                        fallback_counter.batched += 1
-                        results = [""] * len(texts)
-                        for idx, res_line in zip(valid_indices, translated_lines):
-                            results[idx] = res_line
-                        return results
-
-                    # The model answered, but collapsed or added newlines, so the
-                    # reply cannot be mapped back onto the layout. Counted, not
-                    # silent: this is the common degradation and it is invisible in
-                    # the output — only the wall-clock changes (issue #46).
-                    fallback_counter.fallback_mismatch += 1
-                    logger.debug(
-                        "Batch line count %d != %d expected; retrying %d item(s) individually.",
-                        len(translated_lines),
-                        len(valid_texts),
-                        len(valid_texts),
-                    )
-                except Exception as exc:
-                    # Was `except Exception: pass`. Swallowing the reason is what
-                    # made a 20x slowdown indistinguishable from a fast run.
-                    fallback_counter.fallback_error += 1
-                    logger.warning(
-                        "Batch translation call failed (%s: %s); retrying %d item(s) individually.",
-                        type(exc).__name__,
-                        exc,
-                        len(valid_texts),
-                    )
-
-                # Safe fallback: revert to 1-by-1 requests for this batch if layout breaks
-                fallback_counter.items_retried += len(valid_texts)
-                return [translator.translate(t, lang, tgt_lang) if t.strip() else "" for t in texts]
-
             for lang, group in lang_groups.items():
                 # Pass 1: Batch translate full blocks
-                block_texts = [b["block_text"] for b in group]
-                translated_blocks = _translate_batch(block_texts, lang)
-                for bdata, tgt in zip(group, translated_blocks):
+                translated_blocks, failed_blocks = _translate_items(
+                    translator, [b["block_text"] for b in group], lang, tgt_lang, counter
+                )
+                for k, (bdata, tgt) in enumerate(zip(group, translated_blocks)):
                     bdata["block_tgt"] = tgt
+                    bdata["block_failed"] = k in failed_blocks
 
-                # Pass 2: Batch translate lines as structural anchors
+                # Pass 2: Batch translate lines as structural anchors — only where an
+                # anchor can matter: a translated block with at least two text lines.
+                # (A single-line block takes the whole block translation as it is.)
                 if line_anchors:
                     line_texts = []
                     line_refs = []
                     for bdata in group:
+                        if bdata["block_failed"] or sum(1 for ld in bdata["lines_data"] if ld["orig_text"]) < 2:
+                            continue
                         for ld in bdata["lines_data"]:
                             line_texts.append(ld["orig_text"])
                             line_refs.append(ld)
 
-                    translated_lines = _translate_batch(line_texts, lang)
-                    for ld, tgt in zip(line_refs, translated_lines):
+                    translated_lines, failed_lines = _translate_items(translator, line_texts, lang, tgt_lang, counter)
+                    for k, (ld, tgt) in enumerate(zip(line_refs, translated_lines)):
                         ld["line_tgt"] = tgt
+                        ld["anchor_failed"] = k in failed_lines
 
             # ──────────────────────────────────────────────────────────────────
-            # PHASE 3: Redistribution & Logging (Downstream Logic Untouched)
+            # PHASE 3: Redistribution — flagged blocks wait for the re-run
             # ──────────────────────────────────────────────────────────────────
             for bdata in page_blocks_data:
                 sys.stdout.write(
@@ -762,63 +1334,55 @@ def process_alto_xml(
                 )
                 sys.stdout.flush()
 
-                block_tgt = bdata["block_tgt"]
-                if block_tgt:
-                    full_translated_blocks.append(block_tgt)
-
-                lines_data = bdata["lines_data"]
-
-                if line_anchors:
-                    line_translations = [ld.get("line_tgt", "") for ld in lines_data]
-                    aligned_token_buckets = _align_tokens_to_lines(block_tgt, line_translations)
-                else:
-                    aligned_token_buckets = _align_tokens_proportional(
-                        block_tgt, [ld["orig_text"] for ld in lines_data]
-                    )
-
-                for ld, assigned_tokens in zip(lines_data, aligned_token_buckets):
-                    num_strings = len(ld["strings"])
-                    if num_strings == 0:
-                        continue
-
-                    for i, string_elem in enumerate(ld["strings"]):
-                        if i < num_strings - 1:
-                            if i < len(assigned_tokens):
-                                string_elem.set("CONTENT", assigned_tokens[i])
-                            else:
-                                string_elem.set("CONTENT", "")
-                        else:
-                            string_elem.set("CONTENT", " ".join(assigned_tokens[i:]))
-
-                    ld["trans_line_text"] = " ".join(assigned_tokens)
-
-                if csv_writer:
-                    for ld in lines_data:
-                        if ld["orig_text"] or ld["trans_line_text"]:
-                            csv_writer.writerow(
-                                [log_doc_id, page_idx, ld["id"], ld["orig_text"], ld["trans_line_text"]]
-                            )
+                if bdata["block_failed"] or any(ld["anchor_failed"] for ld in bdata["lines_data"]):
+                    pending.append(bdata)
+                    continue
+                alternatives_written += _finalize_alto_block(bdata, output_mode, tgt_lang, line_anchors, counter)
 
             if num_blocks > 0:
                 print()
 
-        # Throughput reality, reported once per document. A run that batched cleanly
-        # and a run that fell back on every page differ by an order of magnitude in
-        # LINDAT calls and by nothing at all in the output — this line is the only
-        # place that difference is visible (issue #46).
-        if fallback_counter.fallbacks:
-            logger.warning("%s: %s.", log_doc_id, fallback_counter.summary())
+        # ──────────────────────────────────────────────────────────────────────
+        # PHASE 4: End-of-document re-run of everything flagged above
+        # ──────────────────────────────────────────────────────────────────────
+        if pending:
+            _rerun_flagged_alto(pending, translator, tgt_lang, line_anchors, counter, log_doc_id)
+            for bdata in pending:
+                alternatives_written += _finalize_alto_block(bdata, output_mode, tgt_lang, line_anchors, counter)
+
+        # The QA log, once, in document order — flagged blocks were finalised late,
+        # so writing per page would have put their rows in the wrong place.
+        if csv_writer:
+            for bdata in document_blocks:
+                for ld in bdata["lines_data"]:
+                    if ld["orig_text"] or ld["trans_line_text"]:
+                        csv_writer.writerow(
+                            [
+                                log_doc_id,
+                                bdata["page_idx"],
+                                ld["id"],
+                                ld["orig_text"],
+                                ld["trans_line_text"],
+                                ld["status"],
+                            ]
+                        )
+
+        # Throughput and quality reality, reported once per document. A run that
+        # batched cleanly and one that fell back or re-ran on every page differ by an
+        # order of magnitude in backend calls — this line is where that shows (#46).
+        if counter.needs_attention:
+            logger.warning("%s: %s.", log_doc_id, counter.summary())
         else:
-            logger.info("%s: %s.", log_doc_id, fallback_counter.summary())
+            logger.info("%s: %s.", log_doc_id, counter.summary())
 
         if output_mode == OUTPUT_MODE_APPEND:
-            labelled = _label_alto_language(root, tgt_lang)
             logger.info(
-                "%s: append mode labelled %d ALTO element(s) as '%s'. Per-String append is "
-                "deliberately not implemented — see process_alto_xml's docstring.",
+                "%s: append mode kept the source CONTENT and wrote %d translation ALTERNATIVE(s) "
+                "(PURPOSE=%r); %d block(s) already carried one.",
                 log_doc_id,
-                labelled,
-                tgt_lang,
+                alternatives_written,
+                _translation_purpose(tgt_lang),
+                skipped_existing,
             )
 
         # ATRIUM Document JSON accretion update for ALTO blocks. See the metadata-path
