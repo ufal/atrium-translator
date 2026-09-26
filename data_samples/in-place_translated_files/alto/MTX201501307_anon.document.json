@@ -30,10 +30,10 @@
     "contributors": [
       {
         "program": "translator",
-        "run_id": "260926-081927",
-        "paradata_ref": "data_samples/_refresh_replace/alto/paradata/260926-081927_translator.json",
+        "run_id": "260926-111843",
+        "paradata_ref": "data_samples/in-place_translated_files/alto/paradata/260926-111843_translator.json",
         "blocks": "translations,derived_from",
-        "at": "2026-09-26T08:29:41.129145+00:00"
+        "at": "2026-09-26T11:35:30.333879+00:00"
       }
     ]
   },
@@ -41,15 +41,15 @@
     "blocks": {
       "translations": {
         "program": "translator",
-        "run_id": "260926-081927",
-        "paradata_ref": "data_samples/_refresh_replace/alto/paradata/260926-081927_translator.json",
-        "updated_at": "2026-09-26T08:29:40.627192+00:00"
+        "run_id": "260926-111843",
+        "paradata_ref": "data_samples/in-place_translated_files/alto/paradata/260926-111843_translator.json",
+        "updated_at": "2026-09-26T11:35:30.017914+00:00"
       },
       "derived_from": {
         "program": "translator",
-        "run_id": "260926-081927",
-        "paradata_ref": "data_samples/_refresh_replace/alto/paradata/260926-081927_translator.json",
-        "updated_at": "2026-09-26T08:29:40.693138+00:00"
+        "run_id": "260926-111843",
+        "paradata_ref": "data_samples/in-place_translated_files/alto/paradata/260926-111843_translator.json",
+        "updated_at": "2026-09-26T11:35:30.062593+00:00"
       }
     },
     "had_baseline": false,
@@ -59,6 +59,7 @@
     "source_lang": "auto",
     "target_lang": "en",
     "backend": "lindat",
-    "output_mode": "replace"
+    "output_mode": "replace",
+    "detected_source_lang": "cs"
   }
 }

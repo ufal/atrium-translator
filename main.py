@@ -457,6 +457,11 @@ def process_single_file(
     environment and the backend.
     """
     translator.reset_protected_count()
+    # LindatTranslator also counts replies it rejected as degenerate and re-requested;
+    # other backends have no such counter, so this is duck-typed.
+    reset_degenerate = getattr(translator, "reset_degenerate_count", None)
+    if callable(reset_degenerate):
+        reset_degenerate()
 
     # D3 (atrium-project#10): one derivation for the whole run, through the shared module.
     # The old `file_path.name.split(".")[0]` agreed with canonical_doc_id() only by luck of
@@ -632,6 +637,7 @@ def main() -> int:
 
         _components_logged = False
         protected_by_doc: dict[str, int] = {}
+        degenerate_by_doc: dict[str, int] = {}
 
         xpaths_list: list[str] = []
         if args.xpaths and args.xpaths.exists():
@@ -759,11 +765,31 @@ def main() -> int:
                 else:
                     print(f"[INFO] Tag-and-Protect: {protected} term(s) protected in {file_path.name}")
 
+            # One line per document instead of one warning per rejected reply: how
+            # often the endpoint answered with degenerate output that had to be
+            # re-requested. A steady nonzero count on a sequential run is the
+            # signature of a broken replica — see eval/lindat_probe.py.
+            degenerate = getattr(translator, "degenerate_replies", None)
+            if isinstance(degenerate, int) and not isinstance(degenerate, bool):
+                degenerate_by_doc[record_doc_id(file_path, args.document_json)] = degenerate
+                if degenerate:
+                    print(
+                        f"[WARN] LINDAT: {degenerate} degenerate reply(ies) re-requested in {file_path.name} "
+                        "(recovered unless the CSV log says 'rerun'/'untranslated'; "
+                        "check the endpoint with `python -m eval.lindat_probe`)."
+                    )
+
         if protected_by_doc:
             self_cfg = getattr(_logger, "config", None)
             if isinstance(self_cfg, dict):
                 self_cfg["vocabulary_protected_terms"] = dict(protected_by_doc)
                 self_cfg["vocabulary_protected_terms_total"] = sum(protected_by_doc.values())
+
+        if degenerate_by_doc:
+            self_cfg = getattr(_logger, "config", None)
+            if isinstance(self_cfg, dict):
+                self_cfg["lindat_degenerate_replies"] = dict(degenerate_by_doc)
+                self_cfg["lindat_degenerate_replies_total"] = sum(degenerate_by_doc.values())
 
         # The paradata folder is created when the run STARTS; a long run can outlive
         # it — e.g. git removing the folder once its last tracked record was deleted.

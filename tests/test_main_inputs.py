@@ -95,3 +95,38 @@ def test_run_record_is_written_even_if_its_folder_vanished_mid_run(workdir, monk
     records = list((workdir / "out" / "paradata").glob("*_translator.json"))
     assert len(records) == 1
     assert json.loads(records[0].read_text(encoding="utf-8"))["statistics"]["input_files_total"] == 1
+
+
+def test_degenerate_replies_are_reported_once_per_document(workdir, monkeypatch, capsys):
+    """One line and one paradata entry per document, instead of a warning per reply."""
+
+    class _Backend:
+        name = "lindat"
+        vocabulary: dict = {}
+        protected_count = 0
+
+        def __init__(self):
+            self.degenerate_replies = 0
+
+        def reset_protected_count(self):
+            pass
+
+        def reset_degenerate_count(self):
+            self.degenerate_replies = 0
+
+    backend = _Backend()
+
+    def _process(**kwargs):
+        kwargs["translator"].reset_degenerate_count()
+        kwargs["translator"].degenerate_replies = 7  # what the guard counted in this document
+        return True, 0
+
+    monkeypatch.setattr(main_module, "get_backend", lambda *a, **k: backend)
+    monkeypatch.setattr(main_module, "process_single_file", _process)
+    monkeypatch.setattr("sys.argv", ["main.py", "docs/scan.alto.xml", "--alto", "--source_lang", "cs", "-o", "out"])
+    assert main_module.main() == EXIT_OK
+
+    assert "LINDAT: 7 degenerate reply(ies) re-requested in scan.alto.xml" in capsys.readouterr().out
+    record = json.loads(next((workdir / "out" / "paradata").glob("*_translator.json")).read_text(encoding="utf-8"))
+    assert record["config"]["lindat_degenerate_replies"] == {"scan": 7}
+    assert record["config"]["lindat_degenerate_replies_total"] == 7

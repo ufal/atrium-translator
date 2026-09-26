@@ -237,6 +237,14 @@ resolves each block/field as *detected* (≥ 20 letters, score ≥ 0.5, a langua
 overridden; `translations.detected_source_lang` in the Document JSON; the real policy in paradata;
 `eval/langid_report.py` to tune the thresholds where the model is available. Offline run with a FastText stand-in:
 0 UDPipe "no model" warnings (HEAD: `bod, epo, krc, swh, yue`) and no bogus `LANG` in append output (HEAD: 8 blocks).
+- **#46 — why LINDAT "fails from time to time".** Sequential runs after the fixes showed the first request of every
+batch degenerate and its byte-identical re-request succeed, two runs agreeing reply for reply (same inputs, same token
+counts). Deterministic garbage cured by an identical retry = **one broken replica behind a round-robin balancer**;
+the "random ~30 %" of the concurrent 2026-09-26 sample runs was the same thing with the alternation scrambled.
+`eval/lindat_probe.py` sends one text N times (fresh connections and one keep-alive session) and prints the ✓/✗
+pattern and a verdict to hand to the LINDAT operators. Client side: the first re-request is now immediate (back-off
+only from the second — sleeping cannot reach another replica), recovered rejections log at INFO, and `main.py` reports
+one `LINDAT: N degenerate reply(ies) re-requested` line per document (+ `lindat_degenerate_replies` in paradata).
 
 ---
 

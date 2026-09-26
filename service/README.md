@@ -133,7 +133,7 @@ than one that is absent. The `LINDAT_MIN_INTERVAL_S` / `LINDAT_MAX_RETRIES` /
 `LINDAT_BACKOFF_BASE_S` transport dials are separate and unchanged.
 
 **Degenerate replies cost time, not correctness.** A LINDAT reply that comes back as a repetition loop is
-re-requested (`LINDAT_GUARD_RETRIES`, with back-off), and a segment still degenerate after that is re-run once
+re-requested (`LINDAT_GUARD_RETRIES`; the first time immediately, then with back-off), and a segment still degenerate after that is re-run once
 the document is done (`TRANSLATION_RERUN_ROUNDS` × `TRANSLATION_RERUN_DELAY_S`); one that never recovers keeps
 its source text. All of that happens inside the synchronous `/translate` request, so on a bad day for the
 backend a request takes longer — size `GRACEFUL_SHUTDOWN_S` (and the orchestrator's grace period) with that in

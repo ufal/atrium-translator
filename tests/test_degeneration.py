@@ -474,3 +474,43 @@ def test_metadata_append_adds_no_sibling_for_an_untranslated_field(tmp_path):
     root, _ = _run_meta(tmp_path, backend, output_mode=OUTPUT_MODE_APPEND)
     assert _texts(root, "nazev") == ["Davle - kultovní areál 1"], "no English sibling carrying garbage"
     assert len(_texts(root, "popis")) == 2
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Re-request timing and the per-document count
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# Sequential runs showed every batch's first attempt degenerate and its identical
+# re-request succeed — one broken replica behind a round-robin balancer. Waiting
+# does not help there; reaching the next replica does. So the first re-request is
+# immediate, back-off starts with the second, and the count is reported once per
+# document instead of as one warning per reply.
+
+
+@patch("processors.translator.requests.post")
+def test_the_first_re_request_is_immediate(mock_post, lindat):
+    mock_post.side_effect = [_http(LOOP), _http("Rescue archaeological research")]
+    with patch("processors.translator.time.sleep") as sleep:
+        lindat.translate("Záchranný archeologický výzkum", "cs", "en")
+    sleep.assert_not_called()
+    assert lindat.degenerate_replies == 1
+
+
+@patch("processors.translator.requests.post")
+def test_back_off_starts_with_the_second_re_request(mock_post, lindat):
+    mock_post.side_effect = [_http(LOOP), _http(LOOP), _http("Rescue archaeological research")]
+    with patch("processors.translator.time.sleep") as sleep:
+        lindat.translate("Záchranný archeologický výzkum", "cs", "en")
+    assert sleep.call_count == 1
+    assert lindat.degenerate_replies == 2
+    lindat.reset_degenerate_count()
+    assert lindat.degenerate_replies == 0
+
+
+@patch("processors.translator.requests.post")
+def test_a_recovered_reply_is_info_and_a_repeated_one_a_warning(mock_post, lindat, caplog):
+    mock_post.side_effect = [_http(LOOP), _http(LOOP), _http("Rescue archaeological research")]
+    with caplog.at_level(logging.INFO, logger="processors.translator"):
+        lindat.translate("Záchranný archeologický výzkum", "cs", "en")
+    levels = [r.levelno for r in caplog.records if "looks degenerate" in r.getMessage()]
+    assert levels == [logging.INFO, logging.WARNING]

@@ -37,12 +37,15 @@ Degenerate-output guard (issue #46 follow-up)
 ---------------------------------------------
 An HTTP 200 is not a translation. On 2026-09-26 the public endpoint answered about a
 third of all requests with one Czech word repeated up to ~150 times, for headings and
-full sentences alike, and nondeterministically — the same field was garbage in one run
-and correct in the next. Every reply is therefore checked with
+full sentences alike. Later sequential runs showed the pattern behind it: the garbage
+is deterministic for a given input and the identical re-request succeeds, every other
+request — one broken replica behind a round-robin balancer (``eval/lindat_probe.py``
+checks this against the live endpoint). Every reply is therefore checked with
 ``processors.quality.degeneration_reason`` (line by line when the reply keeps the
 request's line count, as a whole otherwise). A degenerate reply is **re-requested** up
-to ``LINDAT_GUARD_RETRIES`` times (default 2) with back-off; if it is still degenerate
-the call raises :class:`DegenerateTranslationError`. That is a ``TranslationError``
+to ``LINDAT_GUARD_RETRIES`` times (default 2) — the first time immediately, then with
+back-off — and counted per document (:attr:`LindatTranslator.degenerate_replies`); if
+it is still degenerate the call raises :class:`DegenerateTranslationError`. That is a ``TranslationError``
 subclass on purpose: callers that only know the base class still fail loudly, while
 ``utils.py`` catches the subclass per segment, flags it, re-runs it at the end of the
 document, and keeps the source text if it never recovers — so one bad reply costs one
@@ -316,6 +319,12 @@ class LindatTranslator:
         # it afterwards (protected_count) to record per-document statistics.
         self._protected_count: int = 0
 
+        # Running tally of HTTP-200 replies rejected as degenerate and re-requested
+        # (see _translate_chunk_guarded). Reset per input file like the one above;
+        # main.py reports it per document so a misbehaving endpoint is visible in
+        # one line and in paradata instead of in hundreds of per-request warnings.
+        self._degenerate_replies: int = 0
+
         # Monotonic timestamp of the last outbound request (for throttling).
         self._last_call_ts: float = 0.0
 
@@ -449,6 +458,17 @@ class LindatTranslator:
         """Number of vocabulary terms protected since the last reset."""
         return self._protected_count
 
+    # ── degenerate-reply statistics ───────────────────────────────────────────
+
+    def reset_degenerate_count(self) -> None:
+        """Zero the degenerate-reply tally (call before each input document)."""
+        self._degenerate_replies = 0
+
+    @property
+    def degenerate_replies(self) -> int:
+        """Replies rejected as degenerate (and re-requested) since the last reset."""
+        return self._degenerate_replies
+
     @classmethod
     def _restore_tags(cls, translated: str, protected_map: dict) -> str:
         """
@@ -565,23 +585,35 @@ class LindatTranslator:
     def _translate_chunk_guarded(self, url: str, chunk: str) -> str:
         """POST one chunk and re-request it while the reply is degenerate.
 
-        The failure this exists for is nondeterministic — the same request that
-        came back as ``"pravidla pravidla …"`` succeeds when repeated — so a short
-        back-off and a re-request recover most of it at the cheapest possible
-        level. After ``LINDAT_GUARD_RETRIES`` re-requests the chunk is given up on
-        with :class:`DegenerateTranslationError`, and the caller decides what the
-        segment becomes (``utils.py`` re-runs it later and otherwise keeps the
-        source).
+        What this runs into (2026-09-26 runs against the public endpoint): the
+        garbage is DETERMINISTIC for a given input and the byte-identical
+        re-request succeeds — every batch's first attempt failed and its retry
+        succeeded, two runs agreeing reply for reply. That is the signature of
+        one broken replica behind a round-robin balancer (``eval/lindat_probe.py``
+        confirms it), so the cure is reaching another replica, not waiting: the
+        FIRST re-request goes out immediately, and back-off
+        (``LINDAT_BACKOFF_BASE_S``) applies only from the second one on.
+
+        A degenerate reply that the next attempt recovers is logged at INFO — it
+        is expected while the endpoint misbehaves, and the per-document total
+        (:attr:`degenerate_replies`, reported by ``main.py``) is what an operator
+        reads. A second failure on the same chunk is a WARNING. After
+        ``LINDAT_GUARD_RETRIES`` re-requests the chunk is given up on with
+        :class:`DegenerateTranslationError`, and the caller decides what the
+        segment becomes (``utils.py`` re-runs it at the end of the document and
+        otherwise keeps the source).
         """
         reason = None
         for attempt in range(_GUARD_RETRIES + 1):
-            if attempt:
-                time.sleep(_BACKOFF_BASE_S * (2 ** (attempt - 1)))
+            if attempt >= 2:
+                time.sleep(_BACKOFF_BASE_S * (2 ** (attempt - 2)))
             translated = self._post_with_retry(url, {"input_text": chunk})
             reason = self._reply_degeneration(chunk, translated)
             if reason is None:
                 return translated
-            logger.warning(
+            self._degenerate_replies += 1
+            logger.log(
+                logging.INFO if attempt == 0 else logging.WARNING,
                 "LINDAT reply looks degenerate (%s); attempt %d/%d for a %d-character chunk.",
                 reason,
                 attempt + 1,

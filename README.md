@@ -138,7 +138,8 @@ number tables and names kept verbatim pass; calibrated at 0 false flags on all 1
 fields, 100 % of the looping ones caught):
 
 1. **Backend re-request.** `LindatTranslator` re-requests a degenerate reply up to `LINDAT_GUARD_RETRIES` times
-   (default 2); the LLM and CT2 backends reject it in their output guards.
+   (default 2) — the first time **immediately**, then with back-off; the LLM and CT2 backends reject it in their
+   output guards.
 2. **Flag.** A block, line anchor or metadata field that is still unusable is **flagged** and left untouched for now.
 3. **Re-run during the same document.** After the whole document has been processed, the flagged segments are
    re-requested one by one after a cool-down (`TRANSLATION_RERUN_ROUNDS`, default 1; `TRANSLATION_RERUN_DELAY_S`,
@@ -148,7 +149,22 @@ fields, 100 % of the looping ones caught):
    `status` column of the `_log.csv`. The file is still written; one bad reply costs one segment, never the document.
 
 A per-document summary line (WARNING when anything was flagged or fell back) reports batches accepted, fallbacks by
-cause, segments flagged / recovered / left untranslated, and lines placed by word count.
+cause, segments flagged / recovered / left untranslated, and lines placed by word count. `main.py` adds one line per
+document with the number of LINDAT replies that were rejected and re-requested (`[WARN] LINDAT: N degenerate
+reply(ies) re-requested …`, also recorded in paradata as `lindat_degenerate_replies`); the individual rejections are
+logged at INFO unless the retry fails too.
+
+**What was found behind the failures.** Sequential runs made the pattern visible: the first request of every batch came
+back degenerate, its byte-identical re-request succeeded, and two runs agreed reply for reply (the same inputs failed
+with the same token counts). Garbage that is deterministic for a given input, yet cured by repeating the identical
+request, is the signature of **one broken replica behind a round-robin load balancer** — every other request lands on
+it. That is also why the concurrent sample runs of 2026-09-26 looked randomly ~30 % broken. The output is correct
+either way (the guard recovers each reply, at the cost of a second request), but the fix belongs to the service. To
+check the live endpoint and get a report you can hand to its operators:
+
+```bash
+python -m eval.lindat_probe            # e.g. "fresh: ✗✓✗✓✗✓… → alternating — one of two replicas broken"
+```
 
 
 ---
@@ -268,6 +284,7 @@ atrium-translator/
 │   └── requirements.txt       # Service-only dependencies (fastapi, uvicorn)
 ├── tests/                     # 🧪 pytest suite; tests/integration/ is the live-backend lane
 ├── eval/                      # 📊 bakeoff.py (backend comparison, #4) · langid_report.py (language-ID tuning)
+│                              #    · lindat_probe.py (is one LINDAT replica broken?)
 ├── docs/                      # 📚 translation-backends.md — backend evaluation & design
 ├── agent_dev_logs/            # 📓 Derived timeline, per-issue digests and plans
 └── data_samples/
