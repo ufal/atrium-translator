@@ -173,7 +173,7 @@
           <amcr:druh xml:lang="cs" id="HES-000736">kachel</amcr:druh>
           <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
           <amcr:pocet>xx</amcr:pocet>
-          <amcr:poznamka xml:lang="sk">zlomky</amcr:poznamka>
+          <amcr:poznamka xml:lang="cs">zlomky</amcr:poznamka>
         <amcr:poznamka xml:lang="en">fractions</amcr:poznamka>
         </amcr:nalez_predmet>
         <amcr:nalez_predmet>

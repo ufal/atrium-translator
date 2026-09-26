@@ -1,12 +1,12 @@
 {
   "schema_version": "2.0",
   "program": "translator",
-  "tool_version": "v1.1.0-beta",
+  "tool_version": "v1.2.0-beta",
   "repository": "https://github.com/ufal/atrium-translator",
   "runner_ref": "",
   "docker_image": "",
   "python_version": "3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 11.4.0]",
-  "run_id": "260926-082147",
+  "run_id": "260926-140310",
   "license": "CC BY-NC-SA 4.0",
   "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
   "license_detail": {
@@ -59,17 +59,17 @@
     "unknown_licenses": [],
     "notes": "Effective output license is CC BY-NC-SA 4.0, the most restrictive among 6 component(s) used. Outputs are NON-COMMERCIAL: downstream commercial use is not permitted while this component is in the pipeline. SHARE-ALIKE applies: derivatives must be licensed under the same terms."
   },
-  "start_time": "2026-09-26T08:21:47.040442+00:00",
-  "end_time": "2026-09-26T08:22:48.670041+00:00",
-  "duration_seconds": 61.63,
+  "start_time": "2026-09-26T14:03:10.756633+00:00",
+  "end_time": "2026-09-26T14:05:11.763412+00:00",
+  "duration_seconds": 121.007,
   "config": {
     "input_path": "data_samples/my_documents",
-    "output_dir": "data_samples/_refresh_replace/xml",
+    "output_dir": "data_samples/appended_translated_files/xml",
     "source_lang": "auto",
     "target_lang": "en",
     "formats": "xml",
     "mode": "metadata",
-    "output_mode": "replace",
+    "output_mode": "append",
     "translation_backend": "lindat",
     "xpaths_file": "amcr-fields.txt",
     "xsd_url": "",
@@ -77,7 +77,10 @@
     "chunk_limit": 4000,
     "lang_id_model": "facebook/fasttext-language-identification",
     "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
-    "fasttext_confidence_threshold": 0.2,
+    "default_source_lang": "cs",
+    "fasttext_confidence_threshold": 0.5,
+    "lang_id_min_letters": 20,
+    "lang_id_languages": "backend-supported",
     "vocabulary_protected_terms": {
       "C-202000543A-DT-27": 2,
       "C-DT-100003326": 4,
@@ -93,23 +96,40 @@
       "C-9100725A": 15,
       "C-TX-202500252": 3,
       "C-N9007794": 3,
-      "MTX201501307_anon": 0,
       "C-TX-202400594": 4
     },
-    "vocabulary_protected_terms_total": 113
+    "vocabulary_protected_terms_total": 113,
+    "lindat_degenerate_replies": {
+      "C-202000543A-DT-27": 2,
+      "C-DT-100003326": 1,
+      "C-9141192A": 2,
+      "C-N1000019": 3,
+      "C-N9000112": 2,
+      "C-TX-195304352": 2,
+      "C-9107617A": 5,
+      "C-N1000137": 2,
+      "C-9115020A": 4,
+      "C-9124095A": 5,
+      "C-N9000080": 2,
+      "C-9100725A": 2,
+      "C-TX-202500252": 1,
+      "C-N9007794": 3,
+      "C-TX-202400594": 1
+    },
+    "lindat_degenerate_replies_total": 37
   },
   "statistics": {
-    "input_files_total": 16,
-    "successfully_processed": 16,
+    "input_files_total": 15,
+    "successfully_processed": 15,
     "skipped_files": 0,
     "output_counts_by_type": {
-      "xml": 16,
-      "csv": 16,
+      "xml": 15,
+      "csv": 15,
       "json": 0
     },
     "performance_per_minute": {
-      "xml": 15.5769,
-      "csv": 15.5769,
+      "xml": 7.4376,
+      "csv": 7.4376,
       "json": 0.0
     }
   },
