@@ -903,7 +903,9 @@ as the translated XML files and are intended for **line-by-line manual QA review
 > **Note (ALTO):** Because the target column reflects the tokens *aligned and redistributed*
 > to each physical line (not a standalone re-translation), it shows exactly what was written
 > into that line's `String` elements (or their `ALTERNATIVE`s in append mode) — making the CSV a
-> faithful audit of the reconstruction. Rows are written once per document, in document order.
+> faithful audit of the reconstruction. Rows are written once per document, in document order: the log is written to
+> `<doc>_log.csv.partial` and swapped into place when the document is done, so the previous log stays readable (and
+> consistent with the previous XML) for the whole run, and a failed or interrupted run never leaves an empty log.
 
 The column names for the source and target text are dynamic: they reflect the actual
 language codes in use (e.g., `text_auto` / `text_en` when running with

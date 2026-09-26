@@ -130,3 +130,67 @@ def test_degenerate_replies_are_reported_once_per_document(workdir, monkeypatch,
     record = json.loads(next((workdir / "out" / "paradata").glob("*_translator.json")).read_text(encoding="utf-8"))
     assert record["config"]["lindat_degenerate_replies"] == {"scan": 7}
     assert record["config"]["lindat_degenerate_replies_total"] == 7
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# The CSV log is swapped in when the document is done, never truncated up front
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# The log used to be opened with "w" when a document STARTED, so for the whole run
+# (10-20 minutes on the ALTO sample — the rows are written only when the document is
+# finished) it was an empty file next to the previous run's XML. Two such 0-byte logs
+# were committed as samples before anyone noticed.
+
+
+class _QuietBackend:
+    name = "lindat"
+    vocabulary: dict = {}
+    protected_count = 0
+
+    def reset_protected_count(self):
+        pass
+
+
+def _run_alto_with(monkeypatch, fake_process_alto_xml):
+    monkeypatch.setattr(main_module, "get_backend", lambda *a, **k: _QuietBackend())
+    monkeypatch.setattr(main_module, "process_alto_xml", fake_process_alto_xml)
+    monkeypatch.setattr("sys.argv", ["main.py", "docs/scan.alto.xml", "--alto", "--source_lang", "cs", "-o", "out"])
+    return main_module.main()
+
+
+def _previous_log(workdir):
+    log = workdir / "out" / "scan_log.csv"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text("file,page_num,line_num,text_cs,text_en,status\nscan,1,L1,old,old,ok\n", encoding="utf-8")
+    return log
+
+
+def test_previous_log_stays_readable_until_the_new_one_is_complete(workdir, monkeypatch):
+    log = _previous_log(workdir)
+    seen_during_run = {}
+
+    def _translate(input_path, output_path, translator, src, tgt, csv_writer, *args, **kwargs):
+        seen_during_run["log"] = log.read_text(encoding="utf-8")
+        seen_during_run["partial"] = (workdir / "out" / "scan_log.csv.partial").exists()
+        csv_writer.writerow(["scan", 1, "L1", "Ahoj", "Hello", "ok"])
+
+    assert _run_alto_with(monkeypatch, _translate) == EXIT_OK
+
+    assert "old,old" in seen_during_run["log"], "the previous log must not be truncated while the run works"
+    assert seen_during_run["partial"], "the new log is written beside it"
+    rows = log.read_text(encoding="utf-8").splitlines()
+    assert rows == ["file,page_num,line_num,text_cs,text_en,status", "scan,1,L1,Ahoj,Hello,ok"]
+    assert not (workdir / "out" / "scan_log.csv.partial").exists()
+
+
+def test_a_failed_translation_keeps_the_previous_log(workdir, monkeypatch):
+    log = _previous_log(workdir)
+    before = log.read_text(encoding="utf-8")
+
+    def _fails(*args, **kwargs):
+        raise RuntimeError("backend down")
+
+    _run_alto_with(monkeypatch, _fails)
+
+    assert log.read_text(encoding="utf-8") == before, "the log still describes the XML that is still there"
+    assert not (workdir / "out" / "scan_log.csv.partial").exists()

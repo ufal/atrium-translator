@@ -40,8 +40,9 @@ or `untranslated` (still degenerate after the re-run — the source text was kep
 ### Regenerating them
 
 Run from the repository root, **one command at a time** — concurrent runs against the public LINDAT endpoint
-coincided with the degenerate replies that motivated the guard. Remove the old run records first so each
-`paradata/` folder holds the record of the run that produced its files:
+coincided with the degenerate replies that motivated the guard — and commit a folder only after its run has printed
+`PROCESSING COMPLETE`: each document's log, XML and record are replaced only when that document is finished. Remove
+the old run records first so each `paradata/` folder holds the record of the run that produced its files:
 
 ```bash
 rm -f data_samples/*/*/paradata/*.json

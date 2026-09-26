@@ -486,7 +486,18 @@ def process_single_file(
     doc_json_out = args.document_json_out or output_file.with_name(f"{doc_id}.document.json")
     success = False
 
-    with open(csv_log_path, "w", encoding="utf-8", newline="") as csv_file:
+    # The log is written to a sibling `.partial` file and swapped in only once the
+    # translated XML has been written. Opening the real `_log.csv` with "w" at the
+    # START (as this used to) truncated the previous log for the whole run — 10-20
+    # minutes on the ALTO sample, since utils.py emits the rows only when the
+    # document is finished (they come out in document order after the end-of-
+    # document re-run) — so a snapshot taken mid-run, or a run that was killed, left
+    # an EMPTY log next to the previous run's XML. os.replace() is atomic on the same
+    # filesystem: a reader sees the old complete log or the new one, never neither.
+    partial_log_path = csv_log_path.with_name(csv_log_path.name + ".partial")
+    xml_written = False
+
+    with open(partial_log_path, "w", encoding="utf-8", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
         # `status` (last column): ok | rerun | approx_alignment | untranslated — how the
         # line's translation was obtained, so a reviewer can go straight to the lines
@@ -530,6 +541,7 @@ def process_single_file(
                         output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
                         lang_policy=lang_policy,
                     )
+                    xml_written = True
                 else:
                     process_metadata_xml(
                         file_path,
@@ -547,6 +559,7 @@ def process_single_file(
                         output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
                         lang_policy=lang_policy,
                     )
+                    xml_written = True
 
                 # Append derived step outputs and licenses to the accretion model
                 doc.add_derived_from("translated_xml", output_file.name)
@@ -569,6 +582,16 @@ def process_single_file(
         except Exception as e:
             print(f"[ERROR] Failed processing '{file_path.name}': {e}")
             _logger.log_skip(str(file_path), str(e))
+
+    # The log describes the translated XML, so it is published whenever that XML was
+    # (re)written — even if a later step such as the document-record gate failed. If
+    # translation itself failed, an existing log stays beside the previous XML it
+    # describes; with no previous log, the (header-only) log is still published, so a
+    # failed document is visible in the output folder as before.
+    if xml_written or not csv_log_path.exists():
+        os.replace(partial_log_path, csv_log_path)
+    else:
+        partial_log_path.unlink(missing_ok=True)
 
     protected = translator.protected_count if translator.vocabulary else 0
     return success, protected

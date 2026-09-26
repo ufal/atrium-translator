@@ -6,7 +6,7 @@
   "runner_ref": "",
   "docker_image": "",
   "python_version": "3.11.15 (main, Mar  3 2026, 09:26:23) [GCC 11.4.0]",
-  "run_id": "260926-081927",
+  "run_id": "260926-113558",
   "license": "CC BY-NC-SA 4.0",
   "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
   "license_detail": {
@@ -59,17 +59,17 @@
     "unknown_licenses": [],
     "notes": "Effective output license is CC BY-NC-SA 4.0, the most restrictive among 6 component(s) used. Outputs are NON-COMMERCIAL: downstream commercial use is not permitted while this component is in the pipeline. SHARE-ALIKE applies: derivatives must be licensed under the same terms."
   },
-  "start_time": "2026-09-26T08:19:27.503195+00:00",
-  "end_time": "2026-09-26T08:29:41.130409+00:00",
-  "duration_seconds": 613.627,
+  "start_time": "2026-09-26T11:35:58.426891+00:00",
+  "end_time": "2026-09-26T11:50:26.331005+00:00",
+  "duration_seconds": 867.904,
   "config": {
-    "input_path": "data_samples/my_documents",
-    "output_dir": "data_samples/_refresh_replace/alto",
+    "input_path": "data_samples/my_documents/MTX201501307_anon.alto.xml",
+    "output_dir": "data_samples/appended_translated_files/alto",
     "source_lang": "auto",
     "target_lang": "en",
     "formats": "alto.xml",
     "mode": "alto",
-    "output_mode": "replace",
+    "output_mode": "append",
     "translation_backend": "lindat",
     "xpaths_file": "amcr-fields.txt",
     "xsd_url": "",
@@ -77,11 +77,18 @@
     "chunk_limit": 4000,
     "lang_id_model": "facebook/fasttext-language-identification",
     "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
-    "fasttext_confidence_threshold": 0.2,
+    "default_source_lang": "cs",
+    "fasttext_confidence_threshold": 0.5,
+    "lang_id_min_letters": 20,
+    "lang_id_languages": "backend-supported",
     "vocabulary_protected_terms": {
-      "MTX201501307_anon": 788
+      "MTX201501307_anon": 824
     },
-    "vocabulary_protected_terms_total": 788
+    "vocabulary_protected_terms_total": 824,
+    "lindat_degenerate_replies": {
+      "MTX201501307_anon": 101
+    },
+    "lindat_degenerate_replies_total": 101
   },
   "statistics": {
     "input_files_total": 1,
@@ -93,8 +100,8 @@
       "json": 0
     },
     "performance_per_minute": {
-      "xml": 0.0978,
-      "csv": 0.0978,
+      "xml": 0.0691,
+      "csv": 0.0691,
       "json": 0.0
     }
   },
