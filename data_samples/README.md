@@ -35,7 +35,12 @@ What the two modes look like:
 
 `status` in the log is `ok`, `rerun` (the backend's reply was degenerate and the end-of-document re-run
 recovered it), `approx_alignment` (ALTO: the line's anchor was unusable, so its words were placed by word count)
-or `untranslated` (still degenerate after the re-run — the source text was kept, the target cell is empty).
+or `untranslated` (still degenerate after the re-run — the source text was kept, the target cell is empty). A table
+column whose block translation merged repeated cells (page 76 of the ALTO sample) is placed line by line, each cell
+from its own translation, so no number moves to its neighbour's row.
+
+> The in-place ALTO log committed in `4a44fb6` is empty (it was committed while its run was still going); it is
+> complete once the replace pass below is re-run.
 
 ### Regenerating them
 

@@ -245,6 +245,23 @@ the "random ~30 %" of the concurrent 2026-09-26 sample runs was the same thing w
 pattern and a verdict to hand to the LINDAT operators. Client side: the first re-request is now immediate (back-off
 only from the second — sleeping cannot reach another replica), recovered rejections log at INFO, and `main.py` reports
 one `LINDAT: N degenerate reply(ies) re-requested` line per document (+ `lindat_degenerate_replies` in paradata).
+- **#46 — the broken replica, confirmed.** `eval.lindat_probe` against the live `cs-en` model (11:51 UTC): fresh
+connections and one keep-alive session both `✗✓✗✓✗✓✗✓✗✓✗✓`; bad replies 109 tokens of `pravidla` in ~1.6 s, good
+ones ~0.3 s, `Server: nginx/1.30.1`. The balancer rotates per request even inside a connection, so the client cannot
+avoid the replica; the immediate first re-request always reaches the healthy one (append run: 101 re-requested, all
+recovered). Left for the LINDAT operators.
+- **#46 — the `_log.csv` was empty for the whole run.** It was opened with `"w"` when a document started and filled
+when it finished (rows are buffered for document order), so `4a44fb6` committed both ALTO logs as 0-byte files
+mid-run. `main.py` now writes `<doc>_log.csv.partial` and `os.replace`s it once the XML is written; a failed
+document keeps its previous log. `*.partial` is git-ignored.
+- **#46 — merged table cells shifted a column.** The first complete ALTO log (`b334b65`, append) had 2095 rows all
+`ok`, 7 with no translation — all on page 76, in two 42-line table columns whose block translation merged repeated
+cells (39 and 38 words). A split only cuts the block translation, so from the first merged cell every line showed its
+neighbour's number, and the last lines none. `utils.py::_block_is_starved` (fewer words than lines of text — prose
+never gets there) now sends such a block line by line, each cell from its own Pass-2 translation
+(`_line_by_line_buckets`); a cell without a usable one keeps its source (`untranslated`); `--fast-align` flags the
+block `approx_alignment`, and no line with text is ever empty *and* `ok`. Offline replay of the sample with a
+cell-merging stub: only page 76 changes, every number on its own row.
 
 ---
 

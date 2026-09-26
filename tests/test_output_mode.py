@@ -418,6 +418,19 @@ def test_counter_reports_flagged_recovered_and_untranslated_segments():
     assert counter.as_dict()["segments_untranslated"] == 1
 
 
+def test_counter_reports_blocks_placed_line_by_line():
+    counter = BatchFallbackCounter()
+    counter.batched = 2
+    counter.blocks_short = 2
+    counter.lines_by_own_translation = 82
+    counter.lines_untranslated = 2
+    assert counter.needs_attention, "a block short of words is worth a WARNING"
+    summary = counter.summary()
+    assert "2 block(s) came back with fewer words than lines of text" in summary
+    assert "82 line(s) took their own line translation, 2 kept their source text" in summary
+    assert counter.as_dict()["blocks_short"] == 2
+
+
 def test_alto_run_counts_a_line_count_mismatch(tmp_path, caplog):
     """A backend that collapses newlines forces per-item retries — and now says so."""
 

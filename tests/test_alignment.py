@@ -272,3 +272,39 @@ class TestSourceAwareAlignment:
 
         _, approximated = _align_block(self.BLOCK, ["one two", "pravidla " * 40, "six seven"], self.SOURCES)
         assert approximated == {1}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# A block with fewer translated words than lines of text (a merged table column)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestStarvedBlock:
+    def test_fewer_words_than_text_lines_is_starved(self):
+        from utils import _block_is_starved
+
+        assert _block_is_starved("12 76 56", ["12", "76", "76", "56"])
+        assert _block_is_starved("", ["12", "76"])
+
+    def test_enough_words_is_not_starved(self):
+        from utils import _block_is_starved
+
+        assert not _block_is_starved("12 76 76 56", ["12", "76", "76", "56"])
+        assert not _block_is_starved("12 76", ["12", "", "76"]), "lines without text do not count"
+        assert not _block_is_starved("", ["jedna dva"]), "a single line takes the whole block anyway"
+
+    def test_each_line_takes_its_own_usable_translation(self):
+        from utils import _line_by_line_buckets
+
+        buckets, unusable = _line_by_line_buckets(
+            ["one", "", "pravidla " * 40, "four five"], ["jedna", "", "tri", "ctyri pet"]
+        )
+        assert buckets == [["one"], [], [], ["four", "five"]]
+        assert unusable == {2}, "a looping translation is not used; the empty line is not flagged"
+
+    def test_missing_translations_are_unusable(self):
+        from utils import _line_by_line_buckets
+
+        buckets, unusable = _line_by_line_buckets(["one"], ["jedna", "dva"])
+        assert buckets == [["one"], []]
+        assert unusable == {1}

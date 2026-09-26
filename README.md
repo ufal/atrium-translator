@@ -166,6 +166,13 @@ check the live endpoint and get a report you can hand to its operators:
 python -m eval.lindat_probe            # e.g. "fresh: ✗✓✗✓✗✓… → alternating — one of two replicas broken"
 ```
 
+**Confirmed on 2026-09-26 (11:51 UTC)** against `…/api/v2/models/cs-en`: 12 requests with a fresh connection each
+and 12 over one keep-alive session both came back `✗✓✗✓✗✓✗✓✗✓✗✓`. The bad replies are 109 tokens of `pravidla` for a
+3-word input in ~1.6 s (the decoder runs to its length cap); the good ones take ~0.3 s; the only server header is
+`nginx/1.30.1`. The balancer rotates **per request, even inside one connection**, so nothing on the client side can
+avoid the broken replica — and the next request always lands on the healthy one, which is why the guard's first
+re-request is immediate and, in every run so far, sufficient.
+
 
 ---
 
@@ -785,12 +792,12 @@ would have written it into the output as `LANG`). Whenever detection could not r
 
 `processors/language.py::resolve_source_language` decides instead, in this order:
 
-| # | Basis      | Used when                                                                                                                                                                                    |
-|---|------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| # | Basis      | Used when                                                                                                                                                                                       |
+|---|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1 | `detected` | the text has at least `LANG_ID_MIN_LETTERS` (20) letters, and one of FastText's top-5 candidates scores at least `LANG_ID_MIN_CONFIDENCE` (0.5) **and** is a language the backend can translate |
-| 2 | `hint`     | the element's own label — ALTO `LANG`/`language` (ABBYY writes one per block), metadata `xml:lang` — names a language the backend can translate                                            |
-| 3 | `context`  | the language of the whole document, resolved once, up front, by rule 1 over its first ~20 000 characters                                                                                      |
-| 4 | `default`  | the default source language: `--default-source-lang` → `default_source_lang` (config) → `DEFAULT_SOURCE_LANG` → `cs`                                                                         |
+| 2 | `hint`     | the element's own label — ALTO `LANG`/`language` (ABBYY writes one per block), metadata `xml:lang` — names a language the backend can translate                                                 |
+| 3 | `context`  | the language of the whole document, resolved once, up front, by rule 1 over its first ~20 000 characters                                                                                        |
+| 4 | `default`  | the default source language: `--default-source-lang` → `default_source_lang` (config) → `DEFAULT_SOURCE_LANG` → `cs`                                                                            |
 
 "Can translate" is derived from the backend: for LINDAT, the source side of every model pair that ends in the target
 language (`cs, de, fr, pl, ru, uk` for English), plus the target itself (a block already in English is left as it is).
@@ -848,6 +855,12 @@ The wrapper resolves this tension per `TextBlock` in six stages (implemented in
      tokens by the remaining source word counts** (logged `approx_alignment`), so one bad anchor can
      neither starve nor flood its neighbours. No line with source text is left empty while tokens
      remain, and the **last line with source text** receives the remainder.
+   * A block whose translation has **fewer words than it has lines of text** cannot be split at all:
+     a split only cuts the translation, never inserts into it, so every line after a missing word
+     would show its neighbour's text and the last lines none. That is a table column whose repeated
+     cells the model merged (page 76 of the sample: 42 numbers came back as 39). Each line then takes
+     **its own line translation** — the anchor, `76` → `76`; a line without a usable one keeps its
+     source text and is logged `untranslated`. The per-document summary names such blocks.
    * Within each line, the bucket's tokens are distributed across that line's `String`
      elements with a **greedy 1-to-1 mapping**: each `String` except the last gets one token
      (empty string if the bucket is exhausted), and the **last `String` of the line absorbs
@@ -874,7 +887,9 @@ element retains its original position, and that no token from the block translat
 > * If Pass 1 yields **fewer** tokens than there are `String` elements in a line, the trailing
 >   `String` elements are set to empty `CONTENT` (append: no `ALTERNATIVE`); if it yields **more**,
 >   the surplus is crammed into the line's last `String`.
-> * `--fast-align` skips Pass 2 and places every line by source word count.
+> * `--fast-align` skips Pass 2 and places every line by source word count. It has no line translations to
+>   fall back on, so every line of a block with fewer words than lines is logged `approx_alignment`, and so is
+>   any line with source text that the word-count split leaves empty.
 
 ---
 
@@ -893,12 +908,12 @@ as the translated XML files and are intended for **line-by-line manual QA review
 | `text_<target_lang>` | translated text **as redistributed to that line** | translated text        |
 | `status`             | how the line's translation was obtained (below)   | same                   |
 
-| `status`           | Meaning                                                                                                     |
-|--------------------|-------------------------------------------------------------------------------------------------------------|
-| `ok`               | Translated and aligned normally.                                                                            |
-| `rerun`            | Flagged during processing (degenerate reply) and recovered by the end-of-document re-run.                   |
-| `approx_alignment` | ALTO only: the line's anchor was unusable, so its words were placed by source word count.                   |
-| `untranslated`     | Still degenerate after the re-run: the **source text was kept** in the output and the target cell is empty. |
+| `status`           | Meaning                                                                                                                                                                                    |
+|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ok`               | Translated and aligned normally.                                                                                                                                                           |
+| `rerun`            | Flagged during processing (degenerate reply) and recovered by the end-of-document re-run.                                                                                                  |
+| `approx_alignment` | ALTO only: the line's anchor was unusable, so its words were placed by source word count (`--fast-align`: its block came back with fewer words than lines).                                |
+| `untranslated`     | Still degenerate after the re-run: the **source text was kept** in the output and the target cell is empty (ALTO: also a line that needed its own line translation and had no usable one). |
 
 > **Note (ALTO):** Because the target column reflects the tokens *aligned and redistributed*
 > to each physical line (not a standalone re-translation), it shows exactly what was written

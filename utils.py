@@ -120,6 +120,9 @@ class BatchFallbackCounter:
         "anchors_flagged",
         "anchors_recovered",
         "anchors_approximated",
+        "blocks_short",
+        "lines_by_own_translation",
+        "lines_untranslated",
     )
 
     def __init__(self):
@@ -133,7 +136,13 @@ class BatchFallbackCounter:
     @property
     def needs_attention(self) -> bool:
         """True when anything other than clean batching happened (→ WARNING summary)."""
-        return bool(self.fallbacks or self.segments_flagged or self.anchors_flagged or self.anchors_approximated)
+        return bool(
+            self.fallbacks
+            or self.segments_flagged
+            or self.anchors_flagged
+            or self.anchors_approximated
+            or self.blocks_short
+        )
 
     def as_dict(self) -> dict:
         data = {name: getattr(self, name) for name in self.__slots__}
@@ -158,7 +167,13 @@ class BatchFallbackCounter:
         if self.segments_untranslated:
             parts.append(f"{self.segments_untranslated} segment(s) left untranslated (source text kept)")
         if self.anchors_approximated:
-            parts.append(f"{self.anchors_approximated} line(s) placed by source word count (anchor unusable)")
+            parts.append(f"{self.anchors_approximated} line(s) placed by source word count (no usable anchor)")
+        if self.blocks_short:
+            parts.append(
+                f"{self.blocks_short} block(s) came back with fewer words than lines of text (a column or list "
+                f"whose repeated cells were merged): {self.lines_by_own_translation} line(s) took their own line "
+                f"translation, {self.lines_untranslated} kept their source text"
+            )
         return "; ".join(parts)
 
 
@@ -180,9 +195,11 @@ STATUS_OK = "ok"
 #: Flagged during processing and recovered by the end-of-document re-run.
 STATUS_RERUN = "rerun"
 #: ALTO only: the line's anchor was unusable, so its words were placed by source
-#: word count instead of by similarity to its own translation.
+#: word count instead of by similarity to its own translation — or, with
+#: ``--fast-align``, its block came back with fewer words than lines.
 STATUS_APPROX = "approx_alignment"
 #: Still degenerate after the re-run: the source text was kept, target left empty.
+#: (ALTO: also a line that needed its own line translation and had no usable one.)
 STATUS_UNTRANSLATED = "untranslated"
 
 
@@ -843,6 +860,11 @@ def _align_tokens_to_lines(block_text, line_translations, source_line_texts=None
     return assigned_buckets
 
 
+def _usable_anchor(source_line, anchor) -> bool:
+    """A line anchor may be used only if it is a plausible translation of its OWN source line."""
+    return bool(anchor and anchor.strip()) and degeneration_reason(source_line, anchor) is None
+
+
 def _best_anchor_split(remaining, anchor, lo, hi):
     """Split index in ``[lo, hi]`` whose prefix of *remaining* best matches *anchor*.
 
@@ -900,11 +922,11 @@ def _align_block(block_text, line_translations, source_line_texts):
         return [[] for _ in range(n - 1)] + [block_tokens], set()
     last_text_line = text_lines[-1]
 
-    def _usable(i):
-        anchor = anchors[i] or ""
-        return bool(anchor.strip()) and degeneration_reason(source_line_texts[i], anchor) is None
-
-    approximated = {i for i in text_lines if not _usable(i)} if len(text_lines) > 1 else set()
+    approximated = (
+        {i for i in text_lines if not _usable_anchor(source_line_texts[i], anchors[i])}
+        if len(text_lines) > 1
+        else set()
+    )
 
     buckets = [[] for _ in range(n)]
     remaining = block_tokens
@@ -922,6 +944,46 @@ def _align_block(block_text, line_translations, source_line_texts):
         remaining = remaining[take:]
     buckets[last_text_line] = remaining
     return buckets, approximated
+
+
+def _block_is_starved(block_text, source_line_texts) -> bool:
+    """True when the block translation has fewer words than the block has lines of text.
+
+    Such a block cannot be split without leaving lines empty — and, since a split
+    can only cut the translation, never insert into it, every line after the first
+    missing word shows its neighbour's text. It is what a table column does: on the
+    2026-09-26 ALTO sample (page 76) a 42-line column of numbers came back as 39
+    numbers (``…76 69 76 56 57 56 56…`` → ``…76 69 56 57 56…``), so 14 lines held the
+    wrong number and the last three none, all logged ``ok``. Prose never gets here:
+    its lines hold many words each. :func:`_align_block` guarantees every line of
+    text at least one word whenever this is False.
+    """
+    text_lines = sum(1 for text in source_line_texts if text and text.split())
+    block_words = len(block_text.split()) if block_text else 0
+    return text_lines > 1 and block_words < text_lines
+
+
+def _line_by_line_buckets(line_translations, source_line_texts):
+    """One bucket per line from the line's OWN translation. Returns ``(buckets, unusable)``.
+
+    Used for a block :func:`_block_is_starved` rejects: each line of a column is one
+    cell, and its own translation (the Pass-2 anchor, ``76`` → ``76``) is exactly
+    what belongs on it. A line with source text whose translation is unusable
+    (empty or degenerate for its source line) gets an empty bucket and its index in
+    *unusable* — the caller keeps its source text. Lines without text stay empty.
+    """
+    sources = list(source_line_texts)
+    anchors = list(line_translations or []) + [""] * len(sources)
+    buckets, unusable = [], set()
+    for i, source in enumerate(sources):
+        if not (source and source.split()):
+            buckets.append([])
+        elif _usable_anchor(source, anchors[i]):
+            buckets.append(anchors[i].split())
+        else:
+            buckets.append([])
+            unusable.add(i)
+    return buckets, unusable
 
 
 def _align_tokens_proportional(block_text, source_line_texts):
@@ -1216,16 +1278,49 @@ def _finalize_alto_block(bdata, output_mode, tgt_lang, line_anchors, counter) ->
         return 0
 
     source_texts = [ld["orig_text"] for ld in lines_data]
-    if line_anchors:
-        buckets, approximated = _align_block(
-            bdata["block_tgt"], [ld.get("line_tgt", "") for ld in lines_data], source_texts
+    line_translations = [ld.get("line_tgt", "") for ld in lines_data]
+    kept_source: set[int] = set()
+    if _block_is_starved(bdata["block_tgt"], source_texts):
+        # Fewer words than lines (a column whose repeated cells were merged): any split
+        # shifts the cells and leaves the last lines empty. Each line takes its own line
+        # translation instead; without one (--fast-align, or unusable) it is flagged.
+        counter.blocks_short += 1
+        if line_anchors:
+            buckets, kept_source = _line_by_line_buckets(line_translations, source_texts)
+            approximated = set()
+            counter.lines_by_own_translation += sum(1 for i, t in enumerate(source_texts) if t and i not in kept_source)
+            counter.lines_untranslated += len(kept_source)
+        else:
+            buckets = _align_tokens_proportional(bdata["block_tgt"], source_texts)
+            approximated = {i for i, text in enumerate(source_texts) if text}
+        logger.info(
+            "page %s block %s: the translation has %d word(s) for %d line(s) of text; %s.",
+            bdata["page_idx"],
+            bdata["block_idx"],
+            len(bdata["block_tgt"].split()),
+            sum(1 for text in source_texts if text),
+            "each line takes its own line translation"
+            if line_anchors
+            else "its lines are flagged approx_alignment (no line translations with --fast-align)",
         )
+    elif line_anchors:
+        buckets, approximated = _align_block(bdata["block_tgt"], line_translations, source_texts)
     else:
         buckets, approximated = _align_tokens_proportional(bdata["block_tgt"], source_texts), set()
+    # Backstop: a line with source text never ends up empty AND "ok".
+    approximated |= {
+        i for i, (text, tokens) in enumerate(zip(source_texts, buckets)) if text and not tokens and i not in kept_source
+    }
     counter.anchors_approximated += len(approximated)
 
     written = 0
     for index, (ld, tokens) in enumerate(zip(lines_data, buckets)):
+        if index in kept_source:
+            # Its Strings are left alone — the source CONTENT stays, append adds no
+            # ALTERNATIVE — and the CSV says so instead of carrying a silent blank.
+            ld["trans_line_text"] = ""
+            ld["status"] = STATUS_UNTRANSLATED
+            continue
         strings = ld["strings"]
         if strings:
             for string_elem, value in zip(strings, _distribute_tokens(len(strings), tokens)):

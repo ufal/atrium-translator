@@ -425,6 +425,108 @@ def test_alto_append_untranslated_block_gets_no_alternative(tmp_path):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# A column whose block translation merged repeated cells (page 76 of the sample)
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# The 2026-09-26 append sample, the first with a complete log, had 2095 rows all `ok`
+# — seven of them with source text and no translation. All seven were on page 76, in
+# two table columns: 42 one-number lines came back as 39 numbers (`…76 69 76 56 57 56
+# 56…` → `…76 69 56 57 56…`). A split can only cut the block translation, never insert
+# into it, so from the first merged cell on every line showed its neighbour's number
+# and the last lines none. Each line's own translation (`76` → `76`) was right.
+
+_CELLS = ["12", "76", "76", "56", "97"]
+_COLUMN = (
+    f"""<?xml version="1.0" encoding="UTF-8"?>
+<alto xmlns="{ALTO_NS}"><Layout><Page ID="P1" WIDTH="1000" HEIGHT="1000"><PrintSpace>
+<TextBlock ID="C1" LANG="cs">"""
+    + "".join(
+        f'<TextLine ID="C1L{i}"><String CONTENT="{cell}" HPOS="1" WIDTH="9"/></TextLine>'
+        for i, cell in enumerate(_CELLS, 1)
+    )
+    + "</TextBlock></PrintSpace></Page></Layout></alto>"
+).encode()
+_COLUMN_BLOCK = " ".join(_CELLS)
+
+
+class _MergingBackend(_Backend):
+    """Translates the column's block text with one repeated cell merged; *loop_cell* loops."""
+
+    def __init__(self, loop_cell=None):
+        super().__init__()
+        self.loop_cell = loop_cell
+
+    def translate(self, text, src_lang, tgt_lang="en"):
+        self.calls.append(text)
+        out = []
+        for line in text.split("\n"):
+            if line == _COLUMN_BLOCK:
+                out.append("EN:12 76 56 97")  # 4 words for 5 lines
+            elif line == self.loop_cell:
+                out.append(LOOP)
+            else:
+                out.append(self.good(line))
+        return "\n".join(out)
+
+
+def _run_column(tmp_path, backend, **kwargs):
+    src = tmp_path / "column.alto.xml"
+    src.write_bytes(_COLUMN)
+    out = tmp_path / "column_en.alto.xml"
+    buffer = io.StringIO()
+    process_alto_xml(src, out, backend, "cs", "en", csv_writer=csv.writer(buffer), **kwargs)
+    strings = etree.parse(str(out)).getroot().findall(f".//{{{ALTO_NS}}}String")
+    return strings, list(csv.reader(io.StringIO(buffer.getvalue())))
+
+
+def test_alto_column_with_merged_cells_keeps_every_cell_on_its_own_line(tmp_path, caplog):
+    with caplog.at_level(logging.WARNING, logger="utils"):
+        strings, rows = _run_column(tmp_path, _MergingBackend())
+
+    assert [s.get("CONTENT") for s in strings] == ["EN:12", "EN:76", "EN:76", "EN:56", "EN:97"]
+    assert [r[4] for r in rows] == ["EN:12", "EN:76", "EN:76", "EN:56", "EN:97"], "no shift, no blank line"
+    assert {r[5] for r in rows} == {STATUS_OK}
+    assert "1 block(s) came back with fewer words than lines of text" in caplog.text
+    assert "5 line(s) took their own line translation, 0 kept their source text" in caplog.text
+
+
+def test_alto_column_cell_without_a_usable_translation_keeps_its_source(tmp_path):
+    strings, rows = _run_column(tmp_path, _MergingBackend(loop_cell="56"))
+
+    assert [s.get("CONTENT") for s in strings] == ["EN:12", "EN:76", "EN:76", "56", "EN:97"]
+    assert [r[5] for r in rows] == [STATUS_OK, STATUS_OK, STATUS_OK, STATUS_UNTRANSLATED, STATUS_OK]
+    assert rows[3][3:5] == ["56", ""], "the log says so instead of carrying a silent blank"
+
+
+def test_alto_append_column_cell_without_a_usable_translation_gets_no_alternative(tmp_path):
+    strings, _ = _run_column(tmp_path, _MergingBackend(loop_cell="56"), output_mode=OUTPUT_MODE_APPEND)
+
+    assert [s.get("CONTENT") for s in strings] == _CELLS, "append never touches CONTENT"
+    alternatives = [s.find(f"{{{ALTO_NS}}}ALTERNATIVE") for s in strings]
+    assert [a.text if a is not None else None for a in alternatives] == ["EN:12", "EN:76", "EN:76", None, "EN:97"]
+
+
+def test_alto_fast_align_flags_a_column_with_merged_cells(tmp_path):
+    """No line translations with --fast-align: the split stays, but no line claims to be `ok`."""
+    backend = _MergingBackend()
+    _, rows = _run_column(tmp_path, backend, line_anchors=False)
+
+    assert {r[5] for r in rows} == {STATUS_APPROX}
+    assert rows[-1][4] == "", "the missing word still leaves a line empty"
+    assert not any(call in _CELLS for call in backend.calls), "no per-line requests are made"
+
+
+def test_alto_column_translated_in_full_is_split_as_before(tmp_path, caplog):
+    """Enough words for every line: the ordinary block split, no line-by-line placement."""
+    with caplog.at_level(logging.WARNING, logger="utils"):
+        strings, rows = _run_column(tmp_path, _Backend())
+
+    assert [s.get("CONTENT") for s in strings] == ["EN:12", "76", "76", "56", "97"], "the block's own words"
+    assert {r[5] for r in rows} == {STATUS_OK}
+    assert "fewer words than lines" not in caplog.text
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Metadata documents
 # ──────────────────────────────────────────────────────────────────────────────
 
