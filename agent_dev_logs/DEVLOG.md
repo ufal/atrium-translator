@@ -262,6 +262,25 @@ never gets there) now sends such a block line by line, each cell from its own Pa
 (`_line_by_line_buckets`); a cell without a usable one keeps its source (`untranslated`); `--fast-align` flags the
 block `approx_alignment`, and no line with text is ever empty *and* `ok`. Offline replay of the sample with a
 cell-merging stub: only page 76 changes, every number on its own row.
+- **`v1.2.0-beta` released** (`3f2f1b6`); both ALTO and both AMCR sample sets refreshed from the live endpoint
+(ALTO 2095 rows each, 0 blank, page-76 cells in place; AMCR 15/15 per mode, 37 degenerate replies recovered per run).
+- **#46 — production-readiness review.** Four things that would have gone wrong in the production run:
+  * **Records understated their licence.** The record took the paradata licence block before the backend's
+    components were logged (after the first file in `main()`, after the call in `/translate`), so the first record of
+    a run — every record of a one-page pipeline stage or a service call — said CC BY-NC 4.0 (FastText only, or "no
+    components recorded") for a CC BY-NC-SA 4.0 run. Visible in the committed ALTO record and the first AMCR record
+    of each run. `main.log_backend_components()` now runs before `doc.add_license_detail()`; both callers share it.
+  * **`--xsd` could not load AMCR 2.2**: its `xs:import` of `http://www.w3.org/2001/03/xml.xsd` needs HTTP, which
+    lxml 6.1.3's libxml2 2.14.6 does not have — every `--xsd` run on AMCR exited "XSD schema load failed".
+    `load_xsd` now resolves imports in Python (`_SchemaImportResolver`; the XML-namespace schema served locally).
+  * **`--xsd` validated the OAI-PMH envelope**, so even an untouched record failed at the root; each `oai:metadata`
+    payload is validated now.
+  * **The API image name in the docs does not exist**: `atrium-translator:<version>-api` → the published
+    `atrium-translator-api:<version>` (README, `service/README.md`, compose; the hub's K8s template too).
+  With `--xsd` working, the `maxOccurs` question is answered: AMCR 2.2 accepts the samples as source (15/15) and as
+  replace output (15/15), and rejects append output (0/15 — `xml:lang` not declared on the free-text fields, the
+  repeated element not allowed). ALTO append validates against ALTO 3.1. Kept both modes and the `replace` default;
+  append on AMCR records warns once per run.
 
 ---
 

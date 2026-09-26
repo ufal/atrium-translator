@@ -60,7 +60,9 @@ services:
     build:
       context: .
       target: api
-    image: ghcr.io/ufal/atrium-translator:${ATRIUM_VERSION:-dev}-api
+    # The published name: `-api` is part of the image NAME (ghcr.io/ufal/atrium-translator-api:1.2.0-beta),
+    # so `ATRIUM_VERSION=1.2.0-beta docker compose --profile api pull` fetches the released image.
+    image: ghcr.io/ufal/atrium-translator-api:${ATRIUM_VERSION:-dev}
     env_file:
       - path: .env
         required: false

@@ -14,6 +14,7 @@ Two defects found while re-running the shipped data samples (issue #46):
 
 import json
 import shutil
+from pathlib import Path
 
 import pytest
 
@@ -194,3 +195,60 @@ def test_a_failed_translation_keeps_the_previous_log(workdir, monkeypatch):
 
     assert log.read_text(encoding="utf-8") == before, "the log still describes the XML that is still there"
     assert not (workdir / "out" / "scan_log.csv.partial").exists()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# A document record states the licence of the run that produced it
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# The backend's licence components used to be logged only after the FIRST file had
+# finished, while the record takes the licence block inside that file's processing.
+# So the first record of every run — and so every record of a one-page pipeline stage —
+# said "CC BY-NC 4.0, no components recorded" (or FastText's CC BY-NC 4.0 with
+# `--source_lang auto`) for a run that resolves to CC BY-NC-SA 4.0: LINDAT's models are
+# share-alike. The committed samples showed it on the ALTO record and on the first
+# AMCR record of each run.
+
+
+_PARA_CONFIG = Path(main_module.__file__).resolve().parent / "para_config.txt"
+
+
+def _with_licence_table(workdir):
+    """The component licences come from para_config.txt, read from the working directory."""
+    shutil.copy(_PARA_CONFIG, workdir / "para_config.txt")
+
+
+def _record_licence(path):
+    provenance = json.loads(path.read_text(encoding="utf-8"))["provenance"]
+    detail = provenance["license_detail"]
+    return provenance["license"], [component["name"] for component in detail["components"]]
+
+
+def _writes_the_output(input_path, output_path, translator, src, tgt, csv_writer, *args, **kwargs):
+    output_path.write_text(_ALTO, encoding="utf-8")
+
+
+def test_a_one_file_run_records_the_backend_licence(workdir, monkeypatch):
+    """The pipeline case: one page per run, the source language given."""
+    _with_licence_table(workdir)
+    assert _run_alto_with(monkeypatch, _writes_the_output) == EXIT_OK
+
+    licence, components = _record_licence(workdir / "out" / "scan.document.json")
+    assert "lindat_cubbitt" in components
+    assert licence == "CC BY-NC-SA 4.0"
+
+
+def test_every_record_of_a_batch_carries_the_same_licence(workdir, monkeypatch):
+    _with_licence_table(workdir)
+    (workdir / "docs" / "second.alto.xml").write_text(_ALTO, encoding="utf-8")
+    monkeypatch.setattr(main_module, "get_backend", lambda *a, **k: _QuietBackend())
+    monkeypatch.setattr(main_module, "process_alto_xml", _writes_the_output)
+    monkeypatch.setattr(
+        "sys.argv", ["main.py", "docs", "--alto", "--formats", "alto.xml", "--source_lang", "cs", "-o", "out"]
+    )
+    assert main_module.main() == EXIT_OK
+
+    first = _record_licence(workdir / "out" / "second.document.json")  # processed first
+    second = _record_licence(workdir / "out" / "scan.document.json")
+    assert first == second
+    assert first[0] == "CC BY-NC-SA 4.0"

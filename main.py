@@ -433,6 +433,36 @@ def generate_output_path(input_file: Path, base_output: Path, args, is_batch: bo
     return input_file.with_name(new_filename)
 
 
+def log_backend_components(translator, paradata_logger, *, detected: bool = False) -> None:
+    """Record the licence components this run's translation uses, on *paradata_logger*.
+
+    FastText when the source language was detected (*detected*), then the selected
+    backend's own set: ``license_components(vocab_loaded)`` where the backend has
+    one (issue #4), else the historical LINDAT set. ``log_component`` is a dict
+    write, so calling this again is a no-op.
+
+    It must run BEFORE a document record takes the licence block
+    (``doc.add_license_detail``). It used to run only after the first file had
+    finished, and the HTTP service called it after ``process_single_file`` had
+    returned, so the first record of every run — and therefore every record of a
+    one-file pipeline stage or ``/translate`` call — was written with no backend
+    component: ``CC BY-NC 4.0`` ("no components recorded") where the run actually
+    resolves to CC BY-NC-SA 4.0 (LINDAT's models), losing the share-alike duty.
+    """
+    if detected:
+        paradata_logger.log_component("fasttext")
+    vocab_loaded = bool(getattr(translator, "vocabulary", None))
+    components_fn = getattr(translator, "license_components", None)
+    if callable(components_fn):
+        for comp in components_fn(vocab_loaded):
+            paradata_logger.log_component(comp)
+        return
+    paradata_logger.log_component("lindat_cubbitt")
+    if vocab_loaded:
+        for comp in ("udpipe2_engine", "udpipe2_models", "amcr_vocab", "teater_data"):
+            paradata_logger.log_component(comp)
+
+
 def process_single_file(
     file_path: Path,
     output_file: Path,
@@ -560,6 +590,11 @@ def process_single_file(
                         lang_policy=lang_policy,
                     )
                     xml_written = True
+
+                # The translation is done, so the components it used are known: record
+                # them BEFORE the record takes the licence block, or the first record
+                # of a run carries no backend component (see log_backend_components).
+                log_backend_components(translator, _logger, detected=identifier is not None)
 
                 # Append derived step outputs and licenses to the accretion model
                 doc.add_derived_from("translated_xml", output_file.name)
@@ -755,25 +790,10 @@ def main() -> int:
 
             if success and not _components_logged:
                 # Record the components the *selected* backend actually exercised
-                # (issue #4). Backends expose license_components(vocab_loaded);
-                # fall back to the historical LINDAT set for any backend that
-                # predates the method, so paradata licensing stays correct after
-                # a backend swap instead of hard-coding lindat_cubbitt.
-                vocab_loaded = bool(getattr(translator, "vocabulary", None))
-                components_fn = getattr(translator, "license_components", None)
-                if callable(components_fn):
-                    for comp in components_fn(vocab_loaded):
-                        _logger.log_component(comp)
-                else:
-                    _logger.log_component("lindat_cubbitt")
-                    if vocab_loaded:
-                        for comp in (
-                            "udpipe2_engine",
-                            "udpipe2_models",
-                            "amcr_vocab",
-                            "teater_data",
-                        ):
-                            _logger.log_component(comp)
+                # (issue #4). process_single_file() has already done so before the
+                # document record took its licence block; this covers a run with no
+                # record path and keeps the run-level paradata independent of it.
+                log_backend_components(translator, _logger, detected=identifier is not None)
                 _components_logged = True
 
             if translator.vocabulary:

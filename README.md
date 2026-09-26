@@ -209,7 +209,11 @@ and run as a non-root user (`atrium`, uid 10001):
 | Image                                          | Stage  | Entry point             | Purpose      |
 |------------------------------------------------|--------|-------------------------|--------------|
 | `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python main.py`        | batch CLI    |
-| `ghcr.io/ufal/atrium-translator:<version>-api` | `api`  | `python -m service.api` | HTTP service |
+| `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api` | HTTP service |
+
+`<version>` is the release without its leading `v` (`1.2.0-beta` for release `v1.2.0-beta`), or `latest`. The `-api`
+suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.2.0-beta`. (A tag such as
+`atrium-translator:1.2.0-beta-api` is never published.)
 
 ### Batch translation
 
@@ -556,7 +560,7 @@ vocabulary = data_samples/vocabulary.csv
 
 * `input_path`: Path to a single source file, a directory containing XML files, or a `.txt` file listing URLs.
 * `--output`, `-o`: Output file path (single-file mode) or output directory (batch mode).
-* `--source_lang`, `-src`: Source language code (e.g., `cs`, `fr`). Use `auto` to auto-detect. Default: `cs`.
+* `--source_lang`, `-src`: Source language code (e.g., `cs`, `fr`). Use `auto` to auto-detect. Default: `source_lang` in `config.txt` (the shipped file sets `auto`), else `cs`.
 * `--default-source-lang`: With `--source_lang auto`, the language used when detection cannot be trusted and neither the
 element's label nor the document's language settles it. Resolution order: this flag → `default_source_lang` in
 `config.txt` → `DEFAULT_SOURCE_LANG` → `cs`.
@@ -565,7 +569,7 @@ element's label nor the document's language settles it. Resolution order: this f
 * `--config`, `-c`: Path to the configuration file (default: `config.txt`).
 * `--alto`: Flag to enable ALTO XML in-place translation mode (auto-enabled when `formats` contains `alto.xml`).
 * `--xpaths`: Path to a `.txt` file containing XPaths for XML metadata translation (works with any XML schema).
-* `--xsd`: Optional URL or local path to an XSD file for output validation.
+* `--xsd`: Optional URL or local path to an XSD file for output validation (metadata mode; warn-only). A record inside an OAI-PMH envelope is validated, not the envelope. AMCR 2.2 accepts `replace` output and rejects `append` output — see [Output mode](#output-mode-replace-vs-append).
 * `--vocabulary`: Path to a CSV vocabulary file (`source_lemma,target_translation`) to activate Tag-and-Protect term overriding.
 * `--backend`: Translation backend — `lindat` (default, LINDAT CUBBITT), `openai_compatible` (any OpenAI-compatible LLM API, configured via the `LLM_*` variables) or `ct2` (a self-hosted CTranslate2 model; install `requirements-ct2.txt` and set the `CT2_*` variables). Resolution order: this flag → `translation_backend` in `config.txt` → `TRANSLATION_BACKEND` → `lindat`. See [docs/translation-backends.md](docs/translation-backends.md) 📎.
 * `--fast-align`: ALTO only. Distribute block tokens by source word count instead of translating each line as an anchor — far fewer API calls, slightly coarser line splits.
@@ -593,9 +597,26 @@ python main.py ./data_samples/my_documents \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd
 ```
 
-**Run append with `--xsd` the first time.** Whether the AMCR schema permits the repeated element
-(its `maxOccurs`) is still an open question, and the validator answers it directly. A validation
-failure there is the answer, not a defect in this feature.
+**AMCR 2.2 does not accept append output.** Validated against the published schema
+(`--xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd`), the 15 shipped records are valid as source
+and as `replace` output, and **none** is valid as `append` output, for both halves of the pair:
+
+| Samples (`data_samples/`)        | Valid against AMCR 2.2 | Why not                                                                                                                       |
+|----------------------------------|------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| `my_documents/` (source)         | 15 / 15                |                                                                                                                               |
+| `in-place_translated_files/xml/` | 15 / 15                |                                                                                                                               |
+| `appended_translated_files/xml/` | **0 / 15**             | `xml:lang` is not declared on `nazev` / `popis` / `poznamka` / `lokalizace_okolnosti`; the repeated element is "not expected" |
+
+Leaving `xml:lang` off the pair would not help — the repeated element alone is invalid. So where the
+output must be a valid AMCR record, use `replace`; `append` stays available for consumers that read
+the pair without validating, and a run that appends to AMCR records logs one WARNING saying so.
+ALTO append (below) **is** schema-valid: the source, replace and append ALTO samples all validate
+against ALTO 3.1, which declares `ALTERNATIVE` with a `PURPOSE`.
+
+`--xsd` validates the record inside an OAI-PMH envelope (each `oai:metadata` payload), not the
+envelope itself, and resolves the schema's own imports — AMCR 2.2 imports W3C's `xml.xsd` for
+`xml:lang`, which is served locally, since lxml's libxml2 fetches nothing over HTTP. Validation is
+warn-only and applies to metadata output only.
 
 **ALTO in append mode keeps the source and adds the translation as an `ALTERNATIVE`.** Every
 `String` keeps its `CONTENT` (the scanned text and its geometry are untouched) and gains ALTO's own
@@ -959,7 +980,7 @@ record re-derives the end-to-end license from the union of all components used.
 |-------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | `schema_version`                    | Paradata schema version (currently `"2.0"`)                                                                 |
 | `program`                           | Always `"translator"`                                                                                       |
-| `tool_version`                      | Tool version tag, from `para_config.txt` (e.g. `v0.5.0`)                                                    |
+| `tool_version`                      | Tool version tag, from `para_config.txt` (e.g. `v1.2.0-beta`)                                               |
 | `repository`                        | Runner repository; resolved dynamically (`ATRIUM_RUNNER_REPO` env if set)                                   |
 | `runner_ref`                        | Git ref/SHA the running container was built from (`ATRIUM_RUNNER_REF`)                                      |
 | `docker_image`                      | Running container image (`ATRIUM_RUNNER_IMAGE`); empty placeholder if unset                                 |
@@ -979,8 +1000,11 @@ record re-derives the end-to-end license from the union of all components used.
 
 > **Note on licensing:** the license is no longer a fixed value. It is the most restrictive license
 > among the components used in the run. A run that exercises the LINDAT translation models and the
-> UDPipe linguistic models resolves to **CC BY-NC 4.0** (non-commercial); the
-> component→license mapping lives in this repository's [para_config.txt](para_config.txt) 📎.
+> UDPipe linguistic models resolves to **CC BY-NC-SA 4.0** (non-commercial, share-alike); the
+> component→license mapping lives in this repository's [para_config.txt](para_config.txt) 📎. The
+> document record of every translated file carries the same resolution — the backend's components
+> are recorded before the record takes its licence block, so a one-file run (one pipeline stage, one
+> `/translate` call) states the same licence as a batch.
 
 ### Example paradata JSON structure
 
@@ -988,37 +1012,48 @@ record re-derives the end-to-end license from the union of all components used.
 {
   "schema_version": "2.0",
   "program": "translator",
-  "tool_version": "v0.5.0",
-  "repository": "[https://github.com/ufal/atrium-translator](https://github.com/ufal/atrium-translator)",
-  "runner_ref": "a1b2c3d",
-  "docker_image": "ghcr.io/ufal/atrium-translator:v0.5.0",
-  "run_id": "260321-102451",
-  "license": "CC BY-NC 4.0",
-  "license_url": "[https://creativecommons.org/licenses/by-nc/4.0/](https://creativecommons.org/licenses/by-nc/4.0/)",
+  "tool_version": "v1.2.0-beta",
+  "repository": "https://github.com/ufal/atrium-translator",
+  "runner_ref": "",
+  "docker_image": "",
+  "run_id": "260926-140045",
+  "license": "CC BY-NC-SA 4.0",
+  "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
   "license_detail": {
-    "effective_license": "CC BY-NC 4.0",
+    "effective_license": "CC BY-NC-SA 4.0",
     "is_non_commercial": true,
-    "is_share_alike": false,
+    "is_share_alike": true,
     "determined_by": ["lindat_cubbitt", "udpipe2_models"],
     "components": [
       { "name": "fasttext",       "license": "CC BY-NC 4.0" },
-      { "name": "lindat_cubbitt", "license": "CC BY-NC 4.0" },
-      { "name": "udpipe2_models", "license": "CC BY-NC 4.0" }
+      { "name": "lindat_cubbitt", "license": "CC BY-NC-SA 4.0" },
+      { "name": "udpipe2_engine", "license": "MPL 2.0" },
+      { "name": "udpipe2_models", "license": "CC BY-NC-SA 4.0" },
+      { "name": "amcr_vocab",     "license": "CC BY-NC 4.0" },
+      { "name": "teater_data",    "license": "CC BY-NC 4.0" }
     ]
   },
-  "duration_seconds": 63.017,
+  "duration_seconds": 138.85,
   "config": {
     "source_lang": "auto",
     "target_lang": "en",
+    "mode": "metadata",
+    "output_mode": "replace",
+    "translation_backend": "lindat",
     "vocabulary": "data_samples/vocabulary.csv",
-    "mode": "alto"
+    "default_source_lang": "cs",
+    "fasttext_confidence_threshold": 0.5,
+    "lang_id_min_letters": 20,
+    "lang_id_languages": "backend-supported",
+    "vocabulary_protected_terms_total": 113,
+    "lindat_degenerate_replies_total": 37
   },
   "statistics": {
-    "input_files_total": 16,
-    "successfully_processed": 16,
+    "input_files_total": 15,
+    "successfully_processed": 15,
     "skipped_files": 0,
-    "output_counts_by_type": { "xml": 16, "csv": 16 },
-    "performance_per_minute": { "xml": 15.23, "csv": 15.23 }
+    "output_counts_by_type": { "xml": 15, "csv": 15, "json": 0 },
+    "performance_per_minute": { "xml": 6.48, "csv": 6.48, "json": 0.0 }
   },
   "skipped_files_detail": []
 }

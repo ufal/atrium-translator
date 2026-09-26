@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Upload
 from fastapi.responses import Response, StreamingResponse
 
 from atrium_paradata import ParadataLogger
-from main import process_single_file, record_doc_id
+from main import log_backend_components, process_single_file, record_doc_id
 from processors.backend import get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
@@ -436,21 +436,11 @@ async def translate_document(
                 _logger=logger,
             )
 
-            # API-path paradata component logging (mirrors main.py logic, M1).
+            # API-path paradata component logging (the same helper as main.py, M1).
+            # process_single_file() already logged them before the returned record
+            # took its licence block; this keeps the run's own paradata complete.
             if success:
-                vocab_loaded = bool(getattr(models["translator"], "vocabulary", None))
-                components_fn = getattr(models["translator"], "license_components", None)
-                if callable(components_fn):
-                    for comp in components_fn(vocab_loaded):
-                        logger.log_component(comp)
-                else:
-                    logger.log_component("lindat_cubbitt")
-                    if vocab_loaded:
-                        for comp in ("udpipe2_engine", "udpipe2_models", "amcr_vocab", "teater_data"):
-                            logger.log_component(comp)
-
-                if source_lang == "auto":
-                    logger.log_component("fasttext")
+                log_backend_components(models["translator"], logger, detected=source_lang == "auto")
 
         if not success:
             raise HTTPException(status_code=500, detail="Translation processing failed.")

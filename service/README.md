@@ -151,7 +151,7 @@ and not the listener, and the container reported unhealthy forever.
 
 ## Shutdown behavior (issue #55)
 
-The published `api` image (`ghcr.io/ufal/atrium-translator:<version>-api`, new in that
+The published `api` image (`ghcr.io/ufal/atrium-translator-api:<version>`, new in that
 issue — before it this service was only reachable via a compose entrypoint override, so no
 API image existed to deploy) declares `HEALTHCHECK` (shallow `GET /health`, via the
 vendored `service/healthcheck.py`) and `STOPSIGNAL SIGTERM`, and sets

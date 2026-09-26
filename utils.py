@@ -6,9 +6,10 @@ Security note (review finding #2)
 Every input document is parsed with ``_SECURE_PARSER``, which disables external
 entity resolution and network access for DTDs and caps tree size, so the tool is
 safe to point at untrusted / semi-trusted XML (including files fetched by URL).
-XSD schema documents (an explicit, trusted ``--xsd`` input) are parsed with
-``_XSD_PARSER``, which still disables entity resolution but permits the network
-access that ``xs:import``-based schemas may require.
+XSD schema documents (an explicit, trusted ``--xsd`` input) are parsed by
+``load_xsd`` with a parser that still disables entity resolution, and whose
+``xs:import`` / ``xs:include`` targets are resolved by ``_SchemaImportResolver``
+(fetched through urllib, never by libxml2's own network code).
 """
 
 import difflib
@@ -55,13 +56,24 @@ OUTPUT_MODES = (OUTPUT_MODE_REPLACE, OUTPUT_MODE_APPEND)
 DEFAULT_OUTPUT_MODE = OUTPUT_MODE_REPLACE
 
 #: The XML-namespace `lang` attribute in Clark notation. `xml:lang` is a GLOBAL
-#: attribute from the XML namespace rather than anything AMCR declares, and the
-#: AMCR corpus already carries it on 23 controlled-vocabulary element types — so
-#: the schema's import of the XML namespace demonstrably exists. Whether the
-#: schema also permits the repeated ELEMENT that append mode emits is the open
-#: `maxOccurs` question (#46): this code does not guess, it emits the pair and
-#: lets `--xsd` report.
+#: attribute from the XML namespace rather than anything AMCR declares; the AMCR
+#: corpus carries it on its controlled-vocabulary elements (`heslo`, …).
+#:
+#: The `maxOccurs` question (#46) is answered: AMCR 2.2 does NOT accept the append
+#: shape on the free-text fields this tool targets. Validated with `--xsd` against
+#: the published schema, the 15 shipped records pass as source and as `replace`
+#: output and fail as `append` output, on both halves of the pair — `xml:lang` is
+#: not declared on `nazev` / `popis` / `poznamka` / `lokalizace_okolnosti`, and the
+#: repeated element is "not expected" there. Append still emits the pair (it is the
+#: requested contract, and a consumer may not validate), and warns once per run.
 XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
+
+#: Namespace fragment of the AMCR schema (`https://api.aiscr.cz/schema/amcr/<ver>/`).
+_AMCR_NS_MARKER = "api.aiscr.cz/schema/amcr"
+
+#: One-shot latch for the "append output is not AMCR-valid" warning: once per
+#: process (a batch run, or a service worker), not once per record.
+_AMCR_APPEND_WARNED = False
 
 
 def normalize_output_mode(value, *, source="output mode"):
@@ -408,17 +420,70 @@ _SECURE_PARSER = etree.XMLParser(
     huge_tree=False,
 )
 
-# For the trusted, explicitly-supplied XSD schema document: still refuse to
-# expand entities, but allow network so xs:import/xs:include can resolve.
-_XSD_PARSER = etree.XMLParser(
-    resolve_entities=False,
-    huge_tree=False,
-)
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 # XSD validation
 # ──────────────────────────────────────────────────────────────────────────────
+
+
+#: The XML namespace's own attributes (`xml:lang`, `xml:space`, `xml:base`,
+#: `xml:id`), as a schema. Every schema that uses `xml:lang` imports W3C's
+#: `xml.xsd` for them — AMCR 2.2 from `http://www.w3.org/2001/03/xml.xsd` — and that
+#: import could never be resolved: lxml 6 bundles libxml2 2.14, which has no HTTP
+#: client, so `--xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd` died with
+#: "XSD schema load failed" in every environment. It is served from here instead —
+#: the four declarations are all any schema takes from it, and w3.org throttles
+#: automated fetches of that file anyway.
+_XML_NAMESPACE_SCHEMA = b"""<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://www.w3.org/XML/1998/namespace">
+  <xs:attribute name="lang">
+    <xs:simpleType>
+      <xs:union memberTypes="xs:language">
+        <xs:simpleType><xs:restriction base="xs:string"><xs:enumeration value=""/></xs:restriction></xs:simpleType>
+      </xs:union>
+    </xs:simpleType>
+  </xs:attribute>
+  <xs:attribute name="space">
+    <xs:simpleType>
+      <xs:restriction base="xs:NCName">
+        <xs:enumeration value="default"/>
+        <xs:enumeration value="preserve"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:attribute>
+  <xs:attribute name="base" type="xs:anyURI"/>
+  <xs:attribute name="id" type="xs:ID"/>
+</xs:schema>
+"""
+
+_XML_NAMESPACE_SCHEMA_HOSTS = ("www.w3.org/2001/03/xml.xsd", "www.w3.org/2001/xml.xsd", "www.w3.org/2009/01/xml.xsd")
+
+_XSD_FETCH_TIMEOUT_S = 30
+
+
+def _fetch(url: str) -> bytes:
+    """GET *url* through urllib (honours the process's proxy settings), 30 s timeout."""
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(request, timeout=_XSD_FETCH_TIMEOUT_S) as response:
+        return response.read()
+
+
+class _SchemaImportResolver(etree.Resolver):
+    """Resolves `xs:import` / `xs:include` of a schema without libxml2's network code.
+
+    The XML-namespace schema comes from :data:`_XML_NAMESPACE_SCHEMA`; any other
+    ``http(s)`` location is fetched with :func:`_fetch`. Local paths are left to
+    libxml2 (``None``), which resolves them against the schema's base URL.
+    """
+
+    def resolve(self, system_url, public_id, context):
+        if not system_url:
+            return None
+        if system_url.split("://", 1)[-1] in _XML_NAMESPACE_SCHEMA_HOSTS:
+            return self.resolve_string(_XML_NAMESPACE_SCHEMA, context)
+        if system_url.startswith(("http://", "https://")):
+            return self.resolve_string(_fetch(system_url), context, base_url=system_url)
+        return None
 
 
 def load_xsd(xsd_url_or_path: str) -> "etree.XMLSchema":
@@ -426,21 +491,43 @@ def load_xsd(xsd_url_or_path: str) -> "etree.XMLSchema":
 
     Separating network I/O from per-file validation means the schema is
     fetched exactly once per run rather than once per document (M2).
+    Imports and includes are resolved by :class:`_SchemaImportResolver`, and the
+    schema is parsed with its own URL as base, so relative ones resolve too.
     Raises on any error so callers can abort the run cleanly.
     """
     if not xsd_url_or_path:
         raise ValueError("xsd_url_or_path must be a non-empty string.")
+    parser = etree.XMLParser(resolve_entities=False, huge_tree=False)
+    parser.resolvers.add(_SchemaImportResolver())
     if xsd_url_or_path.startswith("http"):
-        req = urllib.request.Request(
-            xsd_url_or_path,
-            headers={"User-Agent": "Mozilla/5.0"},
-        )
-        # 30-second timeout to prevent infinite network hangs.
-        with urllib.request.urlopen(req, timeout=30) as f:
-            xmlschema_doc = etree.parse(f, parser=_XSD_PARSER)
+        xmlschema_doc = etree.fromstring(_fetch(xsd_url_or_path), parser, base_url=xsd_url_or_path).getroottree()
     else:
-        xmlschema_doc = etree.parse(xsd_url_or_path, parser=_XSD_PARSER)
+        xmlschema_doc = etree.parse(xsd_url_or_path, parser=parser)
     return etree.XMLSchema(xmlschema_doc)
+
+
+#: OAI-PMH 2.0: a `GetRecord` / `ListRecords` response wraps each record in
+#: `<record><metadata>…</metadata></record>` inside an `<OAI-PMH>` envelope.
+_OAI_NS = "http://www.openarchives.org/OAI/2.0/"
+
+
+def _validation_targets(xml_tree):
+    """What to validate: the record(s) inside an OAI-PMH envelope, else the document.
+
+    A record schema such as AMCR's declares `amcr` as its root, not `OAI-PMH`, so
+    validating the envelope failed at the root — "No matching global declaration
+    available for the validation root" — for every harvested record, including an
+    untouched source. Each `oai:metadata` payload is validated as its own document.
+    """
+    root = xml_tree.getroot() if hasattr(xml_tree, "getroot") else xml_tree
+    if root.tag != f"{{{_OAI_NS}}}OAI-PMH":
+        return [xml_tree]
+    payloads = [
+        child for metadata in root.iter(f"{{{_OAI_NS}}}metadata") for child in metadata if isinstance(child.tag, str)
+    ]
+    if not payloads:
+        return [xml_tree]
+    return [etree.ElementTree(etree.fromstring(etree.tostring(payload))) for payload in payloads]
 
 
 def validate_xml_with_xsd(xml_tree, xmlschema: "etree.XMLSchema") -> tuple:
@@ -451,9 +538,13 @@ def validate_xml_with_xsd(xml_tree, xmlschema: "etree.XMLSchema") -> tuple:
     compiled.
     """
     try:
-        if xmlschema.validate(xml_tree):
+        errors = []
+        for target in _validation_targets(xml_tree):
+            if not xmlschema.validate(target):
+                errors.extend(str(entry) for entry in xmlschema.error_log)
+        if not errors:
             return True, ""
-        return False, xmlschema.error_log
+        return False, "\n".join(errors)
     except Exception as e:
         return False, f"Validation error: {e}"
 
@@ -631,6 +722,24 @@ def _rerun_flagged_metadata(flagged, translator, tgt_lang, output_mode, log_doc_
     return appended
 
 
+def _declares_amcr(root) -> bool:
+    """True when the document itself binds the AMCR namespace (not the lookup fallback)."""
+    return any(_AMCR_NS_MARKER in (uri or "") for elem in root.iter() for uri in (elem.nsmap or {}).values())
+
+
+def _warn_amcr_append_is_not_schema_valid() -> None:
+    """Once per process: an appended AMCR record does not validate against AMCR 2.2."""
+    global _AMCR_APPEND_WARNED
+    if _AMCR_APPEND_WARNED:
+        return
+    _AMCR_APPEND_WARNED = True
+    logger.warning(
+        "Append mode on AMCR records: the output does NOT validate against the AMCR 2.2 schema — "
+        "xml:lang is not declared on the free-text fields and the repeated element is not allowed "
+        "there. Use --output-mode replace where a schema-valid AMCR record is required."
+    )
+
+
 def process_metadata_xml(
     input_path,
     output_path,
@@ -755,6 +864,8 @@ def process_metadata_xml(
                 appended,
                 skipped_existing,
             )
+            if appended and _declares_amcr(root):
+                _warn_amcr_append_is_not_schema_valid()
 
         if doc is not None:
             doc.set_block(

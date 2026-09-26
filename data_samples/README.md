@@ -33,14 +33,21 @@ What the two modes look like:
 * **append, AMCR** — the Czech field is kept (and gets `xml:lang="cs"`), followed by a sibling with the same tag
   and `xml:lang="en"`.
 
+Against the published schemas: the ALTO source, replace and append files all validate against **ALTO 3.1**; the AMCR
+records validate against **AMCR 2.2** as source (15/15) and as replace output (15/15), and **not** as append output
+(0/15 — `xml:lang` is not declared on the free-text fields and the repeated element is not allowed there). Check a
+folder with `--xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd` on a metadata run.
+
 `status` in the log is `ok`, `rerun` (the backend's reply was degenerate and the end-of-document re-run
 recovered it), `approx_alignment` (ALTO: the line's anchor was unusable, so its words were placed by word count)
 or `untranslated` (still degenerate after the re-run — the source text was kept, the target cell is empty). A table
 column whose block translation merged repeated cells (page 76 of the ALTO sample) is placed line by line, each cell
 from its own translation, so no number moves to its neighbour's row.
 
-> The in-place ALTO log committed in `4a44fb6` is empty (it was committed while its run was still going); it is
-> complete once the replace pass below is re-run.
+> The `.document.json` of the ALTO sample and of the first AMCR record in each folder state **CC BY-NC 4.0**
+> (`fasttext` only): they were written before the backend's licence components were recorded, which later code
+> fixes. The run's paradata and the other records state the run's actual licence, **CC BY-NC-SA 4.0**. The next
+> refresh below rewrites them.
 
 ### Regenerating them
 

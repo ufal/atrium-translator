@@ -308,3 +308,42 @@ def test_is_alto_is_honoured_from_the_query_string_too():
         )
     assert response.status_code == 200, response.content[:400]
     assert b"EN:Davle - kultovni areal" in response.content
+
+
+def test_translate_record_carries_the_backend_licence():
+    """The record /translate returns is written inside process_single_file — the backend's
+    licence components must be on the logger by then, not logged after the call returned
+    (every service record used to say "CC BY-NC 4.0, no components recorded")."""
+    import atrium_document
+
+    captured = []
+    original = atrium_document.DocumentRecord.add_license_detail
+
+    def _spy(self, detail):
+        captured.append(detail)
+        return original(self, detail)
+
+    def _write_output(input_path, output_path, *args, **kwargs):
+        output_path.write_bytes(b"<alto/>")
+
+    translator = MagicMock()
+    translator.name = "lindat"
+    translator.vocabulary = {}
+    translator.protected_count = 0
+    translator.license_components.return_value = ["lindat_cubbitt"]
+
+    with (
+        patch("service.api.models", {"translator": translator, "identifier": None}),
+        patch("main.process_alto_xml", side_effect=_write_output),
+        patch.object(atrium_document.DocumentRecord, "add_license_detail", _spy),
+    ):
+        response = client.post(
+            "/translate?source_lang=cs&target_lang=en",
+            files={"file": ("page.alto.xml", b"<alto/>", "application/xml")},
+            data={"is_alto": "true"},
+        )
+
+    assert response.status_code == 200, response.text
+    assert captured, "the record took no licence block"
+    assert "lindat_cubbitt" in [c["name"] for c in captured[0]["components"]]
+    assert captured[0]["effective_license"] == "CC BY-NC-SA 4.0"
