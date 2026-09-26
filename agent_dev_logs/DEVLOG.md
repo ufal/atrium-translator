@@ -226,6 +226,17 @@ measured on the committed logs:
   gained a `status` column (`ok` / `rerun` / `approx_alignment` / `untranslated`) and is written in document order.
   ALTO append now keeps `CONTENT` and adds `<ALTERNATIVE PURPOSE="translation:en">`; replace relabels existing `LANG`.
   `data_samples/` still need a refresh against the live endpoint (unreachable from the development sandbox).
+- **#46 — source-language identification refined.** A real `--source_lang auto` refresh logged FastText naming
+`krc`, `yue`, `bod`, `epo` and `swh` for short blocks of the Czech sample. Causes: unmapped ISO 639-3 codes passed
+straight through as the source language; the ALTO path ignored the confidence score (only metadata applied a
+hard-coded `0.2`, which paradata recorded for both); and any detection failure answered `en` — the target — leaving the
+block silently untranslated (every block, on a host where the model download fails). New `processors/language.py`
+resolves each block/field as *detected* (≥ 20 letters, score ≥ 0.5, a language the backend can translate) → its own
+`LANG`/`xml:lang` *hint* → the *document* language (resolved once) → the *default source language*
+(`--default-source-lang` / `default_source_lang` / `DEFAULT_SOURCE_LANG`, `cs`). Per-document log line of what was
+overridden; `translations.detected_source_lang` in the Document JSON; the real policy in paradata;
+`eval/langid_report.py` to tune the thresholds where the model is available. Offline run with a FastText stand-in:
+0 UDPipe "no model" warnings (HEAD: `bod, epo, krc, swh, yue`) and no bogus `LANG` in append output (HEAD: 8 blocks).
 
 ---
 

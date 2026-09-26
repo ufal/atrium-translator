@@ -21,6 +21,13 @@ import urllib.request
 from lxml import etree
 
 from atrium_document import canonical_doc_id
+from processors.language import (
+    DOCUMENT_SAMPLE_CHARS,
+    LanguageTally,
+    SourceLanguagePolicy,
+    allowed_source_languages,
+    resolve_source_language,
+)
 from processors.quality import degeneration_reason
 from processors.translator import DegenerateTranslationError
 
@@ -313,6 +320,65 @@ def _translate_items(translator, texts, lang, tgt_lang, counter):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Source language (only when --source_lang auto)
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class _SourceLanguages:
+    """Per-document source-language resolution for ``--source_lang auto``.
+
+    Resolves the language of the WHOLE document once (the context for everything
+    in it), then each block / field under the same policy with its own label as a
+    hint — see :mod:`processors.language` for the order and for why. With an
+    explicit ``--source_lang`` it simply returns that language and detects nothing.
+    """
+
+    def __init__(self, src_lang, identifier, translator, tgt_lang, lang_policy, document_text):
+        self.auto = src_lang == "auto"
+        self.explicit = src_lang
+        self.identifier = identifier
+        self.tally = LanguageTally()
+        self.policy = None
+        self.document = None
+        if self.auto:
+            self.policy = lang_policy or SourceLanguagePolicy.from_env(
+                allowed=allowed_source_languages(translator, tgt_lang)
+            )
+            self.document = resolve_source_language(
+                identifier, document_text, self.policy, max_chars=DOCUMENT_SAMPLE_CHARS
+            )
+
+    def resolve(self, text, hint=None) -> str:
+        if not self.auto:
+            return self.explicit
+        resolution = resolve_source_language(self.identifier, text, self.policy, hint=hint, context=self.document.lang)
+        self.tally.add(resolution)
+        return resolution.lang
+
+    def translations_fields(self) -> dict:
+        """Extra facts for the Document JSON ``translations`` block (auto runs only)."""
+        return {"detected_source_lang": self.document.lang} if self.auto else {}
+
+    def log(self, log_doc_id, unit) -> None:
+        if not self.auto:
+            return
+        document = self.document
+        guess = f", FastText top guess {document.raw[0]} {document.raw[1]:.2f}" if document.raw else ""
+        # WARNING when FastText guesses were overridden, so an operator sees at a
+        # glance how much the policy had to correct (e.g. "yue×3, krc×1").
+        logger.log(
+            logging.WARNING if self.tally.overridden else logging.INFO,
+            "%s: source language — document %s (%s%s); %s: %s.",
+            log_doc_id,
+            document.lang,
+            document.basis,
+            guess,
+            unit,
+            self.tally.summary(),
+        )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Hardened parsers
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -465,6 +531,21 @@ def _already_appended(elem, tgt_lang) -> bool:
     return nxt is not None and nxt.tag == elem.tag and nxt.get(XML_LANG) == tgt_lang
 
 
+def _metadata_record_text(root, xpaths, xpath_ns) -> str:
+    """All targeted field texts of a record, joined — the sample its language is resolved from."""
+    texts = []
+    for xpath in xpaths:
+        try:
+            found = root.xpath(xpath, namespaces=xpath_ns)
+        except etree.XPathError:
+            continue
+        for elem in found if isinstance(found, list) else []:
+            text = getattr(elem, "text", None)
+            if isinstance(text, str) and text.strip():
+                texts.append(text.strip())
+    return " ".join(texts)[:DOCUMENT_SAMPLE_CHARS]
+
+
 def _write_metadata_translation(elem, translated, src_lang, tgt_lang, output_mode) -> int:
     """Apply one field's translation in the chosen mode; returns 1 if a sibling was appended."""
     if output_mode == OUTPUT_MODE_APPEND:
@@ -547,12 +628,19 @@ def process_metadata_xml(
     backend=None,
     doc_id=None,
     output_mode=DEFAULT_OUTPUT_MODE,
+    lang_policy=None,
 ):
     output_mode = normalize_output_mode(output_mode)
     try:
         tree = etree.parse(str(input_path), parser=_SECURE_PARSER)
         root = tree.getroot()
         xpath_ns = _resolve_namespaces(root)
+
+        # With --source_lang auto the record's own language is resolved first, from
+        # all of its targeted fields together: a field too short or too ambiguous to
+        # judge on its own inherits it (see processors/language.py).
+        record_text = _metadata_record_text(root, xpaths, xpath_ns) if src_lang == "auto" else ""
+        languages = _SourceLanguages(src_lang, identifier, translator, tgt_lang, lang_policy, record_text)
 
         # D3 (atrium-project#10): the CSV log's `file` column carries the SAME doc_id the
         # caller keyed the document record on, passed in rather than re-derived per row.
@@ -578,14 +666,6 @@ def process_metadata_xml(
                     if not original_text or not original_text.strip():
                         continue
 
-                    actual_src_lang = src_lang
-                    if src_lang == "auto":
-                        if identifier:
-                            detected_lang, conf = identifier.detect(original_text)
-                            actual_src_lang = detected_lang if conf > 0.2 else "cs"
-                        else:
-                            actual_src_lang = "cs"
-
                     # Issue #46, the big question, decided here and nowhere else.
                     # REPLACE overwrites the Czech text node; APPEND leaves it and
                     # inserts a `xml:lang`-marked sibling beside it. Everything
@@ -595,6 +675,9 @@ def process_metadata_xml(
                         # API call entirely rather than translate and discard.
                         skipped_existing += 1
                         continue
+
+                    # The field's own `xml:lang` (AMCR labels many) is the hint.
+                    actual_src_lang = languages.resolve(original_text, hint=elem.get(XML_LANG))
 
                     row = [log_doc_id, "", xpath, original_text, "", STATUS_OK]
                     rows.append(row)
@@ -620,6 +703,8 @@ def process_metadata_xml(
         if csv_writer:
             for row in rows:
                 csv_writer.writerow(row)
+
+        languages.log(log_doc_id, "fields")
 
         # ATRIUM Document JSON accretion update for metadata blocks.
         #
@@ -666,6 +751,9 @@ def process_metadata_xml(
                     # and a consumer that finds English in a field needs to know whether
                     # the Czech was kept beside it or overwritten.
                     "output_mode": output_mode,
+                    # With --source_lang auto, "auto" says nothing about the record;
+                    # the language it was resolved to does.
+                    **languages.translations_fields(),
                 },
             )
 
@@ -922,6 +1010,30 @@ def _translation_purpose(tgt_lang):
     return ALTO_TRANSLATION_PURPOSE.format(lang=tgt_lang)
 
 
+def _alto_language_label(block):
+    """The block's existing language label (``LANG``, or ALTO 3's ``language``), if any."""
+    for attr in _ALTO_LANG_ATTRS:
+        value = block.get(attr)
+        if value:
+            return value
+    return None
+
+
+def _alto_document_text(root, limit=DOCUMENT_SAMPLE_CHARS) -> str:
+    """The document's ``String/@CONTENT`` words in reading order, up to *limit* characters."""
+    words, size = [], 0
+    for elem in root.iter():
+        if _alto_localname(elem) != "String":
+            continue
+        content = elem.get("CONTENT")
+        if content:
+            words.append(content)
+            size += len(content) + 1
+            if size >= limit:
+                break
+    return " ".join(words)
+
+
 def _block_has_translation(block, tgt_lang) -> bool:
     """True when an append-mode pass already put a *tgt_lang* translation in *block*."""
     purpose = _translation_purpose(tgt_lang)
@@ -1152,6 +1264,7 @@ def process_alto_xml(
     backend=None,
     doc_id=None,
     output_mode=DEFAULT_OUTPUT_MODE,
+    lang_policy=None,
 ):
     """
     Translate an ALTO XML document (dual-pass reconstruction).
@@ -1210,6 +1323,19 @@ def process_alto_xml(
         pages = root.xpath("//alto:Page", namespaces=ns) if use_ns else root.xpath("//Page")
         total_pages = len(pages)
 
+        # With --source_lang auto the document's language is resolved once, up front,
+        # from its text; a block too short or too ambiguous to judge on its own — or
+        # one FastText assigns a language the backend cannot translate — inherits it
+        # (after its own LANG label). See processors/language.py.
+        languages = _SourceLanguages(
+            src_lang,
+            identifier,
+            translator,
+            tgt_lang,
+            lang_policy,
+            _alto_document_text(root) if src_lang == "auto" else "",
+        )
+
         # Every translatable block in document order (the CSV is written from this),
         # and the ones flagged for the end-of-document re-run.
         document_blocks = []
@@ -1265,13 +1391,8 @@ def process_alto_xml(
                 if not block_text or not all_strings:
                     continue
 
-                actual_src_lang = src_lang
-                if src_lang == "auto":
-                    if identifier:
-                        detected_lang, _ = identifier.detect(block_text)
-                        actual_src_lang = detected_lang
-                    else:
-                        actual_src_lang = "cs"
+                # The block's own LANG (ABBYY writes one per block) is the hint.
+                actual_src_lang = languages.resolve(block_text, hint=_alto_language_label(block))
 
                 page_blocks_data.append(
                     {
@@ -1375,6 +1496,8 @@ def process_alto_xml(
         else:
             logger.info("%s: %s.", log_doc_id, counter.summary())
 
+        languages.log(log_doc_id, "blocks")
+
         if output_mode == OUTPUT_MODE_APPEND:
             logger.info(
                 "%s: append mode kept the source CONTENT and wrote %d translation ALTERNATIVE(s) "
@@ -1405,6 +1528,9 @@ def process_alto_xml(
                     # them. ParadataLogger has no per-document fact API to put them
                     # in — only skips, successes and components.
                     "output_mode": output_mode,
+                    # With --source_lang auto, "auto" says nothing about the document;
+                    # the language it was resolved to does.
+                    **languages.translations_fields(),
                 },
             )
 

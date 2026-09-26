@@ -4,6 +4,17 @@ input_path = ./data_samples/my_documents
 source_lang = auto
 target_lang = en
 
+# With source_lang = auto, the language used when detection cannot be trusted:
+# the text is too short to judge (under LANG_ID_MIN_LETTERS letters), FastText is
+# not confident enough (under LANG_ID_MIN_CONFIDENCE), or it names a language the
+# translation backend cannot translate (e.g. 'yue', 'krc' on short Czech OCR
+# fragments) — and neither the element's own label (ALTO LANG / xml:lang) nor the
+# language detected for the whole document settles it. Overridden by
+# --default-source-lang on the CLI and by the DEFAULT_SOURCE_LANG env var.
+# Tip: on a single-language corpus, set source_lang = cs instead — no detection
+# runs at all, and the CC BY-NC FastText model is not loaded.
+default_source_lang = cs
+
 # Use "xml,txt"  (default) to process both AMCR .xml files and URL-list .txt files.
 # Use "alto.xml,txt" when the input directory contains ALTO XML files and URL lists.
 # Use "alto.xml"  when the input directory contains only ALTO XML files.
@@ -40,9 +51,8 @@ translation_backend = lindat
 #              after it, the same shape AMCR's own thesaurus uses for
 #              heslo / heslo_en. Re-running is then a no-op instead of a
 #              double-translation, because the marker makes the pair detectable.
-#              ALTO LABELS rather than duplicates: per-String append would be
-#              meaningless there, since the word-to-box alignment in the output is
-#              manufactured by the block-translation bucketing, not observed.
+#              ALTO keeps every String's CONTENT (and geometry) and adds the
+#              translation as <ALTERNATIVE PURPOSE="translation:<lang>">.
 # Overridden by --output-mode on the CLI and by the OUTPUT_MODE env var.
 # Run append with --xsd the first time against real AMCR data: whether the schema
 # permits the repeated element (maxOccurs) is still open, and the validator settles it.

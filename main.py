@@ -33,6 +33,7 @@ from atrium_paradata import ParadataLogger
 from processors.backend import TranslationBackend, get_backend
 from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
+from processors.language import SourceLanguagePolicy, allowed_source_languages
 from utils import (
     DEFAULT_OUTPUT_MODE,
     OUTPUT_MODES,
@@ -89,7 +90,14 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
 
         cfg["translation_api"] = resolve_translation_url().rstrip("/") + "/"
 
-    cfg["fasttext_confidence_threshold"] = 0.2
+    # The language-identification policy actually in force (processors/language.py),
+    # not the literal 0.2 this used to record — which the ALTO path never applied.
+    # Meaningful only with source_lang=auto; recorded either way so two runs can be
+    # compared. The backend-derived language set is resolved later, once the backend
+    # exists, and is reported in each document's log line.
+    cfg.update(SourceLanguagePolicy.from_env(default=getattr(args, "default_source_lang", None)).describe())
+    if cfg["lang_id_languages"] == "any":
+        cfg["lang_id_languages"] = "backend-supported"
     return cfg
 
 
@@ -280,6 +288,16 @@ def parse_arguments():
         help="Source language code (e.g. cs, fr) or 'auto' for detection. Default: value from config.txt, or 'cs'.",
     )
     parser.add_argument(
+        "--default-source-lang",
+        type=str,
+        default=None,
+        help="With --source_lang auto: the language used when detection cannot be trusted — "
+        "text too short, low confidence, or a language the backend cannot translate — and "
+        "neither the element's own label nor the document's language settles it. "
+        "Precedence: this flag, then config.txt's 'default_source_lang', then the "
+        "DEFAULT_SOURCE_LANG env var, then 'cs'.",
+    )
+    parser.add_argument(
         "--target_lang",
         "-tgt",
         type=str,
@@ -364,6 +382,11 @@ def parse_arguments():
         args.output = Path(defaults["output"])
     if args.source_lang is None:
         args.source_lang = defaults.get("source_lang", "cs")
+    if getattr(args, "default_source_lang", None) is None:
+        # Same precedence chain as --output-mode: CLI, config.txt, environment, default.
+        args.default_source_lang = (
+            defaults.get("default_source_lang") or os.environ.get("DEFAULT_SOURCE_LANG") or "cs"
+        ).strip()
     if args.target_lang is None:
         args.target_lang = defaults.get("target_lang", "en")
     if args.formats is None:
@@ -419,6 +442,7 @@ def process_single_file(
     xpaths_list: list[str],
     _logger: ParadataLogger,
     xsd_schema=None,
+    lang_policy: SourceLanguagePolicy | None = None,
 ) -> tuple[bool, int]:
     """
     Process a single XML file (ALTO or metadata).
@@ -427,6 +451,10 @@ def process_single_file(
     *xsd_schema* is a precompiled ``etree.XMLSchema`` (or ``None``).
     It is compiled once in ``main()`` via ``load_xsd`` rather than
     per-file to avoid redundant network round-trips (M2).
+
+    *lang_policy* is the source-language policy for ``--source_lang auto``
+    (built once in ``main()``); ``None`` lets ``utils`` build it from the
+    environment and the backend.
     """
     translator.reset_protected_count()
 
@@ -495,6 +523,7 @@ def process_single_file(
                         backend=args.backend,
                         doc_id=doc_id,
                         output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
+                        lang_policy=lang_policy,
                     )
                 else:
                     process_metadata_xml(
@@ -511,6 +540,7 @@ def process_single_file(
                         backend=args.backend,
                         doc_id=doc_id,
                         output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
+                        lang_policy=lang_policy,
                     )
 
                 # Append derived step outputs and licenses to the accretion model
@@ -585,6 +615,17 @@ def main() -> int:
 
         translator = get_backend(args.backend, vocab_path=args.vocabulary)
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
+        # One policy for the whole run: which detections are trusted, and what an
+        # untrusted one falls back to. The accepted languages are those the backend
+        # can actually translate into the target (processors/language.py).
+        lang_policy = (
+            SourceLanguagePolicy.from_env(
+                default=args.default_source_lang,
+                allowed=allowed_source_languages(translator, args.target_lang),
+            )
+            if args.source_lang == "auto"
+            else None
+        )
 
         if identifier is not None:
             _logger.log_component("fasttext")
@@ -662,6 +703,7 @@ def main() -> int:
                 xpaths_list=xpaths_list,
                 _logger=_logger,
                 xsd_schema=xsd_schema,
+                lang_policy=lang_policy,
             )
 
             if not success:

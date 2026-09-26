@@ -56,3 +56,35 @@ def test_detect_model_none_defaults_to_en(ident):
 def test_detect_prediction_error_defaults_to_en(ident):
     ident.model.predict.side_effect = RuntimeError("boom")
     assert ident.detect("text") == ("en", 0.0)
+
+
+# ── candidates(): what the pipeline actually calls ────────────────────────────
+
+
+def test_candidates_are_ranked_iso1_codes(ident):
+    ident.model.predict.return_value = (
+        ["__label__ces_Latn", "__label__slk_Latn", "__label__yue_Hant"],
+        [0.7, 0.2, 0.05],
+    )
+    assert ident.candidates("Záchranný archeologický výzkum") == [("cs", 0.7), ("sk", 0.2), ("yue", 0.05)]
+
+
+def test_candidates_see_letters_only_and_ask_for_top_k(ident):
+    ident.model.predict.return_value = (["__label__ces_Latn"], [0.9])
+    ident.candidates("Parc. č. 41/1,\n41/5 Vraní", k=3)
+    ident.model.predict.assert_called_once_with("parc č vraní", k=3)
+
+
+def test_candidates_never_invent_a_language(ident):
+    """No letters, no model, or a failing model → no candidates (the old detect() said "en")."""
+    assert ident.candidates("2014 — 41/11") == []
+    ident.model.predict.side_effect = RuntimeError("boom")
+    assert ident.candidates("nějaký text") == []
+    ident.model = None
+    assert ident.candidates("nějaký text") == []
+
+
+def test_nllb_specific_codes_are_mapped():
+    assert LanguageIdentifier.to_iso1("__label__lvs_Latn") == "lv"
+    assert LanguageIdentifier.to_iso1("ekk_Latn") == "et"
+    assert LanguageIdentifier.to_iso1("__label__krc_Cyrl") == "krc", "unmapped codes stay ISO 639-3"

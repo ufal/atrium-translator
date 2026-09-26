@@ -86,9 +86,11 @@ namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, 
 `file, page_num, line_num, text_<source_lang>, text_<target_lang>` for easy manual review.
 * 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts,
 configuration snapshot) to the [paradata](data_samples/in-place_translated_files/alto/paradata) 📁 directory for auditing and performance reporting.
-* 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using
-**FastText** (Facebook) [^5]. In XML Metadata mode, if the detection confidence is below `0.2`, it defaults to Czech (`cs`);
-in ALTO mode detection is performed **once per `TextBlock`** so that all lines in a block share a consistent source language.
+* 🕵️ **Language Detection with Intelligent Fallback**: With `--source_lang auto` the source language is identified
+with **FastText** (Facebook) [^5] — once per ALTO `TextBlock` / metadata field, plus once for the whole document — and a
+guess is used only if it is **trustworthy**: enough letters, enough confidence, and a language the translation backend
+can actually translate. Otherwise the block's own label (ALTO `LANG`, `xml:lang`) is used, then the document's language,
+then the **default source language** (`cs`). See [Source-language identification](#source-language-identification).
 * ✂️ **Sentence-Aware Chunking**: Long texts are split at the highest-priority boundary found in each window, tried in
 strict order — newline (`\n`) → sentence-terminal punctuation (`. `, `! `, `? `) → clause-level punctuation (`; `, `, `) →
 word boundary — before being sent to the translation API. Keeping whole sentences together preserves NMT context and
@@ -253,6 +255,7 @@ atrium-translator/
 │   ├── ct2_translator.py      # 🧪 CTranslate2 self-hosted backend (`--backend ct2`)
 │   ├── lemmatizer.py          # 🔤 UDPipe-based lemmatizer for vocabulary term matching
 │   ├── identifier.py          # 🌍 FastText language identification (ISO 639-3 → 639-1)
+│   ├── language.py            # 🧭 Source-language policy: detected → label → document → default
 │   ├── chunking.py            # ✂️ Shared sentence-aware text chunker (priority-ordered)
 │   ├── http_retry.py          # 🔁 Shared throttle + bounded exponential back-off
 │   ├── quality.py             # 🛡️ Degenerate-output detector (loops, empty, runaway, truncation)
@@ -263,7 +266,7 @@ atrium-translator/
 │   ├── healthcheck.py         # (canonical) stdlib-only Docker HEALTHCHECK probe
 │   └── requirements.txt       # Service-only dependencies (fastapi, uvicorn)
 ├── tests/                     # 🧪 pytest suite; tests/integration/ is the live-backend lane
-├── eval/                      # 📊 bakeoff.py — backend comparison harness (issue #4)
+├── eval/                      # 📊 bakeoff.py (backend comparison, #4) · langid_report.py (language-ID tuning)
 ├── docs/                      # 📚 translation-backends.md — backend evaluation & design
 ├── agent_dev_logs/            # 📓 Derived timeline, per-issue digests and plans
 └── data_samples/
@@ -526,6 +529,9 @@ vocabulary = data_samples/vocabulary.csv
 * `input_path`: Path to a single source file, a directory containing XML files, or a `.txt` file listing URLs.
 * `--output`, `-o`: Output file path (single-file mode) or output directory (batch mode).
 * `--source_lang`, `-src`: Source language code (e.g., `cs`, `fr`). Use `auto` to auto-detect. Default: `cs`.
+* `--default-source-lang`: With `--source_lang auto`, the language used when detection cannot be trusted and neither the
+element's label nor the document's language settles it. Resolution order: this flag → `default_source_lang` in
+`config.txt` → `DEFAULT_SOURCE_LANG` → `cs`.
 * `--target_lang`, `-tgt`: Target language code (e.g., `en`, `cs`). Default: `en`.
 * `--formats`: Comma-separated list of file extensions to process (e.g., `alto.xml,txt` or `xml,txt`). Default: `xml`.
 * `--config`, `-c`: Path to the configuration file (default: `config.txt`).
@@ -675,6 +681,9 @@ The most commonly changed values:
 | `LINDAT_GUARD_RETRIES`      | `2`                | Re-requests of a degenerate (looping / empty / runaway) reply  |
 | `TRANSLATION_RERUN_ROUNDS`  | `1`                | End-of-document re-run rounds for flagged segments (`0` = off) |
 | `TRANSLATION_RERUN_DELAY_S` | `10.0`             | Cool-down before each re-run round                             |
+| `DEFAULT_SOURCE_LANG`       | `cs`               | `auto` runs: language an untrustworthy detection falls back to |
+| `LANG_ID_MIN_CONFIDENCE`    | `0.5`              | `auto` runs: FastText score a candidate needs                  |
+| `LANG_ID_MIN_LETTERS`       | `20`               | `auto` runs: shorter texts inherit label / document language   |
 
 **How `.env` reaches the process** — the distinction matters: `docker compose`
 injects it (both services declare `env_file`), but `python -m service.api` and
@@ -728,9 +737,9 @@ What this image gives an orchestrator:
    * **XML Metadata**: Uses deep recursive namespace extraction (essential for OAI-PMH envelopes and custom schema
    wrappers). Finds elements matching the user-provided XPaths, translates their text content, and replaces it in the tree.
    Compatible with any well-formed XML.
-3. **Language Identification**: Source text is analysed by **FastText** [^5].
-   In XML Metadata mode, if the confidence is below `0.2` the system falls back to Czech 🇨🇿 (`cs`);
-   in ALTO mode detection is performed **once per `TextBlock`** and applied to every line in that block.
+3. **Language Identification** *(only with `--source_lang auto`)*: the document's language is resolved first, then
+   each ALTO `TextBlock` (applied to every line in it) or metadata field — see
+   [Source-language identification](#source-language-identification) below.
 4. **Vocabulary Overriding** *(optional)*: When a vocabulary CSV is loaded, the **Tag-and-Protect** strategy
    is applied before each NMT call.  Multi-word phrases are matched first (longest-first substring), then single-word
    terms are matched via **UDPipe lemmatisation** [^6] (with a singular/plural number-agreement guard).  Matched terms
@@ -745,6 +754,42 @@ What this image gives an orchestrator:
 
 ---
 
+### Source-language identification
+
+With `--source_lang auto` the pipeline never uses a raw FastText guess. On a real run over the Czech ALTO sample FastText
+answered `krc`, `yue`, `bod`, `epo` and `swh` for short OCR blocks — names, numbers, "Objednatel:" — and every such guess
+used to become the block's source language (UDPipe had no model for it, page batches split per bogus language, append mode
+would have written it into the output as `LANG`). Whenever detection could not run at all, the answer was `en` — the
+*target* — so the block was returned untranslated.
+
+`processors/language.py::resolve_source_language` decides instead, in this order:
+
+| # | Basis      | Used when                                                                                                                                                                                    |
+|---|------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1 | `detected` | the text has at least `LANG_ID_MIN_LETTERS` (20) letters, and one of FastText's top-5 candidates scores at least `LANG_ID_MIN_CONFIDENCE` (0.5) **and** is a language the backend can translate |
+| 2 | `hint`     | the element's own label — ALTO `LANG`/`language` (ABBYY writes one per block), metadata `xml:lang` — names a language the backend can translate                                            |
+| 3 | `context`  | the language of the whole document, resolved once, up front, by rule 1 over its first ~20 000 characters                                                                                      |
+| 4 | `default`  | the default source language: `--default-source-lang` → `default_source_lang` (config) → `DEFAULT_SOURCE_LANG` → `cs`                                                                         |
+
+"Can translate" is derived from the backend: for LINDAT, the source side of every model pair that ends in the target
+language (`cs, de, fr, pl, ru, uk` for English), plus the target itself (a block already in English is left as it is).
+`LANG_ID_LANGUAGES` narrows that set further. The text given to FastText is reduced to letters — digits and punctuation
+are most of an OCR fragment and none of its language.
+
+Each document logs one line of what happened, as a WARNING when FastText guesses were overridden:
+
+```
+MTX201501307_anon: source language — document cs (detected, FastText top guess cs 0.97);
+  blocks: cs 1193 (hint 988, context 158, detected 47); FastText guesses not used: eo×11, bod×6, swh×6, krc×5, yue×3.
+```
+
+The resolved document language is recorded in the Document JSON (`translations.detected_source_lang`) and the policy in
+paradata. To tune the two thresholds on real data, `python -m eval.langid_report <file.alto.xml> > langid.csv` lists, per
+block, FastText's top-3 guesses next to the resolved language and its basis (it honours the same environment variables).
+
+> **On a single-language corpus, pass `--source_lang cs`.** No detection runs, and the CC BY-NC FastText model is not
+> loaded (see the licensing note below).
+
 ### 🧩 ALTO Dual-Pass Reconstruction
 
 ALTO stores text spatially: each `TextLine` holds a sequence of `String` elements, and each
@@ -758,8 +803,10 @@ The wrapper resolves this tension per `TextBlock` in six stages (implemented in
 1. **Gather** — for every `TextLine` in the block, collect its `String` elements and
    reconstruct the original line text by joining their `CONTENT` values.
 2. **Aggregate** — concatenate all line texts into a single block-level string.
-3. **Detect language** — run FastText **once for the whole block** (when `--source_lang auto`),
-   so every line in the block is translated with a consistent source language.
+3. **Resolve the language** — (when `--source_lang auto`) **once for the whole block**, so every line in the
+   block is translated with a consistent source language; a block FastText cannot judge reliably takes its
+   `LANG` label or the document's language (see
+   [Source-language identification](#source-language-identification)).
 4. **Pass 1 — block translation** — translate the full block text (all blocks of a page in one
    batched request, see [Page-Level Batching](#performance-page-level-batching)).
    This is the **high-quality semantic translation** whose tokens are written back to the document.

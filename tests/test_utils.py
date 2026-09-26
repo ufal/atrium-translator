@@ -156,7 +156,9 @@ class TestProcessAmcrXml:
         process_metadata_xml(
             amcr_xml_file, out, [XPATH_POPIS], mock_translator, "auto", "en", identifier=mock_identifier
         )
-        mock_identifier.detect.assert_called()
+        # Once for the record as a whole, once for the field.
+        assert mock_identifier.candidates.call_count == 2
+        assert mock_translator.translate.call_args[0][1] == "cs"
 
     def test_auto_without_identifier_defaults_to_cs(self, amcr_xml_file, tmp_path, mock_translator):
         out = tmp_path / "out.xml"
@@ -333,7 +335,8 @@ class TestProcessAltoXml:
     ):
         out = tmp_path / "out.xml"
         process_alto_xml(alto_xml_file, out, mock_translator, "auto", "en", identifier=mock_identifier)
-        assert mock_identifier.detect.call_count == 1
+        # Once for the document (the context short blocks inherit), once for its one block.
+        assert mock_identifier.candidates.call_count == 2
 
     # ── edge case ─────────────────────────────────────────────────────────────
 

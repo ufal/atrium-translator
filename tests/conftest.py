@@ -49,6 +49,8 @@ def mock_translator() -> MagicMock:
 def mock_identifier() -> MagicMock:
     identifier = MagicMock(name="identifier")
     identifier.detect.return_value = ("cs", 0.99)
+    # What the pipeline actually calls (processors/language.py): ranked candidates.
+    identifier.candidates.return_value = [("cs", 0.99)]
     return identifier
 
 
