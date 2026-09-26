@@ -85,7 +85,7 @@ namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, 
 * 📊 **Per-document Translation CSV Logs**: Automatically produces a supplementary QA CSV file with columns
 `file, page_num, line_num, text_<source_lang>, text_<target_lang>` for easy manual review.
 * 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts,
-configuration snapshot) to the [paradata](data_samples/translated_files/paradata) 📁 directory for auditing and performance reporting.
+configuration snapshot) to the [paradata](data_samples/in-place_translated_files/alto/paradata) 📁 directory for auditing and performance reporting.
 * 🕵️ **Language Detection with Intelligent Fallback**: Automatically identifies the source language using
 **FastText** (Facebook) [^5]. In XML Metadata mode, if the detection confidence is below `0.2`, it defaults to Czech (`cs`);
 in ALTO mode detection is performed **once per `TextBlock`** so that all lines in a block share a consistent source language.
@@ -262,7 +262,7 @@ python main.py ./data_samples/my_documents --alto --formats alto.xml --target_la
 
 Example of ALTO XML processing:
 - **Input**: [MTX201501307.alto.xml](data_samples/my_documents/MTX201501307.alto.xml) 📎
-- **Output**: [MTX201501307_en.alto.xml](data_samples/translated_files/MTX201501307_en.alto.xml) 📎
+- **Output**: [MTX201501307_en.alto.xml](data_samples/in-place_translated_files/alto/MTX201501307_anon_en.alto.xml) 📎
 
 Translation is driven at the `TextBlock` level for semantic quality, but the resulting
 words are **realigned and redistributed back into the individual `CONTENT` attributes**
@@ -479,7 +479,7 @@ source_lang = auto
 target_lang = en
 formats = alto.xml
 fields = amcr-fields.txt
-output = ./data_samples/translated_files
+output = ./data_samples/in-place_translated_files
 
 # Optional: path to a vocabulary CSV file (source_lemma,target_translation).
 # Leave blank or comment out to disable.
@@ -743,7 +743,7 @@ element retains its original position, and that no token from the block translat
 ## 📊 Translation CSV Logs
 
 The wrapper generates a **per-document** CSV log for every processed XML file, named
-`<original_filename>_log.csv` (e.g., [MTX201501307_log.csv](data_samples/translated_files/MTX201501307_log.csv)📎). These logs are written to the same output directory
+`<original_filename>_log.csv` (e.g., [MTX201501307_log.csv](data_samples/in-place_translated_files/alto/MTX201501307_anon_log.csv)📎). These logs are written to the same output directory
 as the translated XML files and are intended for **line-by-line manual QA review**.
 
 | Column               | ALTO value                                        | XML Metadata value     |

@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0",
+  "record_type": "atrium-document",
+  "doc_id": "C-N1000019",
+  "derived_from": {
+    "translated_xml": "C-N1000019_en.xml"
+  },
+  "provenance": {
+    "license": "CC BY-NC-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+    "license_detail": {
+      "effective_license": "CC BY-NC-SA 4.0",
+      "effective_license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      "is_non_commercial": true,
+      "is_share_alike": true,
+      "determined_by": [
+        "lindat_cubbitt",
+        "udpipe2_models"
+      ],
+      "components": [
+        {
+          "name": "fasttext",
+          "license": "CC BY-NC 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+          "rank": 5
+        },
+        {
+          "name": "lindat_cubbitt",
+          "license": "CC BY-NC-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+          "rank": 6
+        },
+        {
+          "name": "udpipe2_engine",
+          "license": "MPL 2.0",
+          "license_url": "https://www.mozilla.org/en-US/MPL/2.0/",
+          "rank": 2
+        },
+        {
+          "name": "udpipe2_models",
+          "license": "CC BY-NC-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+          "rank": 6
+        },
+        {
+          "name": "amcr_vocab",
+          "license": "CC BY-NC 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+          "rank": 5
+        },
+        {
+          "name": "teater_data",
+          "license": "CC BY-NC 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+          "rank": 5
+        }
+      ],
+      "unknown_licenses": [],
+      "notes": "Effective output license is CC BY-NC-SA 4.0, the most restrictive among 6 component(s) used. Outputs are NON-COMMERCIAL: downstream commercial use is not permitted while this component is in the pipeline. SHARE-ALIKE applies: derivatives must be licensed under the same terms."
+    },
+    "contributors": [
+      {
+        "program": "translator",
+        "run_id": "260926-082339",
+        "paradata_ref": "data_samples/_refresh_append/xml/paradata/260926-082339_translator.json",
+        "blocks": "translations,derived_from",
+        "at": "2026-09-26T08:23:53.845459+00:00"
+      }
+    ]
+  },
+  "assembled": {
+    "blocks": {
+      "translations": {
+        "program": "translator",
+        "run_id": "260926-082339",
+        "paradata_ref": "data_samples/_refresh_append/xml/paradata/260926-082339_translator.json",
+        "updated_at": "2026-09-26T08:23:53.758135+00:00"
+      },
+      "derived_from": {
+        "program": "translator",
+        "run_id": "260926-082339",
+        "paradata_ref": "data_samples/_refresh_append/xml/paradata/260926-082339_translator.json",
+        "updated_at": "2026-09-26T08:23:53.758708+00:00"
+      }
+    },
+    "had_baseline": false,
+    "note": "Blocks reflect CONTRIBUTED steps only; a block is absent until its tool has run."
+  },
+  "translations": {
+    "source_lang": "auto",
+    "target_lang": "en",
+    "backend": "lindat",
+    "output_mode": "append"
+  }
+}
