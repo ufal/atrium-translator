@@ -19,4 +19,4 @@ sentencepiece>=0.2.2
 transformers>=5.15,<6
 # apply_chat_template() renders EuroLLM's chat template with Jinja2, which transformers
 # only lists as an optional extra: without it every eurollm chunk fails.
-jinja2>=3.1
+jinja2>=3.1.6
