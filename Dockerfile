@@ -122,7 +122,10 @@ ENV PORT=8000 GRACEFUL_SHUTDOWN_S=20
 # built. `-m` keeps sys.path[0] at /app — byte for byte the environment the old
 # `uvicorn service.api:app` entrypoint ran in, so every repo-root import still
 # resolves. (issue #58)
-ENTRYPOINT ["python", "-m", "service.api"]
+# atrium-project#58 RED RUN ONLY: the port baked back in, for a throwaway pull request into `test`.
+# Expected: the default-port probe green, the PORT=9000 probe red, tests/test_service_entrypoint.py red.
+# Close the pull request unmerged.
+ENTRYPOINT ["uvicorn", "service.api:app", "--host", "0.0.0.0", "--port", "8000"]
 CMD []
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=3 \
     CMD ["python", "/app/service/healthcheck.py"]
