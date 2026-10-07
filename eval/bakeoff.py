@@ -41,7 +41,8 @@ scores as an empty hypothesis.
 
 It is a *script*, not a unit test: it calls the real backends (network). Optional
 deps (sacrebleu / unbabel-comet) are imported lazily and the harness degrades to
-a warning when they are absent. See docs/translation-backends.md §6.
+a warning when they are absent. See "Suggested next steps" (under "Recommendation")
+in docs/translation-backends.md.
 
 Usage
 -----

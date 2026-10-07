@@ -9,7 +9,7 @@ stack: CTranslate2 int8 (≈4× smaller, 2–8× faster on CPU) running an Apach
 model — **EuroLLM-1.7B/9B** (instruction-tuned, all 20 repo languages) or
 **MADLAD-400** (multilingual NMT). Combined with an explicit ``--source_lang``
 and a permissive/empty glossary this yields a CC-BY-NC-free output (see the
-"permissive recipe" in docs/translation-backends.md §5).
+"Licensing matrix (informational)" section of docs/translation-backends.md).
 Status
 ------
 **Registered** in ``processors/backend._ensure_registry`` as ``ct2``, so

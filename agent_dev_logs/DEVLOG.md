@@ -340,6 +340,16 @@ cell-merging stub: only page 76 changes, every number on its own row.
   (the release gate's declared-rename rule).
 * Tag draft: `v1.3.1-beta`. **Not pushed: files delivered in chat.**
 
+## 2026-10-07 — Dangling section references (#4)
+* `processors/ct2_translator.py` and `eval/bakeoff.py` cited "§5" and "§6" of `docs/translation-backends.md`, which
+  has no numbered sections (milestone T3.4.1 checklist). They now name *Licensing matrix (informational)* and
+  *Suggested next steps* under *Recommendation*.
+* **For atrium-project#58:** the deliberate red run's `Dockerfile` (a baked `--port 8000` in the `api` ENTRYPOINT,
+  `ENV PORT=8000` kept), for a throwaway pull request into `test`, closed unmerged.
+* **Checks:** `-k "ct2 or bakeoff"`: 82 passed, 1 skipped; ruff clean.
+
+  Files delivered in chat.
+
 ---
 
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the
