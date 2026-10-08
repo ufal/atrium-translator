@@ -23,10 +23,16 @@ It is deliberately:
   item and every ALTO line anchor, so a backend without its own guard (or a test
   double) is still covered;
 * **dependency-free** — importable from ``utils.py`` without pulling in a backend.
+
+A word that mixes Latin and Cyrillic letters (``"Ostrůв"``, seen in a self-hosted EuroLLM
+run on 2026-09-28) is a third kind of failure: not a loop, but one wrong token that no
+length or repetition rule sees. ``mixed_script_word`` finds it.
 """
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from collections import Counter
 
 #: Output may be at most ``MAX_TOKEN_RATIO * source + MAX_TOKEN_SLACK`` tokens long.
@@ -62,6 +68,38 @@ def _normalise(tokens: list[str]) -> list[str]:
         bare = tok.casefold().strip(_EDGE_PUNCT)
         out.append(bare or tok)
     return out
+
+
+#: A maximal run of letters: digits, underscores, punctuation, spaces and combining marks end it,
+#: so "Kyiv/Київ" and "PDF-файл" are two runs each, and "Ostrůв" is one.
+_LETTER_RUN = re.compile(r"[^\W\d_]+")
+
+
+def _scripts(run: str) -> set[str]:
+    """``{"LATIN", "CYRILLIC"}`` as far as the run's letters go (other scripts are not tracked)."""
+    found = set()
+    for ch in run:
+        name = unicodedata.name(ch, "")
+        if name.startswith("LATIN"):
+            found.add("LATIN")
+        elif name.startswith("CYRILLIC"):
+            found.add("CYRILLIC")
+    return found
+
+
+def mixed_script_word(translated: str, source: str = "") -> str | None:
+    """The first word of *translated* whose letters are both Latin and Cyrillic, else ``None``.
+
+    No translation has such a word: it is a model writing the Cyrillic look-alike of a Latin
+    letter, or the reverse. Other scripts are left alone (``"α-křemen"`` and ``"ΔT"`` are
+    ordinary archaeology), and so is a word the source itself already contains. Text is
+    compared composed (NFC), so a decomposed ``ů`` does not split a word in two.
+    """
+    seen_in_source = set(_LETTER_RUN.findall(unicodedata.normalize("NFC", source or "")))
+    for run in _LETTER_RUN.findall(unicodedata.normalize("NFC", translated or "")):
+        if run not in seen_in_source and len(_scripts(run)) == 2:
+            return run
+    return None
 
 
 def _longest_repeat_run(tokens: list[str], max_unit: int = MAX_REPEAT_UNIT) -> int:
@@ -104,7 +142,9 @@ def degeneration_reason(source: str, translated: str | None) -> str | None:
     * one token dominating the output (≥ 50 %, ≥ 6 times) without doing so in the
       source;
     * a multi-token output that is one alphanumeric token over and over, for a
-      source that is not (``"pravidla pravidla"`` for ``"Vojtěch Marek"``).
+      source that is not (``"pravidla pravidla"`` for ``"Vojtěch Marek"``);
+    * a word that mixes Latin and Cyrillic letters (``"Ostrůв"``), see
+      :func:`mixed_script_word`.
     """
     src_tokens = (source or "").split()
     if not src_tokens:
@@ -141,5 +181,9 @@ def degeneration_reason(source: str, translated: str | None) -> str | None:
             return f"repetition loop: {top!r} is {count} of {no} output tokens"
         if no >= 2 and count == no and len(set(src_norm)) >= 2:
             return f"repetition loop: output is {top!r} repeated {no} times"
+
+    word = mixed_script_word(translated or "", source)
+    if word:
+        return f"mixed-script word: {word!r} has both Latin and Cyrillic letters"
 
     return None

@@ -198,7 +198,8 @@ than one that is absent. The `LINDAT_MIN_INTERVAL_S` / `LINDAT_MAX_RETRIES` /
 
 **Degenerate replies cost time, not correctness.** A LINDAT reply that comes back as a repetition loop is
 re-requested (`LINDAT_GUARD_RETRIES`; the first time immediately, then with back-off), and a segment still degenerate after that is re-run once
-the document is done (`TRANSLATION_RERUN_ROUNDS` × `TRANSLATION_RERUN_DELAY_S`); one that never recovers keeps
+the document is done (`TRANSLATION_RERUN_ROUNDS` × `TRANSLATION_RERUN_DELAY_S`; the `ct2` backend decodes a re-run
+with a wider beam, since the same request would get the same reply); one that never recovers keeps
 its source text. All of that happens inside the synchronous `/translate` request, so on a bad day for the
 backend a request takes longer — size `GRACEFUL_SHUTDOWN_S` (and the orchestrator's grace period) with that in
 mind, or lower `TRANSLATION_RERUN_DELAY_S` for the service.

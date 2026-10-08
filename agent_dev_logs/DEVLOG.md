@@ -350,6 +350,28 @@ cell-merging stub: only page 76 changes, every number on its own row.
 
   Files delivered in chat.
 
+## 2026-10-07 (evening) — #4: two of the findings of 09-28 that the guard missed
+* **The detector reads one more thing.** `processors/quality.py::mixed_script_word`: a word whose letters are both
+  Latin and Cyrillic (`Ostrůв`, logged `ok` in the 09-28 `ct2` run) is degenerate for every backend, so it is
+  re-requested, flagged, re-run and, if it never recovers, kept as source. A word the source itself contains is
+  exempt, other scripts are left alone (`α-křemen`, `ΔT`), and text is compared composed, so a decomposed `ů` does not
+  split a word. Calibration on real output: of the 4,264 logged rows of `data_samples/` it rejects one, the `Ostrůв`
+  row (the same single word is the only mixed run in 693,902 letter runs of the repo's text files).
+* **The re-run no longer repeats the request.** `ct2` decodes deterministically (EuroLLM greedy, NMT beam 4), so a
+  flagged segment asked for again after the cool-down returned the same reply. `CT2Translator.retrying(round)`
+  (thread-local, because the service shares one backend object) is entered by `utils._translate_one(…, attempt)` from
+  both re-run loops. Inside it the beam widens: NMT 4 + 2n (cap 12), EuroLLM beam 2 + 2n in place of greedy.
+  Backends without the method are called as before. **Not measured:** whether it recovers more on real EuroLLM
+  output. There are no model weights here and the stub engines record only how they are called; that is for the
+  bake-off.
+* **Still open for the bake-off, unchanged:** "klášter" as "convent", "Terénní rampa" left in the middle of a text,
+  the 4 short fields kept in Czech.
+* **Checks:** without the new rule 8 tests fail, without the hook 5, without the widening 2; whole suite 1068 passed,
+  3 skipped; ruff check and format clean. README, `service/README.md` and `docs/translation-backends.md` say the same.
+* **Dev logs:** the pairs of #4 and #46 refreshed.
+
+  Files delivered in chat.
+
 ---
 
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the

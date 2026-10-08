@@ -26,9 +26,11 @@ What is asserted here, layer by layer:
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import logging
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -37,7 +39,7 @@ from lxml import etree
 import processors.translator as translator_module
 from processors.ct2_translator import CT2Translator
 from processors.llm_translator import LLMTranslator
-from processors.quality import degeneration_reason
+from processors.quality import degeneration_reason, mixed_script_word
 from processors.translator import DegenerateTranslationError, LindatTranslator, TranslationError
 from utils import (
     OUTPUT_MODE_APPEND,
@@ -46,6 +48,7 @@ from utils import (
     STATUS_RERUN,
     STATUS_UNTRANSLATED,
     BatchFallbackCounter,
+    _retrying,
     _translate_items,
     process_alto_xml,
     process_metadata_xml,
@@ -109,6 +112,85 @@ def test_detector_flags_the_observed_failure_shapes(source, translated, fragment
 )
 def test_detector_passes_real_translations(source, translated):
     assert degeneration_reason(source, translated) is None
+
+
+# One wrong token is a failure no length or repetition rule sees: the self-hosted EuroLLM run
+# of 2026-09-28 wrote "Ostrůв" (Latin "Ostr", "ů", Cyrillic "в") for "Ostrov". The escapes below
+# keep the look-alikes visible in the source file.
+@pytest.mark.parametrize(
+    "source,translated,word",
+    [
+        ("Ostrov u Znojma", "Ostrůв near Znojmo", "Ostrůв"),
+        # A Cyrillic "о" inside a Latin word, and a Latin "O" inside a Cyrillic one.
+        ("Roman Novák", "Rоman Novák", "Rоman"),
+        ("Ostrov", "Oстров", "Oстров"),
+        # A decomposed "ů" (u + combining ring) must not split the word in two.
+        ("Ostrov u Znojma", "Ostrůв near Znojmo", "Ostrůв"),
+    ],
+)
+def test_detector_flags_a_word_that_mixes_latin_and_cyrillic(source, translated, word):
+    assert mixed_script_word(translated, source) == word
+    reason = degeneration_reason(source, translated)
+    assert reason is not None and "mixed-script" in reason and repr(word) in reason
+
+
+@pytest.mark.parametrize(
+    "source,translated",
+    [
+        # Two scripts in a row are two words, joined by whatever separates them.
+        ("Kyjev", "Kyiv/Київ"),
+        ("Soubor PDF", "PDF-файл"),
+        ("Soubor PDF", "Файл PDF"),
+        ("Soubor PDF", "Файл (PDF)"),
+        # A Cyrillic target is not a mix.
+        ("Ostrov u Znojma", "Острів біля Зноймо"),
+        # Greek and the like are archaeology, not look-alikes (only Latin and Cyrillic are compared).
+        ("α-křemen", "α-quartz"),
+        ("ΔT", "ΔT"),
+        ("Datování", "ΔT dating"),
+        # A decomposed letter inside a pure-script word.
+        ("Ostrov", "Ostrů"),
+        # The word is already in the source: not the model's doing, composed or decomposed.
+        ("Rоman Novák", "Rоman Novák"),
+        ("Ostrůв u Znojma", "Ostrůв near Znojmo"),
+    ],
+)
+def test_detector_leaves_mixed_script_text_that_is_not_one_word(source, translated):
+    assert mixed_script_word(translated, source) is None
+    assert degeneration_reason(source, translated) is None
+
+
+def test_the_rows_of_the_sample_logs_pass_but_the_one_wrong_word():
+    """Calibration on real output: the logged rows of `data_samples/` (2026-09-26 to 09-28).
+
+    Every row but one is a translation the detector accepts. The exception is the self-hosted
+    EuroLLM run's "Ostrůв" (Cyrillic "в"), logged `ok` before the rule existed. Regenerating the
+    samples may retire that row; any other row the detector rejects is a false flag, or a bad
+    reply that was logged `ok`.
+    """
+    rows = 0
+    flagged = []
+    for log in sorted((Path(__file__).resolve().parent.parent / "data_samples").rglob("*_log.csv")):
+        with log.open(encoding="utf-8", newline="") as fh:
+            for _file, _page, _line, source, translated, status in list(csv.reader(fh))[1:]:
+                rows += 1
+                if status == STATUS_UNTRANSLATED:
+                    continue  # no translation to judge
+                reason = degeneration_reason(source, translated)
+                if reason:
+                    flagged.append((log.name, source, reason))
+    assert rows > 1000, "the sample logs are what this calibrates on"
+    assert [reason for _, _, reason in flagged] in (
+        [],
+        ["mixed-script word: 'Ostr\u016f\u0432' has both Latin and Cyrillic letters"],
+    ), flagged
+
+
+# The row as the EuroLLM run logged it (data_samples/in-place_translated_files/xml/C-N1000019_log.csv).
+def test_the_logged_ostrov_row_is_flagged():
+    source = "Davle - kultovní areál 1 - klášter sv. Jana Křtitele na Ostrově"
+    translated = "Davle - ritual site 1 - St. John's Convent on Ostr\u016f\u0432 (Island)"
+    assert "mixed-script" in degeneration_reason(source, translated)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -185,6 +267,15 @@ def test_backend_guards_reject_a_loop_the_ratio_cannot_see(guard):
 
 
 @pytest.mark.parametrize("guard", [LLMTranslator._guard_output, CT2Translator._guard])
+def test_backend_guards_reject_a_word_that_mixes_latin_and_cyrillic(guard):
+    # Well inside the length ratio, no repetition: one wrong token ("в" is Cyrillic).
+    source = "Ostrov u Znojma byl osídlen v době bronzové"
+    with pytest.raises(DegenerateTranslationError, match="mixed-script"):
+        guard(source, "The Ostrůв near Znojmo was settled in the Bronze Age")
+    guard(source, "The island near Znojmo was settled in the Bronze Age")
+
+
+@pytest.mark.parametrize("guard", [LLMTranslator._guard_output, CT2Translator._guard])
 def test_backend_guards_raise_the_per_segment_error_for_ratio_failures(guard):
     with pytest.raises(DegenerateTranslationError, match="length ratio"):
         guard("Stručný popis nálezu.", "word " * 200)
@@ -239,10 +330,11 @@ class _FlakyBackend(_Backend):
     That is the observed failure: nondeterministic, and cured by asking again later.
     """
 
-    def __init__(self, fail_times=1, only=None):
+    def __init__(self, fail_times=1, only=None, spoil=None):
         super().__init__()
         self.fail_times = fail_times
         self.only = only
+        self.spoil = spoil  # reply -> reply, instead of the loop (e.g. one wrong token)
         self.seen: dict[str, int] = {}
 
     def translate(self, text, src_lang, tgt_lang="en"):
@@ -250,6 +342,8 @@ class _FlakyBackend(_Backend):
         self.seen[text] = self.seen.get(text, 0) + 1
         eligible = self.only is None or self.only(text)
         if eligible and self.seen[text] <= self.fail_times:
+            if self.spoil:
+                return self.spoil(self.good(text))
             return "\n".join(LOOP for _ in text.split("\n"))
         return self.good(text)
 
@@ -563,6 +657,19 @@ def test_metadata_flagged_field_is_recovered_by_the_rerun(tmp_path):
     assert [r[2] for r in rows] == _XPATHS, "rows stay in document order"
 
 
+def test_metadata_field_with_a_mixed_script_word_is_flagged_and_recovered(tmp_path):
+    """The failure is one wrong token, not a loop: the same flag, re-run and log row apply."""
+    # Every Latin "e" of the first field's reply becomes the Cyrillic "е": "Davlе", "arеál".
+    backend = _FlakyBackend(
+        fail_times=1,
+        only=lambda text: text.startswith("Davle"),
+        spoil=lambda reply: reply.replace("e", "\u0435"),
+    )
+    root, rows = _run_meta(tmp_path, backend)
+    assert _texts(root, "nazev") == ["EN:Davle - kultovní areál 1"]
+    assert [r[5] for r in rows] == [STATUS_RERUN, STATUS_OK]
+
+
 def test_metadata_field_that_never_recovers_is_left_untouched(tmp_path):
     backend = _FlakyBackend(fail_times=99, only=lambda text: text.startswith("Davle"))
     root, rows = _run_meta(tmp_path, backend)
@@ -576,6 +683,112 @@ def test_metadata_append_adds_no_sibling_for_an_untranslated_field(tmp_path):
     root, _ = _run_meta(tmp_path, backend, output_mode=OUTPUT_MODE_APPEND)
     assert _texts(root, "nazev") == ["Davle - kultovní areál 1"], "no English sibling carrying garbage"
     assert len(_texts(root, "popis")) == 2
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# A deterministic backend: the re-run has to decode differently
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# `_FlakyBackend` models LINDAT: nondeterministic, cured by asking again later. A self-hosted
+# greedy decode is the opposite — the same request always gets the same reply — so asking again
+# cures nothing (translator#4, 2026-09-28). The CT2 backend therefore offers `retrying(round)`,
+# which `utils` enters for the end-of-document re-run only.
+
+
+class _DeterministicBackend(_Backend):
+    """Loops on every request made outside ``retrying()``, however often it is repeated.
+
+    Inside ``retrying(n)`` it answers from round ``cure_round`` on, like a wider search that
+    finds the sentence the greedy one lost.
+    """
+
+    def __init__(self, cure_round=1, only=None):
+        super().__init__()
+        self.cure_round = cure_round
+        self.only = only
+        self.round = 0
+        self.rounds_entered: list[int] = []
+
+    @contextlib.contextmanager
+    def retrying(self, attempt):
+        self.rounds_entered.append(attempt)
+        self.round = attempt
+        try:
+            yield
+        finally:
+            self.round = 0
+
+    def translate(self, text, src_lang, tgt_lang="en"):
+        self.calls.append(text)
+        eligible = self.only is None or self.only(text)
+        if eligible and self.round < self.cure_round:
+            return "\n".join(LOOP for _ in text.split("\n"))
+        return self.good(text)
+
+
+class _CannotVary(_DeterministicBackend):
+    """The same backend without the hook: what LINDAT, the LLM API and a test double are."""
+
+    retrying = None
+
+
+def test_a_backend_without_the_hook_is_called_as_before():
+    assert isinstance(_retrying(_CannotVary(), 1), contextlib.nullcontext)
+    assert isinstance(_retrying(MagicMock(), 1), contextlib.nullcontext), "a mock does not answer for it"
+    backend = _DeterministicBackend()
+    assert isinstance(_retrying(backend, 0), contextlib.nullcontext), "a first request is never varied"
+    with _retrying(backend, 2):
+        assert backend.round == 2
+    assert backend.rounds_entered == [2] and backend.round == 0
+
+
+def test_metadata_rerun_enters_the_backends_retry_context_per_round(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRANSLATION_RERUN_ROUNDS", "2")
+    backend = _DeterministicBackend(cure_round=2)
+    root, rows = _run_meta(tmp_path, backend)
+    # Two fields, both flagged by the first pass; neither is cured in round 1, both in round 2.
+    assert backend.rounds_entered == [1, 1, 2, 2]
+    assert _texts(root, "nazev") == ["EN:Davle - kultovní areál 1"]
+    assert [r[5] for r in rows] == [STATUS_RERUN, STATUS_RERUN]
+
+
+def test_metadata_rerun_without_enough_rounds_keeps_the_source(tmp_path):
+    # One round (the default) against a backend that is only cured in round 2.
+    backend = _DeterministicBackend(cure_round=2)
+    root, rows = _run_meta(tmp_path, backend)
+    assert backend.rounds_entered == [1, 1]
+    assert _texts(root, "nazev") == ["Davle - kultovní areál 1"]
+    assert [r[5] for r in rows] == [STATUS_UNTRANSLATED, STATUS_UNTRANSLATED]
+
+
+def test_a_repeated_identical_request_recovers_nothing_without_the_hook(tmp_path):
+    """The failure the hook exists for: same request, same reply, so the re-run is wasted."""
+    _, rows = _run_meta(tmp_path, _CannotVary())
+    assert [r[5] for r in rows] == [STATUS_UNTRANSLATED, STATUS_UNTRANSLATED]
+
+
+def test_alto_blocks_are_recovered_by_a_different_decode(tmp_path):
+    backend = _DeterministicBackend(cure_round=1, only=_is_block_request)
+    root, strings, rows = _run_alto(tmp_path, backend)
+    assert b"pravidla" not in etree.tostring(root)
+    assert all(s.get("CONTENT") for s in strings)
+    assert {r[5] for r in rows} == {STATUS_RERUN}
+    # One request per flagged block, none for the line anchors (answered on the first pass).
+    assert backend.rounds_entered == [1, 1]
+    assert backend.round == 0, "the context is left again"
+
+
+def test_alto_line_anchors_are_recovered_by_a_different_decode(tmp_path):
+    backend = _DeterministicBackend(cure_round=1, only=lambda text: not _is_block_request(text))
+    _, strings, rows = _run_alto(tmp_path, backend)
+    assert all(s.get("CONTENT") for s in strings)
+    assert {r[5] for r in rows} == {STATUS_RERUN}
+    assert backend.rounds_entered and set(backend.rounds_entered) == {1}
+
+
+def test_alto_blocks_stay_as_source_when_the_decode_cannot_vary(tmp_path):
+    _, _, rows = _run_alto(tmp_path, _CannotVary(only=_is_block_request))
+    assert {r[5] for r in rows} == {STATUS_UNTRANSLATED}
 
 
 # ──────────────────────────────────────────────────────────────────────────────

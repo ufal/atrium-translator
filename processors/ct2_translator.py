@@ -50,6 +50,7 @@ Configuration (env, or constructor kwargs)
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import re
@@ -85,6 +86,16 @@ def _env_int(name: str, default: int) -> int:
 _MIN_RATIO_CHARS = _env_int("CT2_GUARD_MIN_CHARS", 16)
 _MIN_LEN_RATIO = _env_float("CT2_GUARD_MIN_RATIO", 0.25)
 _MAX_LEN_RATIO = _env_float("CT2_GUARD_MAX_RATIO", 4.0)
+
+# Decoding is deterministic: greedy for the instruction model, a beam of 4 for the NMT families.
+# A flagged segment asked for again after the cool-down would get the same reply, so the
+# end-of-document re-run decodes it with a wider beam instead (see ``CT2Translator.retrying``):
+# beam 4 + 2n for the NMT families, 2 + 2n for the instruction model (round n = 1, 2, …), up
+# to a cap, because the cost of a search grows with its width.
+_NMT_BEAM = 4
+_LLM_RERUN_BEAM = 2
+_RERUN_BEAM_STEP = 2
+_RERUN_BEAM_MAX = 12
 
 # Model family -> para_config.txt component carrying that model's licence.
 # Every family must map to a declared component: an undeclared name is logged as
@@ -280,6 +291,8 @@ class CT2Translator:
         # One backend object serves every request of the service, and the first requests can
         # arrive together: without the lock each would load its own copy of the model.
         self._load_lock = threading.RLock()
+        # The re-run round of the request being served, per thread (see `retrying`).
+        self._rerun = threading.local()
 
     # ── TranslationBackend Protocol ───────────────────────────────────────────
     def translate(self, text: str, src_lang: str, tgt_lang: str = "en") -> str:
@@ -292,6 +305,30 @@ class CT2Translator:
         else:
             out = [self._translate_llm(c, src_lang, tgt_lang) for c in chunks]
         return "\n".join(out)
+
+    @contextlib.contextmanager
+    def retrying(self, attempt: int):
+        """Decode the requests made inside the block as re-run round *attempt* (1, 2, …).
+
+        ``utils`` enters it for the end-of-document re-run of a flagged segment. The first
+        request of a segment is decoded deterministically, so the same request after the
+        cool-down returns the same reply and the re-run would recover nothing. Inside the
+        block the search is wider instead: beam search for the instruction model, a beam
+        widened by ``_RERUN_BEAM_STEP`` per round for the NMT families. That is still
+        deterministic, so a run stays reproducible.
+
+        The round is kept per thread: the service shares one backend object between requests.
+        """
+        previous = self._rerun_round()
+        self._rerun.attempt = max(0, int(attempt))
+        try:
+            yield
+        finally:
+            self._rerun.attempt = previous
+
+    def _rerun_round(self) -> int:
+        """0 for a first request, else the re-run round the current thread is in."""
+        return getattr(self._rerun, "attempt", 0)
 
     def supported_languages(self) -> list:
         return list(self._languages)
@@ -502,7 +539,8 @@ class CT2Translator:
             return " ".join(self._translate_nmt(part, src_lang, tgt_lang) for part in parts)
 
         max_decoding = CT2_MAX_DECODING_TOKENS.get()
-        kwargs = {"beam_size": 4, "max_decoding_length": max_decoding, "max_input_length": max_input}
+        beam = min(_NMT_BEAM + _RERUN_BEAM_STEP * self._rerun_round(), _RERUN_BEAM_MAX)
+        kwargs = {"beam_size": beam, "max_decoding_length": max_decoding, "max_input_length": max_input}
         if target_prefix is not None:
             kwargs["target_prefix"] = target_prefix
         result = self._engine.translate_batch([tokens], **kwargs)
@@ -587,12 +625,18 @@ class CT2Translator:
         max_decoding = CT2_MAX_DECODING_TOKENS.get()
         source_tokens = len(self._tokenizer(text, add_special_tokens=False)["input_ids"])
         budget = min(max_decoding, _RUNAWAY_FACTOR * source_tokens + _RUNAWAY_SLACK)
+        attempt = self._rerun_round()
+        if attempt:
+            # A re-run: beam search (sampling options do not apply to it).
+            search = {"beam_size": min(_LLM_RERUN_BEAM + _RERUN_BEAM_STEP * attempt, _RERUN_BEAM_MAX)}
+        else:
+            search = {"sampling_temperature": 0.0}  # greedy
         result = self._engine.generate_batch(
             [tokens],
             max_length=budget,
-            sampling_temperature=0.0,
             include_prompt_in_result=False,
             end_token=self._end_tokens(),
+            **search,
         )
 
         generated = list(result[0].sequences[0])

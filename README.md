@@ -133,9 +133,11 @@ the XML and the QA log, and — through the ALTO line anchors, which are never l
 of every block on the page (2489 blanked `String`s instead of 224).
 
 Every translated segment is now checked by `processors/quality.py::degeneration_reason` against its own source
-(empty output, runaway length, truncation, repetition loops — each rule compares with the source, so dot leaders,
-number tables and names kept verbatim pass; calibrated at 0 false flags on all 1193 June blocks and 37 metadata
-fields, 100 % of the looping ones caught):
+(empty output, runaway length, truncation, repetition loops, and a single word that mixes Latin and Cyrillic letters
+such as `Ostrůв` — each rule compares with the source, so dot leaders, number tables and names kept verbatim pass;
+calibrated at 0 false flags on all 1193 June blocks and 37 metadata fields, 100 % of the looping ones caught; the
+mixed-script rule on the 4,264 logged rows of `data_samples/`, where its one hit is the `Ostrůв` that the self-hosted
+run logged as `ok`):
 
 1. **Backend re-request.** `LindatTranslator` re-requests a degenerate reply up to `LINDAT_GUARD_RETRIES` times
    (default 2) — the first time **immediately**, then with back-off; the LLM and CT2 backends reject it in their
@@ -143,7 +145,10 @@ fields, 100 % of the looping ones caught):
 2. **Flag.** A block, line anchor or metadata field that is still unusable is **flagged** and left untouched for now.
 3. **Re-run during the same document.** After the whole document has been processed, the flagged segments are
    re-requested one by one after a cool-down (`TRANSLATION_RERUN_ROUNDS`, default 1; `TRANSLATION_RERUN_DELAY_S`,
-   default 10 s).
+   default 10 s). The self-hosted `ct2` backend decodes deterministically, so the same request would get the same
+   reply; in a re-run round it searches a wider beam instead (NMT families 4, 6, 8, … up to 12; EuroLLM leaves greedy
+   decoding for a beam of 4, 6, …). That is still deterministic, so a run can be reproduced. Whether it recovers more
+   segments on real EuroLLM output has not been measured.
 4. **Keep the source.** A segment that never recovers keeps its source text (ALTO `String`s keep their `CONTENT` and
    geometry; a metadata field is not overwritten and gets no appended sibling) and is logged as `untranslated` in the
    `status` column of the `_log.csv`. The file is still written; one bad reply costs one segment, never the document.
@@ -300,7 +305,7 @@ atrium-translator/
 │   ├── language.py            # 🧭 Source-language policy: detected → label → document → default
 │   ├── chunking.py            # ✂️ Shared sentence-aware text chunker (priority-ordered)
 │   ├── http_retry.py          # 🔁 Shared throttle + bounded exponential back-off
-│   ├── quality.py             # 🛡️ Degenerate-output detector (loops, empty, runaway, truncation)
+│   ├── quality.py             # 🛡️ Degenerate-output detector (loops, empty, runaway, truncation, mixed script)
 │   ├── limit_notes.py         # 📝 Collects the `limits_applied` notes of a run / request
 │   └── vocab.py               # 📘 Vocabulary CSV loader
 ├── service/                   # 🌐 The HTTP surface — see service/README.md
@@ -775,14 +780,14 @@ set -a; . ./.env; set +a
 ## ☸️ Deployment
 
 The reference Kubernetes manifest and its acceptance runbook live in the hub
-repository, and are shared by all five ATRIUM services:
+repository, and are shared by all six ATRIUM services:
 
-* **[ufal/atrium-project → docs/k8s_deployment.md](https://github.com/ufal/atrium-project/blob/master/docs/k8s_deployment.md)**
+* **[ufal/atrium-project → docs/k8s_deployment.md](https://github.com/ufal/atrium-project/blob/main/docs/k8s_deployment.md)**
   — the manifest, the three probes, the port/bind configuration, and a *Known
   limits* section worth reading before promising anything from it.
-* **[docs/templates/k8s/atrium-service.deployment.yaml](https://github.com/ufal/atrium-project/blob/master/docs/templates/k8s/atrium-service.deployment.yaml)**
+* **[docs/templates/k8s/atrium-service.deployment.yaml](https://github.com/ufal/atrium-project/blob/main/docs/templates/k8s/atrium-service.deployment.yaml)**
   — the manifest itself. Substitute the image and size `resources.limits.memory`;
-  everything else is identical across the five services by design.
+  everything else is identical across the six services by design.
 
 What this image gives an orchestrator:
 

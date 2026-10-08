@@ -12,6 +12,7 @@ XSD schema documents (an explicit, trusted ``--xsd`` input) are parsed by
 (fetched through urllib, never by libxml2's own network code).
 """
 
+import contextlib
 import difflib
 import logging
 import os
@@ -236,7 +237,21 @@ def _rerun_policy() -> tuple[int, float]:
     return rounds, delay_s
 
 
-def _translate_one(translator, text, src_lang, tgt_lang):
+def _retrying(translator, attempt):
+    """A context in which *translator* decodes as end-of-document re-run round *attempt*.
+
+    A backend that offers ``retrying(attempt)`` (CT2: a wider beam) enters it, because a
+    deterministic backend asked the same thing again returns the same reply. Round 0, the
+    first request of a segment, and a backend without the method (LINDAT, the LLM API, test
+    doubles) are left as they are. The method is looked up on the class, so a mock does not
+    answer for it.
+    """
+    if attempt and callable(getattr(type(translator), "retrying", None)):
+        return translator.retrying(attempt)
+    return contextlib.nullcontext()
+
+
+def _translate_one(translator, text, src_lang, tgt_lang, attempt=0):
     """Translate ONE segment. Returns ``(translation, None)`` or ``(None, reason)``.
 
     ``None`` means the backend could not produce a usable translation: it raised
@@ -244,9 +259,13 @@ def _translate_one(translator, text, src_lang, tgt_lang):
     :func:`degeneration_reason` — which also covers backends and test doubles with
     no guard of their own. Any other exception propagates unchanged: a transport
     failure still skips the whole file, exactly as before.
+
+    *attempt* is 0 for a first request and the round number (1, 2, …) of the
+    end-of-document re-run; see :func:`_retrying`.
     """
     try:
-        translated = translator.translate(text, src_lang, tgt_lang)
+        with _retrying(translator, attempt):
+            translated = translator.translate(text, src_lang, tgt_lang)
     except DegenerateTranslationError as exc:
         return None, str(exc)
     if not isinstance(translated, str):
@@ -682,7 +701,8 @@ def _rerun_flagged_metadata(flagged, translator, tgt_lang, output_mode, log_doc_
 
     Same policy as the ALTO path (:func:`_rerun_flagged_alto`): after the whole
     record has been processed, wait ``TRANSLATION_RERUN_DELAY_S`` and re-request
-    each flagged field on its own, for ``TRANSLATION_RERUN_ROUNDS`` rounds. A
+    each flagged field on its own, for ``TRANSLATION_RERUN_ROUNDS`` rounds (decoded
+    differently in each, where the backend can: :func:`_retrying`). A
     recovered field is written as usual and logged ``rerun``; a field that never
     recovers keeps its source text — replace mode leaves it as it was, append mode
     adds no sibling — and is logged ``untranslated`` with an empty target.
@@ -698,14 +718,14 @@ def _rerun_flagged_metadata(flagged, translator, tgt_lang, output_mode, log_doc_
     )
     appended = 0
     recovered = 0
-    for _round in range(rounds):
+    for attempt in range(1, rounds + 1):
         todo = [item for item in flagged if not item.get("done")]
         if not todo:
             break
         if delay_s > 0:
             time.sleep(delay_s)
         for item in todo:
-            translated, reason = _translate_one(translator, item["text"], item["lang"], tgt_lang)
+            translated, reason = _translate_one(translator, item["text"], item["lang"], tgt_lang, attempt)
             if translated is None:
                 item["reason"] = reason
                 continue
@@ -1357,7 +1377,9 @@ def _rerun_flagged_alto(pending, translator, tgt_lang, line_anchors, counter, lo
     after the whole document has been processed, after a cool-down, one segment
     per request (``TRANSLATION_RERUN_ROUNDS`` rounds, ``TRANSLATION_RERUN_DELAY_S``
     before each). A recovered block also gets its line anchors. Whatever is still
-    failing afterwards is left for the caller to keep as source.
+    failing afterwards is left for the caller to keep as source. A backend that decodes
+    deterministically (CT2) is asked to decode differently in each round, see
+    :func:`_retrying`.
     """
     rounds, delay_s = _rerun_policy()
     flagged_blocks = [b for b in pending if b["block_failed"]]
@@ -1374,7 +1396,7 @@ def _rerun_flagged_alto(pending, translator, tgt_lang, line_anchors, counter, lo
         delay_s,
     )
 
-    for _round in range(rounds):
+    for attempt in range(1, rounds + 1):
         todo_blocks = [b for b in pending if b["block_failed"]]
         todo_anchors = [
             (b, ld) for b in pending if not b["block_failed"] for ld in b["lines_data"] if ld["anchor_failed"]
@@ -1385,7 +1407,9 @@ def _rerun_flagged_alto(pending, translator, tgt_lang, line_anchors, counter, lo
             time.sleep(delay_s)
 
         for bdata in todo_blocks:
-            translated, _reason = _translate_one(translator, bdata["block_text"], bdata["actual_src_lang"], tgt_lang)
+            translated, _reason = _translate_one(
+                translator, bdata["block_text"], bdata["actual_src_lang"], tgt_lang, attempt
+            )
             if translated is None:
                 continue
             bdata["block_tgt"] = translated.strip()
@@ -1396,7 +1420,9 @@ def _rerun_flagged_alto(pending, translator, tgt_lang, line_anchors, counter, lo
                 _request_block_anchors(bdata, translator, tgt_lang, counter)
 
         for bdata, ld in todo_anchors:
-            translated, _reason = _translate_one(translator, ld["orig_text"], bdata["actual_src_lang"], tgt_lang)
+            translated, _reason = _translate_one(
+                translator, ld["orig_text"], bdata["actual_src_lang"], tgt_lang, attempt
+            )
             if translated is None:
                 continue
             ld["line_tgt"] = translated.strip()

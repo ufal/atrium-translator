@@ -6,6 +6,7 @@ installation are required: the heavy modules are replaced with small fakes.
 """
 
 import sys
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -376,6 +377,74 @@ def test_a_reply_still_going_at_the_budget_is_a_runaway(monkeypatch):
     monkeypatch.setattr(_FakeGenerator, "generated", ["zlomky"] * 44)
     with pytest.raises(DegenerateTranslationError, match="runaway length: still going at 44 tokens"):
         backend.translate("zlomky", "cs", "en")
+
+
+# ── the end-of-document re-run decodes differently (translator#4, 2026-09-28) ───────────
+#
+# Decoding is deterministic, so a flagged segment asked for again after the cool-down came back
+# exactly as it had: the re-run could not recover it. `utils` enters `retrying(round)` for the
+# re-run's requests, and the search is wider inside it. That the wider search cures what it was
+# added for is not shown here: the stub engines below only record how they were called.
+
+
+def _search_options(backend):
+    """The decode options of every generation the engine saw, in order."""
+    return [
+        {k: v for k, v in kwargs.items() if k in ("beam_size", "sampling_temperature")}
+        for _, kwargs in backend._engine.calls
+    ]
+
+
+def test_eurollm_is_greedy_on_the_first_request_and_searches_a_widening_beam_on_a_rerun(monkeypatch):
+    backend = _eurollm(monkeypatch, _FakeTokenizer())
+    text = "Archeologický výzkum proběhl v centru Prahy."
+    backend.translate(text, "cs", "en")
+    with backend.retrying(1):
+        backend.translate(text, "cs", "en")
+    with backend.retrying(2):
+        backend.translate(text, "cs", "en")
+    backend.translate(text, "cs", "en")  # outside the block again
+    assert _search_options(backend) == [
+        {"sampling_temperature": 0.0},
+        {"beam_size": 4},
+        {"beam_size": 6},
+        {"sampling_temperature": 0.0},
+    ]
+
+
+def test_the_nmt_beam_widens_with_each_round_up_to_a_cap():
+    backend = _nmt("opus")
+    beams = []
+    for rerun_round in (0, 1, 2, 3, 9):
+        with backend.retrying(rerun_round):
+            backend._translate_nmt("Hrad stojí", "cs", "en")
+        beams.append(backend._engine.calls[-1][1]["beam_size"])
+    assert beams == [4, 6, 8, 10, 12]
+
+
+def test_the_rerun_round_is_per_thread_and_restored_on_leaving_the_block():
+    backend = _nmt("opus")
+    seen = {}
+
+    def other_thread():
+        # The main thread is inside retrying(2); this one is serving another request.
+        backend._translate_nmt("Hrad stojí", "cs", "en")
+        seen["beam"] = backend._engine.calls[-1][1]["beam_size"]
+
+    with backend.retrying(2):
+        worker = threading.Thread(target=other_thread)
+        worker.start()
+        worker.join()
+        with backend.retrying(1):
+            assert backend._rerun_round() == 1
+        assert backend._rerun_round() == 2, "a nested block gives the outer round back"
+    assert seen["beam"] == 4
+    assert backend._rerun_round() == 0
+
+    with pytest.raises(RuntimeError):
+        with backend.retrying(3):
+            raise RuntimeError("the request failed")
+    assert backend._rerun_round() == 0, "a failed request does not leave the round set"
 
 
 # ── warm-up and one load under concurrency (the service's first requests) ───────────────

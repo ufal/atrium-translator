@@ -330,8 +330,9 @@ on the ALTO and the metadata path alike (issue #46 follow-up, see
 `agent_dev_logs/digests/46.digest.md`). The contract is now:
 
 * `processors/quality.py::degeneration_reason(source, translated)` is the single
-  judge — empty output, runaway length, truncation, repetition loops, each compared
-  with the source. It is dependency-free, so any backend can use it.
+  judge — empty output, runaway length, truncation, repetition loops and a word that
+  mixes Latin and Cyrillic letters, each compared with the source. It is
+  dependency-free, so any backend can use it.
 * A backend that gives up on a reply raises `DegenerateTranslationError` (a
   `TranslationError` subclass, in `processors/translator.py`). `LindatTranslator`
   re-requests first (`LINDAT_GUARD_RETRIES`, default 2); the LLM and CT2 guards raise
@@ -345,6 +346,13 @@ on the ALTO and the metadata path alike (issue #46 follow-up, see
 
 A new backend therefore needs no guard to be safe, but should raise
 `DegenerateTranslationError` rather than return text it knows is bad.
+
+A backend whose decoding is deterministic should also offer `retrying(round)`, a context
+manager that `utils.py` enters around the requests of the end-of-document re-run (round 1,
+2, …): asked the same thing again, it would return the same reply. `CT2Translator` widens
+its beam inside the block (thread-local, since one backend object serves every request).
+A backend without the method is called as before: asking LINDAT again reaches another
+replica, and the OpenAI-compatible backend (temperature 0, a remote model) has no such finding.
 
 ---
 
