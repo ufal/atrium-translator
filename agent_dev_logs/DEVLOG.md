@@ -4,7 +4,7 @@
 > production-readiness fixes) · **v1.2.2-beta** (2026-09-28, `d8d72b5`). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*` — the `digests/12factor.*` / `plans/12factor.*` this
 > line used to cite were never written._
-> _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
+> _Per-issue detail: `digests/{4,46,52}.digest.md` · `plans/{4,46,52}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
 
 ## 2026-06-20
@@ -369,6 +369,17 @@ cell-merging stub: only page 76 changes, every number on its own row.
 * **Checks:** without the new rule 8 tests fail, without the hook 5, without the widening 2; whole suite 1068 passed,
   3 skipped; ruff check and format clean. README, `service/README.md` and `docs/translation-backends.md` say the same.
 * **Dev logs:** the pairs of #4 and #46 refreshed.
+
+  Files delivered in chat.
+
+## 2026-10-08 — Digest and plan for #52
+* **#52** (an unsupported source language is translated as Czech without telling the caller): read on `ef3b311`.
+  A confident detection of a language the backend cannot translate (`la` 0.97, `hu` 0.99 under LINDAT) takes the
+  same fallback as an untrustworthy guess and ends as `default` → `cs`, logged `ok`; the only trace is the
+  per-document WARNING line. The plan separates the two cases (basis `unsupported`) and, for option (b), keeps the
+  source text, logs `untranslated` and notes it in `limits_applied` as `skipped` — the path a degenerate reply
+  already takes. Option (a) has no `limits_applied` effect to use without a shared-module change.
+* **Dev logs:** `digests/52.digest.md`, `plans/52.plan.md`.
 
   Files delivered in chat.
 
