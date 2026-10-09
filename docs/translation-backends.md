@@ -322,6 +322,14 @@ and `"ct2"` are the other two registered names.  New backends are registered by
 adding an adapter class and a registry entry — no changes to `main.py`,
 `utils.py`, or `service/api.py` are needed.
 
+`supported_languages()` (for LINDAT, the source side of its `supported_models`
+pairs) is also what `--source_lang auto` checks a detection against. A segment
+FastText places confidently in a language outside it is translated from the
+fallback language and reported as `unsupported_lang` (translator#52; README,
+"Source-language identification"), so the narrower a backend's set, the more
+such rows an `auto` run over mixed material has: LINDAT lacks `la` and `hu`,
+EuroLLM and MADLAD (`ct2`) have both.
+
 ### Output guard: the failure contract every backend shares
 
 An HTTP 200 is not a translation. On the 2026-09-26 sample refresh roughly a third of

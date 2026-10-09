@@ -23,6 +23,15 @@ detection could not run at all the answer was ``"en"`` — the TARGET language �
 the block was returned untranslated. Nothing here can produce a language the backend
 cannot translate, and nothing produces ``en`` merely because detection failed.
 
+A guess the policy distrusts and a confident detection of a real language the backend
+cannot translate (Latin ``la`` 0.97, Hungarian ``hu`` 0.99) both end on the fallbacks above,
+and the second used to leave no trace a caller could see (translator#52). It is now marked:
+:attr:`Resolution.unsupported` names the language when the text was long enough, a
+candidate scored at least ``LANG_ID_MIN_CONFIDENCE``, the candidate is an ISO 639-1
+language, and no translatable candidate scored as well. The segment is still translated
+from the fallback language; ``utils.py`` reports it (the ``_log.csv`` status
+``unsupported_lang``, the record's ``translations.unsupported_source_langs``).
+
 Kept free of FastText / Hugging Face imports so ``utils.py`` can use it without
 loading the model stack; :mod:`processors.identifier` is the FastText side.
 """
@@ -244,6 +253,15 @@ class Resolution(NamedTuple):
     basis: str
     #: FastText's top guess ``(lang, score)``, or ``None`` if detection did not run.
     raw: tuple | None
+    #: A language the identifier was confident of and the backend cannot translate, when that is
+    #: why the segment fell back (translator#52); ``None`` otherwise.
+    unsupported: str | None = None
+
+
+def _is_language(code) -> bool:
+    """An ISO 639-1 code: what a real, nameable language normalises to (``lat`` → ``la``). An
+    exotic FastText label (``yue``, ``krc``, ``bod``) stays three letters and is a guess."""
+    return bool(code) and len(code) == 2 and code.isalpha()
 
 
 def _identifier_candidates(identifier, text, max_chars):
@@ -271,6 +289,7 @@ def resolve_source_language(identifier, text, policy, *, hint=None, context=None
     if max_chars is None:
         max_chars = LANG_ID_SEGMENT_CHARS.get()
     raw = None
+    unsupported = None
     if identifier is not None and letter_count(text) >= policy.min_letters:
         candidates = _identifier_candidates(identifier, text, max_chars)
         if candidates:
@@ -280,13 +299,15 @@ def resolve_source_language(identifier, text, policy, *, hint=None, context=None
                 break
             if policy.accepts(lang):
                 return Resolution(lang, "detected", raw)
+            if unsupported is None and _is_language(lang):
+                unsupported = lang
 
     hint_code = normalise_lang_code(hint)
     if hint_code and policy.accepts(hint_code):
-        return Resolution(hint_code, "hint", raw)
+        return Resolution(hint_code, "hint", raw, unsupported)
     if context:
-        return Resolution(context, "context", raw)
-    return Resolution(policy.default, "default", raw)
+        return Resolution(context, "context", raw, unsupported)
+    return Resolution(policy.default, "default", raw, unsupported)
 
 
 class LanguageTally:
@@ -295,11 +316,15 @@ class LanguageTally:
     def __init__(self):
         self.resolved: Counter = Counter()
         self.overridden: Counter = Counter()
+        #: Segments identified as a language the backend cannot translate (translator#52).
+        self.unsupported: Counter = Counter()
 
     def add(self, resolution: Resolution) -> None:
         self.resolved[(resolution.lang, resolution.basis)] += 1
         if resolution.raw and resolution.raw[0] != resolution.lang:
             self.overridden[resolution.raw[0]] += 1
+        if resolution.unsupported:
+            self.unsupported[resolution.unsupported] += 1
 
     def summary(self) -> str:
         per_lang: dict[str, Counter] = {}
@@ -313,4 +338,7 @@ class LanguageTally:
         if self.overridden:
             guesses = ", ".join(f"{lang}×{count}" for lang, count in self.overridden.most_common())
             text += f"; FastText guesses not used: {guesses}"
+        if self.unsupported:
+            langs = ", ".join(f"{lang}×{count}" for lang, count in self.unsupported.most_common())
+            text += f"; identified as a language the backend cannot translate, translated from the fallback: {langs}"
         return text

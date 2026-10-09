@@ -547,6 +547,23 @@ The merged vocabulary is written to [vocabulary.csv](data_samples/vocabulary.csv
 take precedence over TEATER [^8] on key collision). `--delay` paces both sources: the pause between AMCR pages and the
 minimum gap between TEATER requests.
 
+**From a release instead of a harvest (atrium-project#72).** atrium-keyword-extract owns the project's one vocabulary
+and attaches it, CC0, to each of its releases as `atrium-vocabulary-<version>.zip` with a `.sha256` beside it. The same
+CSV can be built from that asset, so the translator's vocabulary is a pinned release rather than what the live APIs
+answered on the day of a harvest:
+
+```bash
+python load_vocab.py --from-release v1.2.0-beta                     # download, verify the .sha256, write the CSV
+python load_vocab.py --from-release v1.2.0-beta --sha256 <digest>   # pin the digest yourself
+python load_vocab.py --from-release v1.2.0-beta --asset ./atrium-vocabulary-v1.2.0-beta.zip   # a local copy
+```
+
+The asset's `amcr_flat.csv` and `teater_flat.csv` start with this CSV's five columns and are merged the same way. An
+asset that does not match its checksum, or lacks either file, is refused (exit 3) and the output is left untouched. The
+committed `vocabulary.csv` is still the harvest of September 2026: built from keyword-extract's current snapshot it has
+4,952 pairs instead of 5,087 (TEATER terms the snapshot lacks), so the switch waits for the first release that carries
+the asset.
+
 > [!NOTE]
 > As of 2026-09, `teater.aiscr.cz` serves its TLS certificate without the *RapidSSL TLS RSA CA G1* intermediate, so
 > `requests` cannot verify it and the TEATER harvest logs an SSL error and yields nothing. Do not disable
@@ -864,6 +881,15 @@ MTX201501307_anon: source language — document cs (detected, FastText top guess
   blocks: cs 1193 (hint 988, context 158, detected 47); FastText guesses not used: eo×11, bod×6, swh×6, krc×5, yue×3.
 ```
 
+**A language the backend cannot translate (translator#52).** When FastText is confident (at least
+`LANG_ID_MIN_CONFIDENCE`, on a text of at least `LANG_ID_MIN_LETTERS` letters) that a segment is a real language the
+backend cannot translate — Latin taxa, a Hungarian passage on LINDAT — and no translatable candidate scored as well, the
+segment still falls back through rules 2–4 and is translated from that language, but it is reported: its `_log.csv` rows
+say `unsupported_lang`, the Document JSON counts it in `translations.unsupported_source_langs` (`{"hu": 1, "la": 2}`), and
+the document's log line ends with `identified as a language the backend cannot translate, translated from the fallback:
+la×2, hu×1`. An untrustworthy guess (below the threshold, an exotic FastText label such as `yue`, a text too short to
+judge) is not reported. A backend that does translate the language (EuroLLM, MADLAD: `ct2`) simply uses the detection.
+
 The resolved document language is recorded in the Document JSON (`translations.detected_source_lang`) and the policy in
 paradata. To tune the two thresholds on real data, `python -m eval.langid_report <file.alto.xml> > langid.csv` lists, per
 block, FastText's top-3 guesses next to the resolved language and its basis (it honours the same environment variables).
@@ -961,12 +987,13 @@ as the translated XML files and are intended for **line-by-line manual QA review
 | `text_<target_lang>` | translated text **as redistributed to that line** | translated text        |
 | `status`             | how the line's translation was obtained (below)   | same                   |
 
-| `status`           | Meaning                                                                                                                                                                                    |
-|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ok`               | Translated and aligned normally.                                                                                                                                                           |
-| `rerun`            | Flagged during processing (degenerate reply) and recovered by the end-of-document re-run.                                                                                                  |
-| `approx_alignment` | ALTO only: the line's anchor was unusable, so its words were placed by source word count (`--fast-align`: its block came back with fewer words than lines).                                |
-| `untranslated`     | Still degenerate after the re-run: the **source text was kept** in the output and the target cell is empty (ALTO: also a line that needed its own line translation and had no usable one). |
+| `status`           | Meaning                                                                                                                                                                                                                      |
+|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ok`               | Translated and aligned normally.                                                                                                                                                                                             |
+| `rerun`            | Flagged during processing (degenerate reply) and recovered by the end-of-document re-run.                                                                                                                                    |
+| `approx_alignment` | ALTO only: the line's anchor was unusable, so its words were placed by source word count (`--fast-align`: its block came back with fewer words than lines).                                                                  |
+| `untranslated`     | Still degenerate after the re-run: the **source text was kept** in the output and the target cell is empty (ALTO: also a line that needed its own line translation and had no usable one).                                   |
+| `unsupported_lang` | `--source_lang auto` only: the segment was identified as a language the backend cannot translate and was translated from the fallback language (translator#52); review it. `untranslated` outranks it, it outranks the rest. |
 
 > **Note (ALTO):** Because the target column reflects the tokens *aligned and redistributed*
 > to each physical line (not a standalone re-translation), it shows exactly what was written

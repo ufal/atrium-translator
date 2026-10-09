@@ -25,6 +25,7 @@ from lxml import etree
 from atrium_document import canonical_doc_id
 from processors.language import (
     LanguageTally,
+    Resolution,
     SourceLanguagePolicy,
     allowed_source_languages,
     normalise_for_detection,
@@ -216,6 +217,11 @@ STATUS_APPROX = "approx_alignment"
 #: Still degenerate after the re-run: the source text was kept, target left empty.
 #: (ALTO: also a line that needed its own line translation and had no usable one.)
 STATUS_UNTRANSLATED = "untranslated"
+#: ``--source_lang auto`` only (translator#52): the segment was identified as a language the
+#: backend cannot translate (``processors.language.Resolution.unsupported``) and was translated
+#: from the fallback language instead, so its target is likely wrong. It outranks ``rerun`` and
+#: ``approx_alignment``; ``untranslated`` outranks it.
+STATUS_UNSUPPORTED_LANG = "unsupported_lang"
 
 
 def _env_float(name: str, default: float) -> float:
@@ -381,6 +387,8 @@ class _SourceLanguages:
         self.explicit = src_lang
         self.identifier = identifier
         self.tally = LanguageTally()
+        #: Segments identified as a language the backend cannot translate, by language (#52).
+        self.unsupported = self.tally.unsupported
         self.policy = None
         self.document = None
         if self.auto:
@@ -392,8 +400,12 @@ class _SourceLanguages:
             )
 
     def resolve(self, text, hint=None) -> str:
+        return self.resolve_segment(text, hint).lang
+
+    def resolve_segment(self, text, hint=None) -> Resolution:
+        """The segment's :class:`Resolution`; with an explicit language, that language as given."""
         if not self.auto:
-            return self.explicit
+            return Resolution(self.explicit, "explicit", None)
         window = LANG_ID_SEGMENT_CHARS.get()
         if len(normalise_for_detection(text)) > window:
             # The identifier reads the first `window` characters only (atrium-project#53).
@@ -407,11 +419,20 @@ class _SourceLanguages:
             self.identifier, text, self.policy, hint=hint, context=self.document.lang, max_chars=window
         )
         self.tally.add(resolution)
-        return resolution.lang
+        return resolution
 
     def translations_fields(self) -> dict:
-        """Extra facts for the Document JSON ``translations`` block (auto runs only)."""
-        return {"detected_source_lang": self.document.lang} if self.auto else {}
+        """Extra facts for the Document JSON ``translations`` block (auto runs only).
+
+        ``unsupported_source_langs`` (translator#52): how many segments were identified as each
+        language the backend cannot translate, and translated from the fallback language instead.
+        """
+        if not self.auto:
+            return {}
+        fields = {"detected_source_lang": self.document.lang}
+        if self.unsupported:
+            fields["unsupported_source_langs"] = dict(sorted(self.unsupported.items()))
+        return fields
 
     def log(self, log_doc_id, unit) -> None:
         if not self.auto:
@@ -827,6 +848,8 @@ def process_metadata_xml(
         # because a flagged field only gets its final value after the re-run.
         rows = []
         flagged = []
+        # Rows of fields identified as a language the backend cannot translate (#52).
+        unsupported_rows = []
 
         for xpath in xpaths:
             try:
@@ -847,10 +870,13 @@ def process_metadata_xml(
                         continue
 
                     # The field's own `xml:lang` (AMCR labels many) is the hint.
-                    actual_src_lang = languages.resolve(original_text, hint=elem.get(XML_LANG))
+                    resolution = languages.resolve_segment(original_text, hint=elem.get(XML_LANG))
+                    actual_src_lang = resolution.lang
 
                     row = [log_doc_id, "", xpath, original_text, "", STATUS_OK]
                     rows.append(row)
+                    if resolution.unsupported:
+                        unsupported_rows.append(row)
 
                     translated, reason = _translate_one(translator, original_text, actual_src_lang, tgt_lang)
                     if translated is None:
@@ -869,6 +895,11 @@ def process_metadata_xml(
 
         if flagged:
             appended += _rerun_flagged_metadata(flagged, translator, tgt_lang, output_mode, log_doc_id)
+
+        # A field translated from the fallback language says so (#52); one kept as source says that.
+        for row in unsupported_rows:
+            if row[5] != STATUS_UNTRANSLATED:
+                row[5] = STATUS_UNSUPPORTED_LANG
 
         if csv_writer:
             for row in rows:
@@ -1684,7 +1715,8 @@ def process_alto_xml(
                     continue
 
                 # The block's own LANG (ABBYY writes one per block) is the hint.
-                actual_src_lang = languages.resolve(block_text, hint=_alto_language_label(block))
+                resolution = languages.resolve_segment(block_text, hint=_alto_language_label(block))
+                actual_src_lang = resolution.lang
 
                 page_blocks_data.append(
                     {
@@ -1694,6 +1726,8 @@ def process_alto_xml(
                         "lines_data": lines_data,
                         "block_text": block_text,
                         "actual_src_lang": actual_src_lang,
+                        # #52: a language the backend cannot translate, translated from the fallback
+                        "unsupported_lang": resolution.unsupported,
                         "block_tgt": "",
                         "block_failed": False,
                         "block_rerun": False,
@@ -1769,6 +1803,9 @@ def process_alto_xml(
             for bdata in document_blocks:
                 for ld in bdata["lines_data"]:
                     if ld["orig_text"] or ld["trans_line_text"]:
+                        status = ld["status"]
+                        if bdata.get("unsupported_lang") and ld["orig_text"] and status != STATUS_UNTRANSLATED:
+                            status = STATUS_UNSUPPORTED_LANG  # #52: translated from the fallback language
                         csv_writer.writerow(
                             [
                                 log_doc_id,
@@ -1776,7 +1813,7 @@ def process_alto_xml(
                                 ld["id"],
                                 ld["orig_text"],
                                 ld["trans_line_text"],
-                                ld["status"],
+                                status,
                             ]
                         )
 

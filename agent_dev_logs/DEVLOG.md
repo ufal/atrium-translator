@@ -383,6 +383,29 @@ cell-merging stub: only page 76 changes, every number on its own row.
 
   Files delivered in chat.
 
+## 2026-10-09 — #52 reported (option (a)); `load_vocab.py --from-release`; v1.4.0-beta
+* **#52**, option (a): report, still translate from the fallback.
+  * `processors/language.py`: `Resolution.unsupported` is the first confident two-letter candidate the backend cannot
+    translate, when no accepted candidate was found; the language used is unchanged. `LanguageTally` lists them in
+    the log line ("identified as a language the backend cannot translate, translated from the fallback: la×1").
+  * `utils.py`: the `_log.csv` status `unsupported_lang` (metadata rows; every line of an ALTO block; an
+    `untranslated` row stays `untranslated`) and the record's `translations.unsupported_source_langs`, on `auto` runs.
+  * Tests: `tests/test_unsupported_language.py` (7), `tests/test_language.py` (4 new).
+* **`load_vocab.py --from-release VERSION [--asset PATH|URL] [--sha256 HEX]`** (atrium-project#72): builds the CSV from
+  atrium-keyword-extract's `atrium-vocabulary-<version>.zip` (`amcr_flat.csv`, `teater_flat.csv`), verified against
+  the `.sha256` beside it; exit 3 on a mismatch. `tests/test_load_vocab_release.py` (7). `data_samples/vocabulary.csv`
+  is not regenerated: from today's flat files it would hold 4,952 pairs instead of 5,087 (159 fewer, 24 new, 11
+  retranslated), which is AMČR's call.
+* **Docs:** README (language identification, the status table, `--from-release`), `docs/translation-backends.md`.
+* `atrium_document.py`, `atrium_document.schema.json`, `service/atrium_service.py`,
+  `tests/test_document_originators.py` and `tests/test_schema_freeze.py` re-vendored from the hub;
+  `service/openapi.json` regenerated.
+* **Version `v1.4.0-beta`:** `CITATION.cff`, the `CONTRIBUTING.md` row, `para_config.txt`, the spec's `info.version`.
+* **Checks:** 1102 passed, 3 skipped; ruff check and format clean; spec current; image closure OK.
+* **Dev logs:** the pair of #52 refreshed.
+
+  Files delivered in chat.
+
 ---
 
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the

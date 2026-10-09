@@ -185,6 +185,46 @@ def test_tally_reports_what_was_overridden():
     summary = tally.summary()
     assert summary.startswith("cs 3 (context 2, detected 1); de 1 (hint 1)")
     assert "FastText guesses not used: yue×1" in summary
+    assert "cannot translate" not in summary
+
+
+# ── translator#52: a confident language the backend cannot translate ─────────────────────────
+
+
+def test_a_confident_language_the_backend_lacks_is_marked_and_still_falls_back():
+    resolution = resolve_source_language(_Candidates([("la", 0.97)]), LONG_CZECH, POLICY, context="cs")
+    assert resolution == Resolution("cs", "context", ("la", 0.97), "la")
+    hint = resolve_source_language(_Candidates([("hu", 0.99)]), LONG_CZECH, POLICY, hint="de", context="cs")
+    assert (hint.lang, hint.basis, hint.unsupported) == ("de", "hint", "hu")
+
+
+def test_a_translatable_runner_up_is_used_and_nothing_is_marked():
+    resolution = resolve_source_language(_Candidates([("la", 0.97), ("de", 0.6)]), LONG_CZECH, POLICY)
+    assert (resolution.lang, resolution.basis, resolution.unsupported) == ("de", "detected", None)
+
+
+@pytest.mark.parametrize(
+    ("candidates", "text"),
+    [
+        ([("la", 0.3)], LONG_CZECH),  # below LANG_ID_MIN_CONFIDENCE: a guess
+        ([("yue", 0.95)], LONG_CZECH),  # an exotic FastText label: a guess
+        ([("la", 0.97)], "Vojtěch Marek"),  # too short to judge: never sent
+        ([("cs", 0.98)], LONG_CZECH),  # translatable
+    ],
+)
+def test_a_guess_is_not_marked(candidates, text):
+    assert resolve_source_language(_Candidates(candidates), text, POLICY, context="cs").unsupported is None
+
+
+def test_tally_lists_the_languages_translated_from_the_fallback():
+    tally = LanguageTally()
+    tally.add(Resolution("cs", "context", ("la", 0.97), "la"))
+    tally.add(Resolution("cs", "context", ("la", 0.91), "la"))
+    tally.add(Resolution("cs", "context", ("hu", 0.99), "hu"))
+    assert tally.unsupported == {"la": 2, "hu": 1}
+    assert tally.summary().endswith(
+        "identified as a language the backend cannot translate, translated from the fallback: la×2, hu×1"
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────

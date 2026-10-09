@@ -35,15 +35,28 @@ Every harvested pair keeps the identity of the thesaurus concept it came from:
 the AMCR ``heslo`` id (``HES-…``) or the TEATER concept id, plus the
 dereferenceable URI built from it.  That is what lets a translated term be
 traced back to its concept — see :data:`CSV_COLUMNS` for the CSV shape.
+
+``--from-release VERSION`` (atrium-project#72, #51) builds the same CSV from the
+vocabulary atrium-keyword-extract publishes with each release instead of
+harvesting: ``atrium-vocabulary-<VERSION>.zip``, checked against the
+``.sha256`` published beside it (or ``--sha256``), whose ``amcr_flat.csv`` and
+``teater_flat.csv`` start with this file's five columns.  One versioned, CC0
+artefact for the whole project, so the translator's vocabulary is a pinned
+release rather than whatever the live APIs answered on the day of a harvest.
+``--asset`` reads a local copy of the zip (or another URL).
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import io
+import re
 import sys
 import time
 import urllib.parse
+import zipfile
 from pathlib import Path
 from typing import NamedTuple
 
@@ -75,6 +88,15 @@ TEATER_ID_BASE = "https://teater.aiscr.cz/id/"
 
 DEFAULT_OUT = Path("data_samples/vocabulary.csv")
 DEFAULT_DELAY = 0.3
+
+#: Where atrium-keyword-extract publishes the vocabulary of each release (atrium-project#72).
+RELEASE_ASSET_URL = (
+    "https://github.com/ufal/atrium-keyword-extract/releases/download/{version}/atrium-vocabulary-{version}.zip"
+)
+#: The asset's two harvests, by the ``source`` their rows carry.
+ASSET_FLAT_FILES = {"amcr": "amcr_flat.csv", "teater": "teater_flat.csv"}
+#: Exit code of ``--from-release`` when the asset is not the one its checksum names.
+EXIT_CHECKSUM = 3
 
 # Output columns.  The first two are the historical vocabulary CSV that
 # ``processors.vocab.load_vocabulary`` reads; the rest carry concept identity and
@@ -490,6 +512,85 @@ def write_vocabulary_csv(records: dict, out_path: Path | str = DEFAULT_OUT) -> i
     return len(records)
 
 
+# ── the released vocabulary (atrium-keyword-extract) ────────────────────────
+
+
+class AssetError(RuntimeError):
+    """The release asset could not be read, or is not the file its checksum names."""
+
+
+def _fetch_bytes(location: str, timeout: float = 120.0) -> bytes:
+    if location.startswith(("http://", "https://")):
+        response = requests.get(location, timeout=timeout)
+        response.raise_for_status()
+        return response.content
+    return Path(location).read_bytes()
+
+
+def _expected_digest(asset_location: str, sha256: str | None) -> str:
+    """The pinned digest, else the first field of the ``<asset>.sha256`` published beside it."""
+    if sha256:
+        digest = sha256.strip().lower()
+    else:
+        try:
+            digest = _fetch_bytes(f"{asset_location}.sha256").decode("utf-8").split()[0].lower()
+        except (OSError, requests.RequestException, IndexError, UnicodeDecodeError) as exc:
+            raise AssetError(
+                f"no checksum for {asset_location}: pass --sha256 or publish {asset_location}.sha256 ({exc})"
+            ) from exc
+    if not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise AssetError(f"{digest!r} is not a SHA-256 digest")
+    return digest
+
+
+def _flat_records(data: bytes, name: str) -> dict[str, VocabEntry]:
+    """``{source_lemma: VocabEntry}`` of one flat CSV of the asset (its first five columns)."""
+    records: dict[str, VocabEntry] = {}
+    reader = csv.DictReader(io.StringIO(data.decode("utf-8-sig")))
+    missing = [column for column in CSV_COLUMNS if column not in (reader.fieldnames or [])]
+    if missing:
+        raise AssetError(f"{name} has no column(s) {missing}")
+    for row in reader:
+        lemma, target = (row.get("source_lemma") or "").strip(), (row.get("target_translation") or "").strip()
+        if lemma and target:
+            records[lemma] = VocabEntry(
+                target, row.get("source") or "", row.get("source_id") or "", row.get("uri") or ""
+            )
+    return records
+
+
+def records_from_release(version: str, *, asset: str | None = None, sha256: str | None = None) -> dict[str, VocabEntry]:
+    """The merged records of a published vocabulary release, verified by its SHA-256.
+
+    *asset* is a path or URL of the zip (default: the release's download URL); *sha256* pins the
+    digest (default: the ``.sha256`` file published beside the asset). Raises :class:`AssetError`.
+    """
+    tag = version if version.startswith("v") else f"v{version}"  # the release tags carry the v
+    location = asset or RELEASE_ASSET_URL.format(version=tag)
+    try:
+        payload = _fetch_bytes(location)
+    except (OSError, requests.RequestException) as exc:
+        raise AssetError(f"cannot read {location}: {exc}") from exc
+    expected = _expected_digest(location, sha256)
+    actual = hashlib.sha256(payload).hexdigest()
+    if actual != expected:
+        raise AssetError(f"{location} has SHA-256 {actual}, not {expected}: refusing it")
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            names = set(archive.namelist())
+            missing = sorted(set(ASSET_FLAT_FILES.values()) - names)
+            if missing:
+                raise AssetError(f"{location} lacks {missing}")
+            per_source = {source: _flat_records(archive.read(name), name) for source, name in ASSET_FLAT_FILES.items()}
+    except zipfile.BadZipFile as exc:
+        raise AssetError(f"{location} is not a zip archive: {exc}") from exc
+    print(
+        f"[IN] {location} (sha256 {actual[:12]}…): "
+        + ", ".join(f"{source} {len(records)}" for source, records in per_source.items())
+    )
+    return merge_records(per_source["amcr"], per_source["teater"])
+
+
 def main(argv: list[str] | None = None) -> int:
     """Harvest both vocabulary sources and write the merged CSV.
 
@@ -499,7 +600,8 @@ def main(argv: list[str] | None = None) -> int:
     one could run. The commands are the documented ones, unchanged, so the
     documentation became true rather than the other way round.
 
-    Exit codes follow main.py's vocabulary (0 ok, 1 usage, 2 nothing harvested).
+    Exit codes follow main.py's vocabulary (0 ok, 1 usage, 2 nothing harvested), plus
+    :data:`EXIT_CHECKSUM` (3) when ``--from-release`` refuses an asset it cannot verify.
     """
     parser = argparse.ArgumentParser(
         prog="load_vocab.py",
@@ -525,7 +627,33 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--skip-amcr", action="store_true", help="do not harvest AMCR")
     parser.add_argument("--skip-teater", action="store_true", help="do not harvest TEATER")
+    parser.add_argument(
+        "--from-release",
+        metavar="VERSION",
+        help="build the CSV from atrium-keyword-extract's vocabulary of this release (e.g. v1.2.0-beta) "
+        "instead of harvesting; the asset is verified against its .sha256",
+    )
+    parser.add_argument("--asset", metavar="PATH_OR_URL", help="with --from-release: the zip, if not the release's own")
+    parser.add_argument(
+        "--sha256", metavar="HEX", help="with --from-release: the digest to pin instead of the .sha256 file"
+    )
     args = parser.parse_args(argv)
+
+    if (args.asset or args.sha256) and not args.from_release:
+        parser.error("--asset and --sha256 go with --from-release")
+    if args.from_release:
+        if args.skip_amcr or args.skip_teater:
+            parser.error("--from-release takes both sources from the release; --skip-* applies to a harvest")
+        try:
+            records = records_from_release(args.from_release, asset=args.asset, sha256=args.sha256)
+        except AssetError as exc:
+            print(f"[ERROR] {exc}", file=sys.stderr)
+            return EXIT_CHECKSUM
+        if not records:
+            print("[WARN] The release's vocabulary has no term pairs; leaving the output file untouched.")
+            return 2
+        write_vocabulary_csv(records, args.out)
+        return 0
 
     if args.skip_amcr and args.skip_teater:
         parser.error("--skip-amcr and --skip-teater together leave nothing to harvest")
