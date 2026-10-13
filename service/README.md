@@ -32,15 +32,15 @@ itself.
 
 ### `POST /translate` (multipart form)
 
-| Field             | In            | Type    | Default       | Meaning                                                                                                                                                                          |
-|-------------------|---------------|---------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `file`            | form          | file    | —             | **Required.** The XML document. Filename must end in `.xml`.                                                                                                                     |
-| `document_json`   | form          | file    | —             | Optional baseline ATRIUM Document JSON to accrete onto, or an AMČR seed (`doc_id`, `source`). One that cannot be opened is a 422 `invalid_record`; an empty part counts as none. |
-| `source_lang`     | form or query | string  | `auto`        | ISO 639-1 code, or `auto`: FastText per block/field, trusted only when confident and translatable, else the element's label, the document's language, `DEFAULT_SOURCE_LANG`.     |
-| `target_lang`     | form or query | string  | `en`          | ISO 639-1 code.                                                                                                                                                                  |
-| `is_alto`         | form or query | boolean | `true`        | `true` → ALTO dual-pass reconstruction; `false` → XPath metadata mode.                                                                                                           |
-| `output_mode`     | form or query | string  | `OUTPUT_MODE` | `replace` or `append` (issue #46). Unset → the `OUTPUT_MODE` env var, then `replace`; an unknown value degrades to the default with a warning.                                   |
-| `response_format` | form or query | string  | `xml`         | `xml`: the translated XML, or `multipart/mixed` with a record (below). `json`: one JSON object instead (atrium-project#32 round 2). Anything else is a 422.                      |
+| Field             | In            | Type    | Default       | Meaning                                                                                                                                                                                                                                                          |
+|-------------------|---------------|---------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `file`            | form          | file    | —             | **Required.** The XML document. Filename must end in `.xml`.                                                                                                                                                                                                     |
+| `document_json`   | form          | file    | —             | Optional baseline ATRIUM Document JSON to accrete onto, or an AMČR seed (`doc_id`, `source`). One that cannot be opened is a 422 `invalid_record`; an empty part counts as none.                                                                                 |
+| `source_lang`     | form or query | string  | `auto`        | ISO 639-1 code, or `auto`: FastText per block/field, trusted only when confident and translatable, else the element's label, the document's language, `DEFAULT_SOURCE_LANG`. A confident guess the backend cannot translate is reported, not refused: see below. |
+| `target_lang`     | form or query | string  | `en`          | ISO 639-1 code.                                                                                                                                                                                                                                                  |
+| `is_alto`         | form or query | boolean | `true`        | `true` → ALTO dual-pass reconstruction; `false` → XPath metadata mode.                                                                                                                                                                                           |
+| `output_mode`     | form or query | string  | `OUTPUT_MODE` | `replace` or `append` (issue #46). Unset → the `OUTPUT_MODE` env var, then `replace`; an unknown value degrades to the default with a warning.                                                                                                                   |
+| `response_format` | form or query | string  | `xml`         | `xml`: the translated XML, or `multipart/mixed` with a record (below). `json`: one JSON object instead (atrium-project#32 round 2). Anything else is a 422.                                                                                                      |
 
 Every field is read from the multipart body first and the query string second (issue #46), so either calling
 style works.
@@ -88,6 +88,14 @@ instead, typed in the spec as `TranslateResponse` — the shape a client generat
 `type` is `alto` or `metadata`; `content` is the translated XML as UTF-8 text; `document_json`
 is present only when a record was sent; `limits_applied` is the full list (the header is still
 set).
+
+**An untranslatable source language** (translator#52). With `source_lang=auto`, a segment
+identified with confidence as a language the backend cannot translate (Latin or Hungarian on
+LINDAT) is still translated from the fallback language. The record's
+`translations.unsupported_source_langs` counts such segments per language (e.g.
+`{"la": 1, "hu": 1}`), so a caller sees it in the `document_json` it gets back; a call without
+a record carries no such field. It is not a `limits_applied` note: nothing was cut, and none of
+the shared effects fits. In the CLI's `_log.csv` those rows have the status `unsupported_lang`.
 
 **`paradata`** is the call's provenance (atrium-project#71): one Process Run Crate `CreateAction`,
 built by `atrium_rocrate.create_action()`, in the JSON response and as the multipart form's

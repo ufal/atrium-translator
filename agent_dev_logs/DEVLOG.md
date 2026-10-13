@@ -406,6 +406,25 @@ cell-merging stub: only page 76 changes, every number on its own row.
 
   Files delivered in chat.
 
+## 2026-10-13 — Shared modules re-vendored (atrium-project#51, atrium-nlp-enrich#41)
+* `atrium_rocrate.py`, `atrium_vocab.py`, `atrium_document.schema.json`, `service/atrium_service.py`,
+  `tests/test_atrium_rocrate.py` and `tests/test_schema_freeze.py` re-vendored from the hub:
+  * the crate names AMČR/TEATER concepts by their source URIs, from `teater_category_ids`, and no longer mints
+    `w3id.org/atrium/theme/<label>`;
+  * the schema declares `enrichment.items[].teater_category_ids`;
+  * the registry's theme maps follow keyword-extract's taxonomy;
+  * the shared 502 text says when to retry.
+* `service/openapi.json` regenerated (the record schema and its sha, the 502 description). No behaviour change, no
+  release.
+* **#52's docs, before closing:** `README.md` lists `translations.unsupported_source_langs` and says the vocabulary
+  switch now waits on AMČR accepting the asset's list, not on a release; `service/README.md` says where the signal
+  is (the record sent back, not `limits_applied`) and that `source_lang=auto` reports it; `main.py`'s status comment
+  and `data_samples/README.md` list `unsupported_lang`.
+* **Checks:** the API-contract and vendored shared tests, 219 passed; `tests/test_unsupported_language.py` and
+  `tests/test_language.py`, 49 passed; the tests that read the READMEs pass; ruff clean.
+
+  Files delivered in chat.
+
 ---
 
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the

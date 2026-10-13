@@ -560,9 +560,9 @@ python load_vocab.py --from-release v1.2.0-beta --asset ./atrium-vocabulary-v1.2
 
 The asset's `amcr_flat.csv` and `teater_flat.csv` start with this CSV's five columns and are merged the same way. An
 asset that does not match its checksum, or lacks either file, is refused (exit 3) and the output is left untouched. The
-committed `vocabulary.csv` is still the harvest of September 2026: built from keyword-extract's current snapshot it has
-4,952 pairs instead of 5,087 (TEATER terms the snapshot lacks), so the switch waits for the first release that carries
-the asset.
+committed `vocabulary.csv` is still the harvest of September 2026. Built from `v1.2.0-beta`, the first release that
+carries the asset, it has 4,952 pairs instead of 5,087 (TEATER terms the pinned snapshot lacks), so the switch waits
+on AMČR accepting that list ([atrium-project#72](https://github.com/ufal/atrium-project/issues/72)).
 
 > [!NOTE]
 > As of 2026-09, `teater.aiscr.cz` serves its TLS certificate without the *RapidSSL TLS RSA CA G1* intermediate, so
@@ -1146,7 +1146,8 @@ version **`1.0`**. That version is frozen as the hub tag
   the current schema.
 
 What this tool writes into the record: the `translations` block (`source_lang`, `target_lang`, `backend`,
-`output_mode`, `detected_source_lang`), `derived_from.translated_xml` and the licence block.
+`output_mode`, `detected_source_lang` and, when an `auto` run met a language it cannot translate,
+`unsupported_source_langs`), `derived_from.translated_xml` and the licence block.
 **`entities[].translation_en` is reserved:** the schema assigns it to the translator, but `entities[]` is written by
 nlp-enrich, which runs after the translator, so no code path here writes it. It stays reserved
 ([atrium-project#70](https://github.com/ufal/atrium-project/issues/70), decided 2026-09-30): the AMČR pilot

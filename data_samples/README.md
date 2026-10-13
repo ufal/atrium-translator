@@ -55,7 +55,9 @@ folder with `--xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd` on a metadata 
 
 `status` in the log is `ok`, `rerun` (the backend's reply was degenerate and the end-of-document re-run
 recovered it), `approx_alignment` (ALTO: the line's anchor was unusable, so its words were placed by word count)
-or `untranslated` (still degenerate after the re-run — the source text was kept, the target cell is empty). A table
+or `untranslated` (still degenerate after the re-run — the source text was kept, the target cell is empty); with
+`--source_lang auto` also `unsupported_lang` (identified with confidence as a language the backend cannot translate,
+and translated from the fallback language; translator#52). A table
 column whose block translation merged repeated cells (page 76 of the ALTO sample) is placed line by line, each cell
 from its own translation, so no number moves to its neighbour's row.
 

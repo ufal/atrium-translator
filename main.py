@@ -572,7 +572,7 @@ def process_single_file(
     # call is sound.
     with collecting() as limit_notes, open(partial_log_path, "w", encoding="utf-8", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
-        # `status` (last column): ok | rerun | approx_alignment | untranslated — how the
+        # `status` (last column): ok | rerun | approx_alignment | untranslated | unsupported_lang — how the
         # line's translation was obtained, so a reviewer can go straight to the lines
         # that were flagged during processing (see utils.STATUS_*).
         csv_writer.writerow(
