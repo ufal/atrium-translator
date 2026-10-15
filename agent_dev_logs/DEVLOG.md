@@ -1,9 +1,9 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
-> _XML in-place translation. 2 open issues (#4, #46). AMČR baseline (atrium-project#67, 2026-09-26): #4 finish ·
-> #46 close after AMČR's production run. `test` HEAD `d8d72b5` (2026-09-28, the v1.2.2-beta tag) · **v1.2.1-beta** (2026-09-26, the
-> production-readiness fixes) · **v1.2.2-beta** (2026-09-28, `d8d72b5`). Twelve-factor detail lives in the hub:
-> `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*` — the `digests/12factor.*` / `plans/12factor.*` this
-> line used to cite were never written._
+> _XML in-place translation (AMČR metadata records, ALTO). 2 open issues: #4 (the bake-off; finish, pilot
+> atrium-project#67) and #46 (closes after AMČR's production run); #52 closed 2026-10-13. Open pull request: #54
+> (Dependabot, into `test`). `test` = `a7a10ee` (2026-10-14) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
+> release is not immutable, atrium-project#72). Twelve-factor detail lives in the hub:
+> `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46,52}.digest.md` · `plans/{4,46,52}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
 
@@ -348,7 +348,7 @@ cell-merging stub: only page 76 changes, every number on its own row.
   `ENV PORT=8000` kept), for a throwaway pull request into `test`, closed unmerged.
 * **Checks:** `-k "ct2 or bakeoff"`: 82 passed, 1 skipped; ruff clean.
 
-  Files delivered in chat.
+  Files delivered in chat; pushed as `b546888`.
 
 ## 2026-10-07 (evening) — #4: two of the findings of 09-28 that the guard missed
 * **The detector reads one more thing.** `processors/quality.py::mixed_script_word`: a word whose letters are both
@@ -370,7 +370,7 @@ cell-merging stub: only page 76 changes, every number on its own row.
   3 skipped; ruff check and format clean. README, `service/README.md` and `docs/translation-backends.md` say the same.
 * **Dev logs:** the pairs of #4 and #46 refreshed.
 
-  Files delivered in chat.
+  Files delivered in chat; pushed as `a9ad269`.
 
 ## 2026-10-08 — Digest and plan for #52
 * **#52** (an unsupported source language is translated as Czech without telling the caller): read on `ef3b311`.
@@ -381,7 +381,7 @@ cell-merging stub: only page 76 changes, every number on its own row.
   already takes. Option (a) has no `limits_applied` effect to use without a shared-module change.
 * **Dev logs:** `digests/52.digest.md`, `plans/52.plan.md`.
 
-  Files delivered in chat.
+  Files delivered in chat; pushed as `dfbee95`.
 
 ## 2026-10-09 — #52 reported (option (a)); `load_vocab.py --from-release`; v1.4.0-beta
 * **#52**, option (a): report, still translate from the fallback.
@@ -404,7 +404,7 @@ cell-merging stub: only page 76 changes, every number on its own row.
 * **Checks:** 1102 passed, 3 skipped; ruff check and format clean; spec current; image closure OK.
 * **Dev logs:** the pair of #52 refreshed.
 
-  Files delivered in chat.
+  Files delivered in chat; pushed as `860a140`, tagged `v1.4.0-beta` at `05e869c`.
 
 ## 2026-10-13 — Shared modules re-vendored (atrium-project#51, atrium-nlp-enrich#41)
 * `atrium_rocrate.py`, `atrium_vocab.py`, `atrium_document.schema.json`, `service/atrium_service.py`,
@@ -422,6 +422,23 @@ cell-merging stub: only page 76 changes, every number on its own row.
   and `data_samples/README.md` list `unsupported_lang`.
 * **Checks:** the API-contract and vendored shared tests, 219 passed; `tests/test_unsupported_language.py` and
   `tests/test_language.py`, 49 passed; the tests that read the READMEs pass; ruff clean.
+
+  Files delivered in chat; pushed as `9a8b722`.
+
+## 2026-10-15 — Issue logs of #4 and #46 consolidated
+* **#4:** one Status and one "Where it stands" section; the dated sections collapsed into History.
+  * Since 10-07: the two guard changes are released in `v1.4.0-beta`.
+  * AMČR's answer on atrium-project#72 (10-13) adds a bake-off arm: the OpenAI-compatible backend as a translation
+    alternative to LINDAT, fed the vocabulary with its descriptions. Today it injects bare pairs
+    (`processors/llm_translator.py:219-247`), and `/translate` loads no vocabulary (`service/api.py:317`). The plan's
+    phase B carries both.
+  * The milestone's 15 October date is passed; the thread moved the target to the end of October.
+* **#46:** the AMČR recipe is checked on `v1.4.0-beta` (the batch image, `--xsd --xsd-strict`). `live-backend` has
+  never been dispatched: `integration.yml` has run on push and pull-request events only.
+* **Found:** `data_samples/in-place_translated_files/xml/` holds the `ct2` EuroLLM run `260928-113756` (`0962214`).
+  `data_samples/README.md:23` names the LINDAT run `260928-110452`. Both pairs carry the fix: restore the LINDAT
+  folder, or let the README name the `ct2` run (#4 plan A.2).
+* No code change.
 
   Files delivered in chat.
 
