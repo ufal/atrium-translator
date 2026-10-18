@@ -164,6 +164,18 @@ def test_a_backend_that_cannot_start_is_a_usage_error(isolated, monkeypatch, cap
     assert "cannot start: LLM_EXTRA_BODY" in capsys.readouterr().out
 
 
+def test_a_model_that_cannot_run_stops_the_cli_before_any_file(isolated, monkeypatch, capsys):
+    """ct2's warm() probe failing (no CUDA 12 cuBLAS) is a usage error, not 1,230 failed segments."""
+
+    def warm():
+        raise TranslationError("CTranslate2 loaded the model but cannot run it on CT2_DEVICE='cuda': libcublas.so.12")
+
+    backend = SimpleNamespace(name="ct2", supported_languages=lambda: ["cs", "en"], vocabulary={}, warm=warm)
+    argv = (str(isolated / "sample.alto.xml"), "--alto", "--source_lang", "cs", "--backend", "ct2")
+    assert _run(monkeypatch, backend, *argv) == EXIT_USAGE
+    assert "ct2 backend cannot start: CTranslate2 loaded the model" in capsys.readouterr().out
+
+
 # ── the service ───────────────────────────────────────────────────────────────
 
 

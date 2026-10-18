@@ -227,7 +227,23 @@ class _Flaky(_Upper):
         return ""
 
 
-_FAKES = {"upper": _Upper, "echo": _Echo, "flaky": _Flaky}
+class _NoCublas(_Upper):
+    name = "nocublas"
+
+    def translate(self, text, src, tgt="en"):
+        raise RuntimeError("Library libcublas.so.12 is not found or cannot be loaded")
+
+
+class _CannotStart(_Upper):
+    name = "cannotstart"
+
+    def warm(self):
+        from processors.translator import TranslationError
+
+        raise TranslationError("CTranslate2 loaded the model but cannot run it on CT2_DEVICE='cuda'")
+
+
+_FAKES = {"upper": _Upper, "echo": _Echo, "flaky": _Flaky, "nocublas": _NoCublas, "cannotstart": _CannotStart}
 
 
 @pytest.fixture
@@ -507,3 +523,43 @@ def test_combine_refuses_a_variant_named_twice(samples, tmp_path):
         bakeoff.main(
             ["--combine", str(tmp_path / "bake.csv"), str(tmp_path / "bake.csv"), "--out", str(tmp_path / "c.csv")]
         )
+
+
+# ── a run that measures nothing exits 2 (job of 2026-10-18) ──────────────────
+
+
+def _exit_status(argv):
+    with pytest.raises(SystemExit) as info:
+        bakeoff.main(argv)
+    return info.value.code
+
+
+def test_a_repeated_error_stops_the_run_and_writes_nothing(samples, tmp_path, capsys):
+    argv = _argv(samples, tmp_path, "--backends", "echo,nocublas", "--max-consecutive-failures", "2")
+    assert _exit_status(argv) == bakeoff.EXIT_UNUSABLE
+    assert not (tmp_path / "bake.csv").exists()
+    err = capsys.readouterr().err
+    assert "'nocublas' failed 2 segment(s) in a row" in err and "libcublas.so.12" in err
+
+
+def test_a_variant_whose_every_segment_failed_exits_2_after_writing(samples, tmp_path, capsys):
+    # Two segments, under the default threshold: the CSVs are written, and the status says they measure nothing.
+    assert _exit_status(_argv(samples, tmp_path, "--backends", "echo,nocublas")) == bakeoff.EXIT_UNUSABLE
+    rows = _read(tmp_path / "bake.csv")
+    assert {r["failed"] for r in rows if r["backend"] == "nocublas"} == {"1"}
+    assert "every segment of the variant 'nocublas' failed (2)" in capsys.readouterr().err
+
+
+def test_a_variant_that_cannot_start_exits_2(samples, tmp_path, capsys):
+    assert _exit_status(_argv(samples, tmp_path, "--backends", "cannotstart")) == bakeoff.EXIT_UNUSABLE
+    assert not (tmp_path / "bake.csv").exists()
+    assert "'cannotstart' cannot start" in capsys.readouterr().err
+
+
+def test_zero_never_stops_and_occasional_failures_are_measured(samples, tmp_path):
+    with pytest.raises(SystemExit):
+        bakeoff.main(_argv(samples, tmp_path, "--backends", "nocublas", "--max-consecutive-failures", "0"))
+    assert (tmp_path / "bake.csv").exists(), "0 runs every segment"
+    # flaky fails one segment of two: no streak of 2, so the run is measured and ends normally.
+    bakeoff.main(_argv(samples, tmp_path, "--backends", "flaky", "--max-consecutive-failures", "2"))
+    assert [r["failed"] for r in _read(tmp_path / "bake.csv")] == ["0", "1"]

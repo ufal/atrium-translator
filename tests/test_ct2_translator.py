@@ -458,6 +458,55 @@ def test_warm_loads_the_engine_and_the_eurollm_tokenizer(monkeypatch):
     assert backend._tokenizer is tokenizer
 
 
+def test_warm_runs_one_short_probe_generation_once(monkeypatch):
+    tokenizer = _FakeTokenizer()
+    backend = _eurollm(monkeypatch, tokenizer)
+    backend.warm()
+    backend.warm()
+    assert len(backend._engine.calls) == 1, "the probe runs once per backend"
+    tokens, kwargs = backend._engine.calls[0]
+    assert tokens == [["tok-101", "tok-102", "tok-103"]]
+    assert kwargs["max_length"] == 2
+
+
+class _NoCublasGenerator(_FakeGenerator):
+    def generate_batch(self, sequences, **kwargs):
+        raise RuntimeError("Library libcublas.so.12 is not found or cannot be loaded")
+
+
+def test_a_model_that_loads_but_cannot_run_fails_at_warm_with_the_fix(monkeypatch):
+    """Job 2026-10-18: ctranslate2 4.8.3 next to a CUDA 13 torch loaded EuroLLM, then failed every segment."""
+    tokenizer = _FakeTokenizer()
+    backend = _eurollm(monkeypatch, tokenizer)
+    monkeypatch.setattr(sys.modules["ctranslate2"], "Generator", _NoCublasGenerator)
+    with pytest.raises(TranslationError) as info:
+        backend.warm()
+    message = str(info.value)
+    assert "libcublas.so.12" in message
+    assert "nvidia-cublas-cu12" in message and "LD_LIBRARY_PATH" in message and "CT2_DEVICE=cpu" in message
+    assert backend._probed is False, "a later warm() probes again"
+
+
+def test_the_nmt_probe_translates_a_few_tokens(monkeypatch):
+    backend = _nmt("madlad")
+    backend.warm()
+    tokens, kwargs = backend._engine.calls[0]
+    assert tokens[-1] == "</s>"
+    assert kwargs["max_decoding_length"] == 2
+
+
+def test_an_nmt_probe_failure_names_the_device(monkeypatch):
+    backend = _nmt("madlad")
+    backend.device = "cuda"
+
+    def out_of_memory(batch, **kwargs):
+        raise RuntimeError("CUDA failed with error out of memory")
+
+    backend._engine.translate_batch = out_of_memory
+    with pytest.raises(TranslationError, match="CT2_DEVICE='cuda'.*free memory"):
+        backend.warm()
+
+
 def test_concurrent_first_requests_load_the_model_once(monkeypatch):
     import threading
     import time
@@ -514,6 +563,14 @@ def test_the_service_loads_a_ct2_model_at_startup(monkeypatch):
 def test_a_ct2_configuration_error_stops_the_service_at_startup(monkeypatch):
     backend = CT2Translator(model_dir="", family="eurollm")  # CT2_MODEL_DIR unset
     with pytest.raises(TranslationError, match="CT2_MODEL_DIR"):
+        _run_lifespan(monkeypatch, backend)
+
+
+def test_a_model_that_cannot_run_stops_the_service_at_startup(monkeypatch):
+    tokenizer = _FakeTokenizer()
+    backend = _eurollm(monkeypatch, tokenizer)
+    monkeypatch.setattr(sys.modules["ctranslate2"], "Generator", _NoCublasGenerator)
+    with pytest.raises(TranslationError, match="nvidia-cublas-cu12"):
         _run_lifespan(monkeypatch, backend)
 
 

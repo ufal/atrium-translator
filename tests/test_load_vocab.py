@@ -410,6 +410,18 @@ def test_cli_writes_the_merged_csv(tmp_path, monkeypatch):
     assert "mohyla" in body and "sidliste" in body
 
 
+def test_the_csv_is_written_with_lf_line_endings(tmp_path):
+    """CRLF (the csv default) changed the committed file's sha256, which /info reports (translator#4)."""
+    out = tmp_path / "vocab.csv"
+    load_vocab.write_vocabulary_csv({"mohyla": load_vocab.VocabEntry("barrow")}, out)
+    assert b"\r" not in out.read_bytes()
+
+
+def test_the_committed_vocabulary_has_lf_line_endings():
+    committed = Path(__file__).resolve().parents[1] / "data_samples" / "vocabulary.csv"
+    assert b"\r" not in committed.read_bytes()
+
+
 def test_cli_can_skip_a_source(tmp_path, monkeypatch):
     out = tmp_path / "vocab.csv"
     called = {"teater": False}

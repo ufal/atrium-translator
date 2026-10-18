@@ -97,6 +97,22 @@ _LLM_RERUN_BEAM = 2
 _RERUN_BEAM_STEP = 2
 _RERUN_BEAM_MAX = 12
 
+
+def _runtime_hint(device: str, error: Exception) -> str:
+    """The message for a model that loaded but cannot generate on *device*, with the fix."""
+    text = str(error)
+    message = f"CTranslate2 loaded the model but cannot run it on CT2_DEVICE={device!r}: {text}"
+    if "cublas" in text.lower() or "cudnn" in text.lower() or ".so." in text:
+        message += (
+            " — CTranslate2 4.x runs on CUDA 12: install its cuBLAS into the environment"
+            " (pip install nvidia-cublas-cu12) and put that package's lib folder on LD_LIBRARY_PATH,"
+            " or load a CUDA 12 runtime; or set CT2_DEVICE=cpu (see docs/translation-backends.md)."
+        )
+    elif device != "cpu":
+        message += " — check the GPU's free memory and driver, or set CT2_DEVICE=cpu."
+    return message
+
+
 # Model family -> para_config.txt component carrying that model's licence.
 # Every family must map to a declared component: an undeclared name is logged as
 # "UNKNOWN" by atrium_paradata, which is not a licence anyone can comply with.
@@ -112,6 +128,9 @@ _NMT_FAMILIES = {"madlad", "nllb", "opus"}
 
 # Accepted by CTranslate2 on every device, in addition to the device's own types.
 _PORTABLE_COMPUTE_TYPES = ("default", "auto")
+
+# The text of warm()'s probe generation: short, so the probe costs a few tokens.
+_PROBE_TEXT = "Dobrý den."
 # A limit since atrium-project#53 (CT2_MAX_GLOSSARY_TERMS in tool_limits.py, read per use);
 # this name is its value at import, kept for the callers and tests that read it.
 _MAX_GLOSSARY_TERMS = CT2_MAX_GLOSSARY_TERMS.get()
@@ -288,6 +307,7 @@ class CT2Translator:
         self._engine = None
         self._sp = None
         self._tokenizer = None
+        self._probed = False
         # One backend object serves every request of the service, and the first requests can
         # arrive together: without the lock each would load its own copy of the model.
         self._load_lock = threading.RLock()
@@ -381,12 +401,32 @@ class CT2Translator:
     def warm(self) -> None:
         """Load the model — and EuroLLM's tokenizer — now instead of on the first request.
 
-        The service calls it at startup (``service/api.py`` lifespan), so a configuration
-        error stops the service and ``/ready`` means the model is loaded.
+        The service calls it at startup (``service/api.py`` lifespan), and so does the CLI
+        (``main.py``), so a configuration error stops the run and ``/ready`` means the model
+        is loaded. One short generation follows the load: a runtime that loads a model but
+        cannot run it (CTranslate2 4.x on CUDA without CUDA 12's cuBLAS) fails here, with
+        the fix, instead of on every segment of the first document (translator#4, job of
+        2026-10-18: 1,230 of 1,230 segments failed).
         """
         self._ensure_loaded()
         if self.family not in _NMT_FAMILIES:
             self._get_tokenizer()
+        if not self._probed:
+            self._probe()
+            self._probed = True
+
+    def _probe(self) -> None:
+        """One generation of a few tokens; a failure is a :class:`TranslationError` naming the fix."""
+        try:
+            if self.family in _NMT_FAMILIES:
+                tokens = list(self._sp.encode(_PROBE_TEXT, out_type=str)) + ["</s>"]
+                self._engine.translate_batch([tokens], beam_size=1, max_decoding_length=2)
+            else:
+                ids = self._tokenizer(_PROBE_TEXT, add_special_tokens=False)["input_ids"]
+                tokens = self._tokenizer.convert_ids_to_tokens(ids)
+                self._engine.generate_batch([tokens], max_length=2, include_prompt_in_result=False)
+        except (RuntimeError, OSError, ValueError) as e:
+            raise TranslationError(_runtime_hint(self.device, e)) from e
 
     def _ensure_loaded(self) -> None:
         if self._engine is not None:

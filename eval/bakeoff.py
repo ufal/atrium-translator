@@ -43,6 +43,11 @@ TSV is supplied:
   * divergence: char-level similarity of each backend's output to the output of
     the first backend in ``--backends`` (the baseline), for any number of backends.
 
+A run that measures nothing exits with status 2 and says why: a variant that
+cannot start (``warm()`` failing), one that fails ``--max-consecutive-failures``
+segments in a row with the same error (default 10; nothing is written), and one
+whose every segment failed (the CSVs are written, and show it).
+
 ``failed`` counts segments where the backend raised; ``empty`` counts segments
 where it answered with blank text. They are kept apart because they mean
 different things (an outage or refusal vs. a model that dropped the content).
@@ -105,7 +110,20 @@ from lxml import etree
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from processors.backend import get_backend  # noqa: E402
+from processors.translator import TranslationError  # noqa: E402
 from processors.vocab import get_matching_terms, load_vocabulary  # noqa: E402
+
+# The exit status of a run that measured nothing: a variant could not start, stopped on a
+# repeated error, or failed every segment. A cluster job reads it as a failed stage.
+EXIT_UNUSABLE = 2
+# A variant that fails this many segments in a row with the same error is broken, not
+# measured (job of 2026-10-18: 1,230 ct2 segments, each "libcublas.so.12 is not found").
+DEFAULT_MAX_CONSECUTIVE_FAILURES = 10
+
+
+class BakeoffAborted(Exception):
+    """A variant cannot be measured; the message says why and what was written."""
+
 
 _SECURE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False, huge_tree=False)
 
@@ -520,13 +538,16 @@ def run(args) -> list[dict]:
     warm_s: dict[str, float] = {}
     for name in names:
         ctor_kwargs = {"vocab_path": args.vocabulary} if args.vocabulary else {}
-        backend = get_backend(name, **ctor_kwargs)
         column = label or name  # the `backend` column: the variant's label when one is given
-        warm = getattr(backend, "warm", None)
-        if callable(warm):  # load the model before the clock starts (ct2)
-            t0 = time.perf_counter()
-            warm()
-            warm_s[column] = round(time.perf_counter() - t0, 2)
+        try:
+            backend = get_backend(name, **ctor_kwargs)
+            warm = getattr(backend, "warm", None)
+            if callable(warm):  # load the model, and run its probe, before the clock starts (ct2)
+                t0 = time.perf_counter()
+                warm()
+                warm_s[column] = round(time.perf_counter() - t0, 2)
+        except (TranslationError, ValueError) as e:
+            raise BakeoffAborted(f"the variant '{column}' cannot start, so nothing was measured: {e}") from e
         describe = getattr(backend, "describe", None)
         described[column] = {"backend": name, **(describe() if callable(describe) else {})}
         backends[column] = backend
@@ -538,6 +559,8 @@ def run(args) -> list[dict]:
     segments = collect_segments(Path(args.samples), xpaths, args.limit, kinds)
     print(f"[INFO] {len(segments)} segment(s) collected from {args.samples}.")
 
+    max_failures = getattr(args, "max_consecutive_failures", DEFAULT_MAX_CONSECUTIVE_FAILURES)
+    streaks: dict[str, tuple[str, int]] = {}  # per variant: the last error and how many times in a row
     rows: list[dict] = []
     for seg in segments:
         src = seg["src"]
@@ -553,6 +576,13 @@ def run(args) -> list[dict]:
                 error = str(e)
                 print(f"[WARN] {name} failed on {seg['file']}:{seg['id']}: {e}")
             seconds = round(time.perf_counter() - t0, 3)
+            last, count = streaks.get(name, ("", 0))
+            streaks[name] = (error, count + 1 if error and error == last else 1 if error else 0)
+            if max_failures and streaks[name][1] >= max_failures:
+                raise BakeoffAborted(
+                    f"the variant '{name}' failed {max_failures} segment(s) in a row with the same error, so the "
+                    f"run stopped and wrote nothing: {error}"
+                )
             tgt = tgt or ""
             hit, exp = terminology_hits(src, tgt, vocab)
             row = {
@@ -607,6 +637,13 @@ def run(args) -> list[dict]:
         "finished_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     print(f"[INFO] what ran → {_write_meta(args.out, meta)}")
+    for name in backend_names:
+        mine = [r for r in rows if r["backend"] == name]
+        if mine and all(r["failed"] for r in mine):
+            raise BakeoffAborted(
+                f"every segment of the variant '{name}' failed ({len(mine)}); the CSVs are written but measure "
+                f"nothing. Last error: {mine[-1]['error']}"
+            )
     return summary
 
 
@@ -725,6 +762,13 @@ def main(argv: list[str] | None = None) -> None:
         help="Reference-free COMET-QE checkpoint (opt-in), e.g. Unbabel/wmt22-cometkiwi-da.",
     )
     p.add_argument("--comet-gpus", type=int, default=0, help="GPUs for COMET/COMET-QE scoring (0 = CPU).")
+    p.add_argument(
+        "--max-consecutive-failures",
+        type=int,
+        default=DEFAULT_MAX_CONSECUTIVE_FAILURES,
+        help="Stop when a variant fails this many segments in a row with the same error (a broken runtime, a "
+        "server that is down): nothing is written and the exit status is 2. 0 never stops (default %(default)s).",
+    )
     args = p.parse_args(argv)
     if args.combine:
         combine(args)
@@ -736,7 +780,13 @@ def main(argv: list[str] | None = None) -> None:
     unknown = sorted(set(k.strip() for k in args.kinds.split(",") if k.strip()) - set(KINDS))
     if unknown:
         p.error(f"--kinds: unknown kind(s) {unknown}; choose from {', '.join(KINDS)}")
-    run(args)
+    if args.max_consecutive_failures < 0:
+        p.error("--max-consecutive-failures must be 0 (never stop) or more")
+    try:
+        run(args)
+    except BakeoffAborted as e:
+        print(f"[ERROR] {e}", file=sys.stderr)
+        sys.exit(EXIT_UNUSABLE)
 
 
 if __name__ == "__main__":

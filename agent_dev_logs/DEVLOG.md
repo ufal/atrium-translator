@@ -1,9 +1,9 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
 > _XML in-place translation (AMČR metadata records, ALTO). 2 open issues: #4 (the bake-off; finish, pilot
 > atrium-project#67) and #46 (closes after AMČR's production run); #52 closed 2026-10-13. Open pull request: #54
-> (Dependabot, into `test`). `test` = `223a0b3` (2026-10-16) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
-> release is not immutable, atrium-project#72). Latest entry: 2026-10-18 (#4 phase B, the bake-off kit, refused
-> language pairs; files delivered in chat). Twelve-factor detail lives in the hub:
+> (Dependabot, into `test`). `test` = `0a64328` (2026-10-18) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
+> release is not immutable, atrium-project#72). Latest entry: 2026-10-18 (evening: job T1 read, the fail-fast
+> follow-up, T1b; files delivered in chat). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46,52}.digest.md` · `plans/{4,46,52}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -501,6 +501,34 @@ cell-merging stub: only page 76 changes, every number on its own row.
   both scripts.
 * **Not done:** no version bump. v1.5.0-beta follows the bake-off, once immutable releases are on in this repository
   (atrium-project#72). The milestone's date (15 October) is not moved here.
+
+  Files delivered in chat.
+
+## 2026-10-18 (evening) — #4 job T1 read; the runtimes fail fast now; T1b
+* **Job T1** (7143997, dll-4gpu1; the round above, pushed as `97a7bb3`/`0a64328`):
+  * `lindat`, the baseline: 1,230 segments (37 metadata fields + 1,193 ALTO blocks), 0 failed, terms 229/232, numbers
+    0.993, length ratio 1.03, 2,508 s. The live lane (#46): 4 passed, 3 stub-only skips.
+  * `ct2` 1.7B and 9B: every segment failed with `libcublas.so.12 is not found` (CTranslate2 4.8.3 needs CUDA 12
+    cuBLAS; the venv's torch is CUDA 13). `warm()` had loaded the models, so both stages were marked ok.
+  * LLM: vLLM 0.31 refused Qwen3.8's default `max_num_seqs` (1024 against 639 Mamba cache blocks; a hybrid model).
+  * Also: a second job (7143998) wrote into the same folder; `test` lacks the LINDAT replace folder its README
+    lists; the cluster's vocabulary sha (`1d7af821…`) is the CRLF file's LF form.
+* **Fail fast, with the fix:**
+  * `CT2Translator.warm()` runs one short generation after the load; a failure is a `TranslationError` naming CUDA
+    12's cuBLAS (`nvidia-cublas-cu12` + `LD_LIBRARY_PATH`) or `CT2_DEVICE=cpu`. The CLI now calls `warm()` after the
+    pair check (exit 1), as the service does at startup.
+  * `eval/bakeoff.py` exits 2 when a variant cannot start, fails `--max-consecutive-failures` (default 10) segments in a
+    row with the same error (nothing written), or fails every segment.
+  * `load_vocab.py` writes LF (`lineterminator="\n"`); a test pins the committed file.
+* **Docs:** the cuBLAS note in `requirements-ct2.txt`, `.env.example`, `service/README.md` and
+  `docs/translation-backends.md`; the refused pair's row in `service/README.md`'s error table (atrium-project#77).
+* **The LINDAT replace samples** restored from `d8d72b5` again.
+* **Job T1b** (scripts re-delivered): prep installs `nvidia-cublas-cu12`; the job takes a lock per `OUT`, puts the
+  venv's cuBLAS 12 on `LD_LIBRARY_PATH` (else `CUDA_MODULE`; without it the `ct2` stages are skipped), serves vLLM with
+  `--max-num-seqs 64`, clears a label's old outputs, combines only finished runs (`runs/<label>.done`) and records
+  Qwen's model-card licence. Re-run: `FORCE=1 ONLY="20 21 30 40 50 90"`.
+* **Checks:** 1170 passed, 3 skipped; ruff clean; `bash -n` and shellcheck clean; the job dry-run here with a stub
+  interpreter (lock, skip, `.done`, combine).
 
   Files delivered in chat.
 

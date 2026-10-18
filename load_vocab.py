@@ -521,7 +521,9 @@ def write_vocabulary_csv(records: dict, out_path: Path | str = DEFAULT_OUT) -> i
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, mode="w", encoding="utf-8", newline="") as fh:
-        writer = csv.writer(fh)
+        # LF, as the committed file and keyword-extract's writer: the csv default (CRLF)
+        # changes the file's sha256, which /info and the paradata report (translator#4).
+        writer = csv.writer(fh, lineterminator="\n")
         writer.writerow(CSV_COLUMNS)
         for lemma in sorted(records):
             value = records[lemma]

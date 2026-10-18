@@ -773,6 +773,16 @@ def main() -> int:
                 f"Change {pair_hint}, or choose another --backend."
             )
             return EXIT_USAGE
+        # A backend with a model (ct2) loads it and runs one short generation now, as the
+        # service does at startup: a model that cannot run stops the run here, with the fix,
+        # instead of failing every segment of every file (translator#4).
+        warm = getattr(translator, "warm", None)
+        if callable(warm):
+            try:
+                warm()
+            except TranslationError as exc:
+                print(f"[ERROR] The {args.backend or 'lindat'} backend cannot start: {exc}")
+                return EXIT_USAGE
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
         # One policy for the whole run: which detections are trusted, and what an
         # untrusted one falls back to. The accepted languages are those the backend

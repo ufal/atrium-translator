@@ -11,6 +11,16 @@
 # Then convert a model (e.g. EuroLLM-1.7B or MADLAD-400-3B) to the CTranslate2
 # int8 format, set the CT2_* env vars, and select it with `--backend ct2`
 # (or TRANSLATION_BACKEND=ct2).
+#
+# On a GPU (CT2_DEVICE=cuda), CTranslate2 4.x runs on CUDA 12: it loads libcublas.so.12,
+# which a CUDA 13 torch in the same environment does not bring. Install it and put it on
+# the library path, or use a CUDA 12 runtime:
+#
+#     pip install nvidia-cublas-cu12
+#     export LD_LIBRARY_PATH="$(python -c 'import nvidia.cublas, os; print(os.path.join(nvidia.cublas.__path__[0], "lib"))'):$LD_LIBRARY_PATH"
+#
+# Without it the model loads and every generation fails; the backend's start-up probe
+# (warm()) reports that, with this fix, before any document is touched.
 ctranslate2>=4.8.2
 sentencepiece>=0.2.2
 # EuroLLM uses its Hugging Face tokenizer and chat template for CTranslate2

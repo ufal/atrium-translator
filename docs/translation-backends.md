@@ -163,6 +163,12 @@ hr, sl, lv, lt, et, hu, ro, es, it, nl, hi.  Of the candidates:
   and Jinja2 for the template. Generation stops at the tokenizer's EOS and at the chat
   markers (`<|im_end|>`, `<|im_start|>`) it knows. 1.7B is CPU-viable at int8;
   9B wants a GPU.
+- **On a GPU:** CTranslate2 4.x runs on CUDA 12 and loads `libcublas.so.12`, which a CUDA 13
+  PyTorch in the same environment does not bring: `pip install nvidia-cublas-cu12` and put its
+  `lib` folder on `LD_LIBRARY_PATH` (`requirements-ct2.txt` has the line), or use a CUDA 12
+  runtime. Without it the model loads and every generation fails, as in the bake-off job of
+  2026-10-18 (1,230 of 1,230 segments). `warm()` therefore runs one short generation after
+  the load; the service and the CLI stop there with the fix (or `CT2_DEVICE=cpu`).
 - **Prompt:** the user turn is EuroLLM-Instruct's documented translation format,
   languages in words (`Translate the following Czech source text to
   English:\nCzech: … \nEnglish: `); the instructions sit in the system turn.
@@ -435,9 +441,15 @@ reference-less: failed / empty segments, number preservation, length ratio, term
 divergence from LINDAT, speed, optionally COMET-QE, and a manual read of the outputs. 37
 fields is a small sample; the result comment says so.
 
+A variant that measures nothing ends the run with exit status 2 and says why: it cannot start
+(`warm()` fails), it fails `--max-consecutive-failures` segments in a row with the same error
+(default 10; nothing is written), or every one of its segments failed (the CSVs are written).
+
 ### Suggested next steps
 
-1. Run the bake-off on the cluster (the job script is delivered with issue #4's thread).
+1. Re-run the ct2 and LLM variants on the cluster with CUDA 12 cuBLAS and vLLM's
+   `--max-num-seqs 64` (Qwen3.8 is a hybrid model: vLLM 0.31 refused its default 1024). The
+   LINDAT baseline of 18 October stands: 1,230 segments, 0 failed, 229 of 232 terms kept.
 2. Post the comparison matrix on issue #4, with the recommended default and whether the image
    should set `VOCABULARY_PATH`.
 3. Record the self-hosted LLM's licence in `para_config.txt` (from its model card) so
