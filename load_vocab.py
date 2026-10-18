@@ -39,11 +39,19 @@ traced back to its concept — see :data:`CSV_COLUMNS` for the CSV shape.
 ``--from-release VERSION`` (atrium-project#72, #51) builds the same CSV from the
 vocabulary atrium-keyword-extract publishes with each release instead of
 harvesting: ``atrium-vocabulary-<VERSION>.zip``, checked against the
-``.sha256`` published beside it (or ``--sha256``), whose ``amcr_flat.csv`` and
-``teater_flat.csv`` start with this file's five columns.  One versioned, CC0
+``.sha256`` published beside it (or ``--sha256``).  One versioned, CC0
 artefact for the whole project, so the translator's vocabulary is a pinned
 release rather than whatever the live APIs answered on the day of a harvest.
 ``--asset`` reads a local copy of the zip (or another URL).
+
+The release's term list is its curated ``vocabulary.csv`` (keyword-extract's
+exclusions applied), so the project curates one list, not two (agreed on
+atrium-project#72, 13 October).  Each kept pair takes its concept identity
+from the record that won it in ``union_nested.json``, the flat harvests
+(``amcr_flat.csv``, ``teater_flat.csv``) supply the URI, and the flat JSON
+harvests supply a ``description`` (``note_en``, else ``note_cs``), cut to
+``--description-chars``.  The LLM backend can give that description to the
+model as context (``LLM_GLOSSARY_DESCRIPTION_CHARS``, translator#4).
 """
 
 from __future__ import annotations
@@ -52,6 +60,7 @@ import argparse
 import csv
 import hashlib
 import io
+import json
 import re
 import sys
 import time
@@ -95,6 +104,14 @@ RELEASE_ASSET_URL = (
 )
 #: The asset's two harvests, by the ``source`` their rows carry.
 ASSET_FLAT_FILES = {"amcr": "amcr_flat.csv", "teater": "teater_flat.csv"}
+#: The asset's curated two-column glossary: the pairs the translator keeps.
+ASSET_CURATED = "vocabulary.csv"
+#: Optional: the nested union, which names the record that won each curated pair.
+ASSET_NESTED = "union_nested.json"
+#: Optional: the full harvests, the only place the descriptions (``note_en``/``note_cs``) are kept.
+ASSET_FLAT_JSON = {"amcr": "amcr_flat.json", "teater": "teater_flat.json"}
+#: Default cap on a description, in characters (0 writes none).
+DEFAULT_DESCRIPTION_CHARS = 500
 #: Exit code of ``--from-release`` when the asset is not the one its checksum names.
 EXIT_CHECKSUM = 3
 
@@ -102,8 +119,9 @@ EXIT_CHECKSUM = 3
 # ``processors.vocab.load_vocabulary`` reads; the rest carry concept identity and
 # are the leading columns of the ``*_flat.csv`` written by atrium-nlp-enrich
 # (``…,source,source_id,uri,scheme,sub,broader,sort``), so the two repos' files
-# are prefix-compatible.
-CSV_COLUMNS = ("source_lemma", "target_translation", "source", "source_id", "uri")
+# are prefix-compatible.  ``description`` is last: the concept's scope note, filled only
+# by ``--from-release`` and read by name, never by position (processors/vocab.py).
+CSV_COLUMNS = ("source_lemma", "target_translation", "source", "source_id", "uri", "description")
 
 
 class VocabEntry(NamedTuple):
@@ -113,6 +131,7 @@ class VocabEntry(NamedTuple):
     source: str = ""
     source_id: str = ""
     uri: str = ""
+    description: str = ""
 
 
 def _split_identifier(ident: str, base: str) -> tuple[str, str]:
@@ -507,7 +526,7 @@ def write_vocabulary_csv(records: dict, out_path: Path | str = DEFAULT_OUT) -> i
         for lemma in sorted(records):
             value = records[lemma]
             entry = value if isinstance(value, VocabEntry) else VocabEntry(str(value))
-            writer.writerow([lemma, entry.target, entry.source, entry.source_id, entry.uri])
+            writer.writerow([lemma, entry.target, entry.source, entry.source_id, entry.uri, entry.description])
     print(f"[OUT] Wrote {len(records)} term pairs to {out}")
     return len(records)
 
@@ -543,27 +562,86 @@ def _expected_digest(asset_location: str, sha256: str | None) -> str:
     return digest
 
 
-def _flat_records(data: bytes, name: str) -> dict[str, VocabEntry]:
-    """``{source_lemma: VocabEntry}`` of one flat CSV of the asset (its first five columns)."""
-    records: dict[str, VocabEntry] = {}
+def _curated_pairs(data: bytes) -> list[tuple[str, str]]:
+    """The ``(source_lemma, target_translation)`` rows of the asset's curated glossary, in file order."""
+    pairs: list[tuple[str, str]] = []
+    for index, row in enumerate(csv.reader(io.StringIO(data.decode("utf-8-sig")))):
+        if len(row) < 2 or (index == 0 and row[0].strip().lower() == "source_lemma"):
+            continue
+        lemma, target = row[0].strip().lower(), row[1].strip()
+        if lemma and target:
+            pairs.append((lemma, target))
+    return pairs
+
+
+def _nested_winners(data: bytes) -> dict[tuple[str, str], tuple[str, str]]:
+    """``{(lemma, target): (source, source_id)}``: the record each pair of the nested union came from.
+
+    keyword-extract drops excluded records before it picks a pair's winner, and the flat
+    harvests do not say which records were excluded, so only the nested union names the
+    winner (``papír``, ``archeolog`` and ``latina`` have a different first match in the flats).
+    """
+    winners: dict[tuple[str, str], tuple[str, str]] = {}
+    for facet, terms in json.loads(data.decode("utf-8")).items():
+        if facet.startswith("_") or not isinstance(terms, dict):
+            continue
+        for term in terms.values():
+            if isinstance(term, dict) and term.get("cs") and term.get("en"):
+                key = (str(term["cs"]).strip().lower(), str(term["en"]).strip())
+                winners.setdefault(key, (str(term.get("source") or ""), str(term.get("source_id") or "")))
+    return winners
+
+
+def _flat_rows(data: bytes, name: str) -> list[dict[str, str]]:
+    """The rows of one flat CSV of the asset, which must carry this file's provenance columns."""
     reader = csv.DictReader(io.StringIO(data.decode("utf-8-sig")))
-    missing = [column for column in CSV_COLUMNS if column not in (reader.fieldnames or [])]
+    missing = [column for column in CSV_COLUMNS[:5] if column not in (reader.fieldnames or [])]
     if missing:
         raise AssetError(f"{name} has no column(s) {missing}")
-    for row in reader:
-        lemma, target = (row.get("source_lemma") or "").strip(), (row.get("target_translation") or "").strip()
-        if lemma and target:
-            records[lemma] = VocabEntry(
-                target, row.get("source") or "", row.get("source_id") or "", row.get("uri") or ""
-            )
-    return records
+    return list(reader)
 
 
-def records_from_release(version: str, *, asset: str | None = None, sha256: str | None = None) -> dict[str, VocabEntry]:
-    """The merged records of a published vocabulary release, verified by its SHA-256.
+def _short_description(text: str, limit: int) -> str:
+    """*text* on one line, cut at a word boundary to at most *limit* characters (with "…")."""
+    text = " ".join((text or "").split())
+    if limit <= 0 or not text:
+        return ""
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1]
+    if " " in cut:
+        cut = cut[: cut.rindex(" ")]
+    return cut.rstrip(" ,;:") + "…"
+
+
+def _flat_descriptions(data: bytes, limit: int) -> dict[str, str]:
+    """``{source_id: description}`` of one flat JSON harvest: ``note_en``, else ``note_cs``."""
+    descriptions: dict[str, str] = {}
+    for term in json.loads(data.decode("utf-8")).get("terms", []):
+        note = term.get("note_en") or term.get("note_cs") or ""
+        short = _short_description(str(note), limit)
+        if short and term.get("source_id"):
+            descriptions[str(term["source_id"])] = short
+    return descriptions
+
+
+def records_from_release(
+    version: str,
+    *,
+    asset: str | None = None,
+    sha256: str | None = None,
+    description_chars: int = DEFAULT_DESCRIPTION_CHARS,
+) -> dict[str, VocabEntry]:
+    """The curated records of a published vocabulary release, verified by its SHA-256.
 
     *asset* is a path or URL of the zip (default: the release's download URL); *sha256* pins the
-    digest (default: the ``.sha256`` file published beside the asset). Raises :class:`AssetError`.
+    digest (default: the ``.sha256`` file published beside it); *description_chars* caps each
+    description (0: none).  Raises :class:`AssetError`.
+
+    The pairs are those of the asset's curated ``vocabulary.csv``.  A pair takes the identity of
+    the record that won it in ``union_nested.json``; a pair the nested union does not name (the
+    TEATER top-level headings) takes its first match in the flat harvests, AMČR first.  A curated
+    pair found in no harvest is kept without provenance, and reported.
     """
     tag = version if version.startswith("v") else f"v{version}"  # the release tags carry the v
     location = asset or RELEASE_ASSET_URL.format(version=tag)
@@ -578,17 +656,67 @@ def records_from_release(version: str, *, asset: str | None = None, sha256: str 
     try:
         with zipfile.ZipFile(io.BytesIO(payload)) as archive:
             names = set(archive.namelist())
-            missing = sorted(set(ASSET_FLAT_FILES.values()) - names)
+            missing = sorted({*ASSET_FLAT_FILES.values(), ASSET_CURATED} - names)
             if missing:
                 raise AssetError(f"{location} lacks {missing}")
-            per_source = {source: _flat_records(archive.read(name), name) for source, name in ASSET_FLAT_FILES.items()}
+            curated = _curated_pairs(archive.read(ASSET_CURATED))
+            flats = {source: _flat_rows(archive.read(name), name) for source, name in ASSET_FLAT_FILES.items()}
+            winners = _nested_winners(archive.read(ASSET_NESTED)) if ASSET_NESTED in names else {}
+            descriptions = {
+                source: _flat_descriptions(archive.read(name), description_chars)
+                for source, name in ASSET_FLAT_JSON.items()
+                if name in names and description_chars > 0
+            }
+            absent = [name for name in (ASSET_NESTED, *ASSET_FLAT_JSON.values()) if name not in names]
     except zipfile.BadZipFile as exc:
         raise AssetError(f"{location} is not a zip archive: {exc}") from exc
+    except (ValueError, UnicodeDecodeError) as exc:  # json.JSONDecodeError is a ValueError
+        raise AssetError(f"{location} has an unreadable member: {exc}") from exc
+
+    by_identity = {(source, row.get("source_id") or ""): row for source, rows in flats.items() for row in rows}
+    by_pair: dict[tuple[str, str], tuple[str, dict]] = {}
+    for source in ("amcr", "teater"):  # AMČR first, as in merge_records
+        for row in flats[source]:
+            key = ((row.get("source_lemma") or "").strip().lower(), (row.get("target_translation") or "").strip())
+            by_pair.setdefault(key, (source, row))
+
+    records: dict[str, VocabEntry] = {}
+    unmatched: list[str] = []
+    for lemma, target in curated:
+        winner = winners.get((lemma, target))
+        row = by_identity.get(winner) if winner else None
+        if row is not None:
+            source = winner[0]
+        elif (lemma, target) in by_pair:
+            source, row = by_pair[(lemma, target)]
+        else:
+            unmatched.append(lemma)
+            records[lemma] = VocabEntry(target)
+            continue
+        source_id = row.get("source_id") or ""
+        records[lemma] = VocabEntry(
+            target,
+            row.get("source") or source,
+            source_id,
+            row.get("uri") or "",
+            descriptions.get(source, {}).get(source_id, ""),
+        )
+
+    described = sum(1 for entry in records.values() if entry.description)
     print(
-        f"[IN] {location} (sha256 {actual[:12]}…): "
-        + ", ".join(f"{source} {len(records)}" for source, records in per_source.items())
+        f"[IN] {location} (sha256 {actual[:12]}…): {len(curated)} curated pairs; "
+        + ", ".join(f"{source} {len(rows)} harvested" for source, rows in flats.items())
+        + f"; {described} with a description"
     )
-    return merge_records(per_source["amcr"], per_source["teater"])
+    if absent:
+        print(f"[NOTE] {location} has no {absent}: provenance falls back to the flat harvests, without descriptions.")
+    if unmatched:
+        print(
+            f"[WARN] {len(unmatched)} curated pair(s) are in no harvest of the asset and keep no provenance: "
+            + ", ".join(unmatched[:10])
+            + (" …" if len(unmatched) > 10 else "")
+        )
+    return records
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -637,15 +765,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--sha256", metavar="HEX", help="with --from-release: the digest to pin instead of the .sha256 file"
     )
+    parser.add_argument(
+        "--description-chars",
+        type=int,
+        default=DEFAULT_DESCRIPTION_CHARS,
+        metavar="N",
+        help="with --from-release: cut each concept description to N characters, at a word boundary "
+        f"(default {DEFAULT_DESCRIPTION_CHARS}; 0 writes none)",
+    )
     args = parser.parse_args(argv)
 
     if (args.asset or args.sha256) and not args.from_release:
         parser.error("--asset and --sha256 go with --from-release")
+    if args.description_chars < 0:
+        parser.error("--description-chars must be 0 or more")
     if args.from_release:
         if args.skip_amcr or args.skip_teater:
             parser.error("--from-release takes both sources from the release; --skip-* applies to a harvest")
         try:
-            records = records_from_release(args.from_release, asset=args.asset, sha256=args.sha256)
+            records = records_from_release(
+                args.from_release, asset=args.asset, sha256=args.sha256, description_chars=args.description_chars
+            )
         except AssetError as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
             return EXIT_CHECKSUM

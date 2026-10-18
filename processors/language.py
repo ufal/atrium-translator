@@ -246,6 +246,55 @@ def allowed_source_languages(translator, tgt_lang) -> frozenset | None:
     return frozenset(langs)
 
 
+def language_pair_problem(translator, src_lang, tgt_lang) -> str | None:
+    """Why *translator* cannot translate *src_lang* into *tgt_lang*; ``None`` when it can, or says nothing.
+
+    For an EXPLICIT pair (``--source_lang``/``source_lang``, or the fallback language of an
+    ``auto`` run), checked before anything is translated. LINDAT used to answer such a pair
+    by translating from Czech instead (``cs→it`` came back as English in a file named
+    ``_it.xml``); now the run is refused and the message lists what is offered.
+
+    LINDAT exposes model pairs: exactly ``src-tgt`` must be one of them. Another backend is
+    held to ``supported_languages()`` when that lists anything; an empty list claims nothing
+    and refuses nothing (the LLM backend unless ``LLM_LANGUAGES`` is set).
+    """
+    src, tgt = normalise_lang_code(src_lang), normalise_lang_code(tgt_lang)
+    if not src or not tgt or src == tgt:
+        return None
+    name = getattr(translator, "name", "translation")
+    models = getattr(translator, "supported_models", None)
+    if isinstance(models, (list, tuple, set, frozenset)) and models:
+        pairs = {str(pair).strip() for pair in models}
+        if f"{src}-{tgt}" in pairs:
+            return None
+        sources = sorted({pair.split("-")[0] for pair in pairs if pair.endswith(f"-{tgt}")})
+        offered = (
+            f"into '{tgt}' it translates from {', '.join(sources)}"
+            if sources
+            else f"it translates nothing into '{tgt}' (its pairs: {', '.join(sorted(pairs))})"
+        )
+        fallback = (
+            " The model list could not be fetched, so this is the built-in fallback list."
+            if getattr(translator, "models_fallback", False)
+            else ""
+        )
+        return f"the {name} backend has no '{src}-{tgt}' model; {offered}.{fallback}"
+    getter = getattr(translator, "supported_languages", None)
+    listed: set[str] = set()
+    if callable(getter):
+        try:
+            listed = {code for code in (normalise_lang_code(c) for c in getter() or []) if code}
+        except Exception:
+            listed = set()
+    missing = [code for code in (src, tgt) if code not in listed]
+    if listed and missing:
+        return (
+            f"the {name} backend does not list {', '.join(repr(code) for code in missing)} among its languages "
+            f"({', '.join(sorted(listed))})."
+        )
+    return None
+
+
 class Resolution(NamedTuple):
     #: The language the pipeline will translate from.
     lang: str

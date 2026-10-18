@@ -295,3 +295,108 @@ def test_long_input_is_chunked(mock_post):
     long_text = ". ".join(f"Sentence number {i} of the document" for i in range(400))
     b.translate(long_text, "cs", "en")
     assert mock_post.call_count > 1  # split into multiple chunks
+
+
+# ── concept descriptions as context (issue #4; AMČR on atrium-project#72) ──────
+
+
+def _vocab_with_descriptions(tmp_path, description="A building for Christian worship."):
+    path = tmp_path / "v.csv"
+    path.write_text(
+        "source_lemma,target_translation,source,source_id,uri,description\n"
+        f"kostel,church,amcr,HES-000021,https://api.aiscr.cz/id/HES-000021,{description}\n"
+        "hrob,grave,teater,77,https://teater.aiscr.cz/id/77,\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _glossary_message(mock_post, backend, text):
+    captured = {}
+
+    def capture(url, json=None, headers=None, timeout=None):
+        captured["json"] = json
+        return _resp(200, _completion("We found a church and a grave."))
+
+    mock_post.side_effect = capture
+    backend.translate(text, "cs", "en")
+    found = [m["content"] for m in captured["json"]["messages"] if "Glossary" in m.get("content", "")]
+    return found[0] if found else ""
+
+
+@patch("processors.llm_translator.requests.post")
+def test_no_descriptions_by_default(mock_post, tmp_path, monkeypatch):
+    monkeypatch.delenv("LLM_GLOSSARY_DESCRIPTION_CHARS", raising=False)
+    content = _glossary_message(
+        mock_post, _backend(vocab_path=str(_vocab_with_descriptions(tmp_path))), "Kostel a hrob."
+    )
+    assert "kostel = church\n" in content + "\n" and "description" not in content
+
+
+@patch("processors.llm_translator.requests.post")
+def test_glossary_carries_descriptions_when_enabled(mock_post, tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_GLOSSARY_DESCRIPTION_CHARS", "300")
+    content = _glossary_message(
+        mock_post, _backend(vocab_path=str(_vocab_with_descriptions(tmp_path))), "Kostel a hrob."
+    )
+    assert "kostel = church (description: A building for Christian worship.)" in content
+    assert "hrob = grave\n" in content + "\n"  # a term without a description stays a bare pair
+    assert "never belongs in the translation" in content
+
+
+@patch("processors.llm_translator.requests.post")
+def test_long_description_is_cut_and_noted(mock_post, tmp_path, monkeypatch):
+    from processors.limit_notes import collecting
+
+    monkeypatch.setenv("LLM_GLOSSARY_DESCRIPTION_CHARS", "20")
+    backend = _backend(vocab_path=str(_vocab_with_descriptions(tmp_path)))
+    with collecting() as notes:
+        content = _glossary_message(mock_post, backend, "Kostel stál.")
+    assert "kostel = church (description: A building for…)" in content
+    assert "llm_glossary_description_chars" in str(notes.as_list())
+
+
+@patch("processors.llm_translator.requests.post")
+def test_extra_body_is_merged_and_cannot_override_own_fields(mock_post, monkeypatch):
+    monkeypatch.setenv(
+        "LLM_EXTRA_BODY", '{"chat_template_kwargs": {"enable_thinking": false}, "temperature": 0.9, "model": "x"}'
+    )
+    captured = {}
+
+    def capture(url, json=None, headers=None, timeout=None):
+        captured["json"] = json
+        return _resp(200, _completion("hello"))
+
+    mock_post.side_effect = capture
+    _backend().translate("ahoj", "cs", "en")
+    body = captured["json"]
+    assert body["chat_template_kwargs"] == {"enable_thinking": False}
+    assert body["temperature"] == 0 and body["model"] == "dummy-model"
+
+
+@pytest.mark.parametrize("raw", ["not json", "[1, 2]"])
+def test_malformed_extra_body_stops_the_backend(monkeypatch, raw):
+    monkeypatch.setenv("LLM_EXTRA_BODY", raw)
+    with pytest.raises(TranslationError, match="LLM_EXTRA_BODY"):
+        _backend()
+
+
+def test_describe_names_the_model_never_the_key(monkeypatch):
+    monkeypatch.setenv("LLM_GLOSSARY_DESCRIPTION_CHARS", "300")
+    monkeypatch.setenv("LLM_EXTRA_BODY", '{"chat_template_kwargs": {}}')
+    details = _backend(
+        base_url="http://gpu-node:8001/v1", model="Qwen/Qwen3.8-27B", api_key="sk-secret", provider="vllm"
+    ).describe()
+    assert details == {
+        "llm_model": "Qwen/Qwen3.8-27B",
+        "llm_provider": "vllm",
+        "llm_endpoint_host": "gpu-node",
+        "llm_glossary_description_chars": 300,
+        "llm_extra_body_keys": ["chat_template_kwargs"],
+    }
+    assert "sk-secret" not in str(details)
+
+
+def test_licence_component_can_name_a_self_hosted_model(monkeypatch):
+    monkeypatch.setenv("LLM_LICENSE_COMPONENT", "eurollm")
+    assert _backend().license_components(True) == ["eurollm", "amcr_vocab", "teater_data"]

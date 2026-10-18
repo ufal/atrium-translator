@@ -6,6 +6,7 @@ Automated TestClient coverage for the FastAPI service and DoS guards.
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from service.api import MAX_UPLOAD_BYTES, app
@@ -483,3 +484,61 @@ def test_translate_record_carries_the_backend_licence():
     assert captured, "the record took no licence block"
     assert "lindat_cubbitt" in [c["name"] for c in captured[0]["components"]]
     assert captured[0]["effective_license"] == "CC BY-NC-SA 4.0"
+
+
+# ── VOCABULARY_PATH (translator#4) ────────────────────────────────────────────
+
+
+def test_unset_vocabulary_path_loads_none():
+    from service.api import _resolve_vocabulary
+
+    assert _resolve_vocabulary("") == (None, None)
+    assert _resolve_vocabulary("   ") == (None, None)
+
+
+def test_vocabulary_path_is_checked_and_described(tmp_path):
+    import hashlib
+
+    from service.api import _resolve_vocabulary
+
+    vocab = tmp_path / "vocabulary.csv"
+    vocab.write_text(
+        "source_lemma,target_translation,source,source_id,uri,description\n"
+        "kostel,church,amcr,HES-000021,https://api.aiscr.cz/id/HES-000021,A building for worship.\n"
+        "hrob,grave,teater,77,https://teater.aiscr.cz/id/77,\n",
+        encoding="utf-8",
+    )
+    path, info = _resolve_vocabulary(str(vocab))
+    assert path == vocab
+    assert info == {
+        "file": "vocabulary.csv",
+        "terms": 2,
+        "with_description": 1,
+        "sha256": hashlib.sha256(vocab.read_bytes()).hexdigest(),
+    }
+
+
+def test_shipped_vocabulary_resolves_against_the_repo_root():
+    from service.api import _resolve_vocabulary
+
+    path, info = _resolve_vocabulary("data_samples/vocabulary.csv")
+    assert path.is_file() and info["terms"] > 1000
+
+
+@pytest.mark.parametrize("content", [None, "source_lemma,target_translation\n"])
+def test_unusable_vocabulary_path_stops_startup(tmp_path, content):
+    from service.api import _resolve_vocabulary
+
+    vocab = tmp_path / "vocabulary.csv"
+    if content is not None:
+        vocab.write_text(content, encoding="utf-8")
+    with pytest.raises(RuntimeError, match="VOCABULARY_PATH"):
+        _resolve_vocabulary(str(vocab))
+
+
+def test_info_reports_the_vocabulary_in_use():
+    vocabulary = {"file": "vocabulary.csv", "terms": 2, "with_description": 1, "sha256": "0" * 64}
+    with patch("service.api.models", {"vocabulary_info": vocabulary}):
+        assert client.get("/info").json()["vocabulary"] == vocabulary
+    with patch("service.api.models", {}):
+        assert client.get("/info").json()["vocabulary"] is None

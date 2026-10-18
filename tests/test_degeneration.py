@@ -186,7 +186,7 @@ def test_the_rows_of_the_sample_logs_pass_but_the_one_wrong_word():
     ), flagged
 
 
-# The row as the EuroLLM run logged it (data_samples/in-place_translated_files/xml/C-N1000019_log.csv).
+# The row as the EuroLLM run logged it (data_samples/ct2_translated_files/xml/C-N1000019_log.csv).
 def test_the_logged_ostrov_row_is_flagged():
     source = "Davle - kultovní areál 1 - klášter sv. Jana Křtitele na Ostrově"
     translated = "Davle - ritual site 1 - St. John's Convent on Ostr\u016f\u0432 (Island)"

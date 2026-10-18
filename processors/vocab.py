@@ -18,6 +18,11 @@ Two loaders are offered over the same parsing rules:
 
 Any column past the second is optional: a plain two-column CSV loads through
 both functions unchanged, with the provenance fields empty.
+
+``description`` (the concept's scope note, written by ``load_vocab.py
+--from-release``) is read **by header name only**: a headerless file has no
+description, so a wider file without a header (keyword-extract's ``*_flat.csv``
+carries ``scheme`` in column 6) never passes another column off as one.
 """
 
 from __future__ import annotations
@@ -35,6 +40,8 @@ _HEADER_KEYS = ("source_lemma", "source", "src", "term", "lemma", "cs")
 # emitted by atrium-nlp-enrich (``…,source,source_id,uri,scheme,sub,broader,
 # sort``), so those wider files are prefix-compatible with ours.
 _EXTRA_FIELDS = ("source", "source_id", "uri")
+# Optional columns honoured only under a header naming them (never by position).
+_NAMED_FIELDS = ("description",)
 
 
 class VocabRecord(NamedTuple):
@@ -45,6 +52,7 @@ class VocabRecord(NamedTuple):
     source: str = ""
     source_id: str = ""
     uri: str = ""
+    description: str = ""
 
 
 def _is_header_row(index: int, first_cell: str) -> bool:
@@ -62,7 +70,7 @@ def _extra_field_columns(header: list[str] | None) -> dict[str, int]:
     if header is None:
         return {name: 2 + offset for offset, name in enumerate(_EXTRA_FIELDS)}
     lowered = [cell.strip().lower() for cell in header]
-    return {name: lowered.index(name) for name in _EXTRA_FIELDS if name in lowered}
+    return {name: lowered.index(name) for name in (*_EXTRA_FIELDS, *_NAMED_FIELDS) if name in lowered}
 
 
 def _cell(row: list[str], index: int | None) -> str:
@@ -98,6 +106,7 @@ def load_vocabulary_records(path: Union[str, Path]) -> dict:
                         _cell(row, extra.get("source")),
                         _cell(row, extra.get("source_id")),
                         _cell(row, extra.get("uri")),
+                        _cell(row, extra.get("description")),
                     )
     except Exception as e:
         print(f"[WARN] Could not load vocabulary from '{path}': {e}")

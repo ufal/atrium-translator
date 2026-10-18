@@ -34,7 +34,12 @@ from atrium_limits import LimitExceeded
 from atrium_paradata import ParadataLogger
 from processors.backend import TranslationBackend, get_backend
 from processors.identifier import LanguageIdentifier
-from processors.language import SourceLanguagePolicy, allowed_source_languages
+from processors.language import (
+    SourceLanguagePolicy,
+    allowed_source_languages,
+    language_pair_problem,
+    normalise_lang_code,
+)
 from processors.limit_notes import collecting
 from tool_limits import TRANSLATION_CHUNK_CHARS
 from utils import (
@@ -97,6 +102,11 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         from processors.ct2_translator import CT2Translator
 
         cfg.update(CT2Translator().describe())
+    elif backend_name == "openai_compatible":
+        # Which model, provider and endpoint host translated (LLM_*; never the key).
+        from processors.llm_translator import LLMTranslator
+
+        cfg.update(LLMTranslator().describe())
 
     # The language-identification policy actually in force (processors/language.py),
     # not the literal 0.2 this used to record — which the ALTO path never applied.
@@ -410,6 +420,11 @@ def parse_arguments():
         ).strip()
     if args.target_lang is None:
         args.target_lang = defaults.get("target_lang", "en")
+    # "CS", "cs-CZ" and "ces" name the same language as "cs": one code from here on, so the
+    # pair check, the file names and the record agree (translator#4).
+    if str(args.source_lang).strip().lower() != "auto":
+        args.source_lang = normalise_lang_code(args.source_lang) or args.source_lang
+    args.target_lang = normalise_lang_code(args.target_lang) or args.target_lang
     if args.formats is None:
         args.formats = defaults.get("formats", "xml")
         # The shipped config.txt says `formats = alto.xml` (the ALTO sample), which turns
@@ -729,7 +744,35 @@ def main() -> int:
             print("[ERROR] Specify either the --alto flag or provide --xpaths / 'fields' in config.")
             return EXIT_USAGE
 
-        translator = get_backend(args.backend, vocab_path=args.vocabulary)
+        if args.vocabulary and not Path(args.vocabulary).is_file():
+            print(
+                f"[ERROR] The vocabulary {args.vocabulary} does not exist. Pass --vocabulary with an existing CSV, "
+                "or clear `vocabulary =` in config.txt to translate without one."
+            )
+            return EXIT_USAGE
+        # Imported here, like the paradata config's backend imports: the module is the LINDAT client.
+        from processors.translator import TranslationError
+
+        try:
+            translator = get_backend(args.backend, vocab_path=args.vocabulary)
+        except (TranslationError, ValueError) as exc:
+            print(f"[ERROR] The {args.backend or 'lindat'} backend cannot start: {exc}")
+            return EXIT_USAGE
+        # An explicit pair the backend cannot translate is refused before any file is touched
+        # (translator#4); in auto mode, the language a segment falls back to is checked the same way.
+        if args.source_lang == "auto":
+            pair_source = args.default_source_lang
+            pair_hint = "the fallback source language (--default-source-lang, config.txt or DEFAULT_SOURCE_LANG)"
+        else:
+            pair_source = args.source_lang
+            pair_hint = "--source_lang / --target_lang (or source_lang / target_lang in config.txt)"
+        pair_problem = language_pair_problem(translator, pair_source, args.target_lang)
+        if pair_problem:
+            print(
+                f"[ERROR] Cannot translate {pair_source} → {args.target_lang}: {pair_problem} "
+                f"Change {pair_hint}, or choose another --backend."
+            )
+            return EXIT_USAGE
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
         # One policy for the whole run: which detections are trusted, and what an
         # untrusted one falls back to. The accepted languages are those the backend

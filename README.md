@@ -466,23 +466,25 @@ pohřebiště,burial ground
 fotografie události,photograph of event
 ```
 
-Columns 3–5 are **optional provenance** and are ignored by the translator. The harvested
+Columns 3–5 are **optional provenance** and are ignored by the translator; column 6, `description`, is read only
+when a header names it, and only the `openai_compatible` backend uses it. The shipped
 [vocabulary.csv](data_samples/vocabulary.csv)📎 carries them so every term can be traced
 to its thesaurus concept:
 
 ```
-source_lemma,target_translation,source,source_id,uri
-archeolog,archaeologist,teater,4,https://teater.aiscr.cz/id/4
+source_lemma,target_translation,source,source_id,uri,description
+archeolog,archaeologist,teater,4,https://teater.aiscr.cz/id/4,
 ```
 
 
-| Column               | Content                                                                                                                                                                                                              |
-|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `source_lemma`       | The **lemmatised (dictionary) form** of the source term. For single-word terms this must match what UDPipe returns for the source language (see table below).  For multi-word phrases, any surface form is accepted. |
-| `target_translation` | The canonical translation — typically the preferred English term from a controlled vocabulary or thesaurus.                                                                                                          |
-| `source` *(opt.)*    | Which thesaurus the pair came from: `amcr` or `teater`.                                                                                                                                                              |
-| `source_id` *(opt.)* | The concept's id in that thesaurus: the AMCR `heslo` id (`HES-…`) or the TEATER concept id.                                                                                                                          |
-| `uri` *(opt.)*       | The dereferenceable concept URI built from `source_id` (`https://api.aiscr.cz/id/…` or `https://teater.aiscr.cz/id/…`).                                                                                              |
+| Column                 | Content                                                                                                                                                                                                                          |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `source_lemma`         | The **lemmatised (dictionary) form** of the source term. For single-word terms this must match what UDPipe returns for the source language (see table below).  For multi-word phrases, any surface form is accepted.             |
+| `target_translation`   | The canonical translation — typically the preferred English term from a controlled vocabulary or thesaurus.                                                                                                                      |
+| `source` *(opt.)*      | Which thesaurus the pair came from: `amcr` or `teater`.                                                                                                                                                                          |
+| `source_id` *(opt.)*   | The concept's id in that thesaurus: the AMCR `heslo` id (`HES-…`) or the TEATER concept id.                                                                                                                                      |
+| `uri` *(opt.)*         | The dereferenceable concept URI built from `source_id` (`https://api.aiscr.cz/id/…` or `https://teater.aiscr.cz/id/…`).                                                                                                          |
+| `description` *(opt.)* | The concept's scope note (`note_en`, else `note_cs`), cut to 500 characters. Read **by header name only**. Given to the LLM backend as context when `LLM_GLOSSARY_DESCRIPTION_CHARS` > 0 (issue #4); LINDAT and `ct2` ignore it. |
 
 
 > [!IMPORTANT]
@@ -553,16 +555,20 @@ CSV can be built from that asset, so the translator's vocabulary is a pinned rel
 answered on the day of a harvest:
 
 ```bash
-python load_vocab.py --from-release v1.2.0-beta                     # download, verify the .sha256, write the CSV
-python load_vocab.py --from-release v1.2.0-beta --sha256 <digest>   # pin the digest yourself
-python load_vocab.py --from-release v1.2.0-beta --asset ./atrium-vocabulary-v1.2.0-beta.zip   # a local copy
+python load_vocab.py --from-release v1.3.0-beta                     # download, verify the .sha256, write the CSV
+python load_vocab.py --from-release v1.3.0-beta --sha256 <digest>   # pin the digest yourself
+python load_vocab.py --from-release v1.3.0-beta --asset ./atrium-vocabulary-v1.3.0-beta.zip   # a local copy
+python load_vocab.py --from-release v1.3.0-beta --description-chars 0   # no descriptions
 ```
 
-The asset's `amcr_flat.csv` and `teater_flat.csv` start with this CSV's five columns and are merged the same way. An
-asset that does not match its checksum, or lacks either file, is refused (exit 3) and the output is left untouched. The
-committed `vocabulary.csv` is still the harvest of September 2026. Built from `v1.2.0-beta`, the first release that
-carries the asset, it has 4,952 pairs instead of 5,087 (TEATER terms the pinned snapshot lacks), so the switch waits
-on AMČR accepting that list ([atrium-project#72](https://github.com/ufal/atrium-project/issues/72)).
+The pairs are the asset's curated `vocabulary.csv`, keyword-extract's list with its exclusions applied, so the project
+curates one list rather than two (agreed with AMČR on
+[atrium-project#72](https://github.com/ufal/atrium-project/issues/72), 13 October). Each pair takes the identity of the
+concept that won it in the asset's `union_nested.json` (its URI from `amcr_flat.csv` / `teater_flat.csv`) and that
+concept's description from `amcr_flat.json` / `teater_flat.json`. An asset that does not match its checksum, or lacks
+the curated list or either flat CSV, is refused (exit 3) and the output is left untouched; a curated pair found in no
+harvest is kept without provenance and reported. The committed `vocabulary.csv` is built from `v1.3.0-beta`: 4,715
+pairs (the September harvest had 5,087), 1,961 of them with a description.
 
 > [!NOTE]
 > As of 2026-09, `teater.aiscr.cz` serves its TLS certificate without the *RapidSSL TLS RSA CA G1* intermediate, so
@@ -609,13 +615,18 @@ vocabulary = data_samples/vocabulary.csv
 element's label nor the document's language settles it. Resolution order: this flag → `default_source_lang` in
 `config.txt` → `DEFAULT_SOURCE_LANG` → `cs`.
 * `--target_lang`, `-tgt`: Target language code (e.g., `en`, `cs`). Default: `en`.
+
+  A pair the backend cannot translate is **refused before any file is touched** (exit `1`), with the pairs the backend
+  offers: LINDAT has, for instance, no `cs-it` or `hu-en` model. With `auto`, the `--default-source-lang` is checked the
+  same way. (Before 2026-10-18 LINDAT translated such a run from Czech into English without a word.) Codes such as `CS`,
+  `cs-CZ` or `ces` are read as `cs`.
 * `--formats`: Comma-separated list of file extensions to process (e.g., `alto.xml,txt` or `xml,txt`). Default: `formats` in config.txt — the shipped file says `alto.xml`, which turns ALTO mode on — except that a command line with `--xpaths` gets `xml,txt`; `xml` without a config value.
 * `--config`, `-c`: Path to the configuration file (default: `config.txt`).
 * `--alto`: Flag to enable ALTO XML in-place translation mode (auto-enabled when `formats` contains `alto.xml`).
 * `--xpaths`: Path to a `.txt` file containing XPaths for XML metadata translation (works with any XML schema).
 * `--xsd`: Optional URL or local path to an XSD file for output validation (metadata mode). A record inside an OAI-PMH envelope is validated, not the envelope. Each record's verdict is logged, the run ends with one `XSD: N/M record(s) valid` line, and the paradata records `xsd_validation` (`valid`, `invalid` doc ids, `strict`). AMCR 2.2 accepts `replace` output and rejects `append` output — see [Output mode](#output-mode-replace-vs-append).
 * `--xsd-strict`: With `--xsd`, a record that fails validation counts as a failed document — exit `3`, the XML is still written. Default: env `XSD_STRICT`, else off (a warning only).
-* `--vocabulary`: Path to a CSV vocabulary file (`source_lemma,target_translation`) to activate Tag-and-Protect term overriding.
+* `--vocabulary`: Path to a CSV vocabulary file (`source_lemma,target_translation`) to activate Tag-and-Protect term overriding (LINDAT) or the prompt glossary (`openai_compatible`, `ct2`). A path that does not exist stops the run (exit `1`); clear `vocabulary =` in config.txt to translate without one.
 * `--backend`: Translation backend — `lindat` (default, LINDAT CUBBITT), `openai_compatible` (any OpenAI-compatible LLM API, configured via the `LLM_*` variables) or `ct2` (a self-hosted CTranslate2 model; install `requirements-ct2.txt` and set the `CT2_*` variables). Resolution order: this flag → `translation_backend` in `config.txt` → `TRANSLATION_BACKEND` → `lindat`. See [docs/translation-backends.md](docs/translation-backends.md) 📎.
 * `--fast-align`: ALTO only. Distribute block tokens by source word count instead of translating each line as an anchor — far fewer API calls, slightly coarser line splits.
 * `--output-mode`: `replace` (default) or `append` — how the translation is written into the document. See [Output mode](#output-mode-replace-vs-append) below. Resolution order: this flag → `output_mode` in `config.txt` → `OUTPUT_MODE` → `replace`.

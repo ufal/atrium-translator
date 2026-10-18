@@ -2282,6 +2282,17 @@
             "type": "array",
             "title": "Supported Formats",
             "description": "The kinds of XML `/translate` reads."
+          },
+          "vocabulary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VocabularyInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The vocabulary `/translate` applies, or null when `VOCABULARY_PATH` is unset."
           }
         },
         "additionalProperties": true,
@@ -2297,6 +2308,39 @@
         ],
         "title": "TranslatorInfo",
         "description": "`/info` of atrium-translator."
+      },
+      "VocabularyInfo": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "title": "File",
+            "description": "The CSV's file name (not its path on the host)."
+          },
+          "terms": {
+            "type": "integer",
+            "title": "Terms",
+            "description": "Term pairs loaded."
+          },
+          "with_description": {
+            "type": "integer",
+            "title": "With Description",
+            "description": "Terms that carry a concept description."
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256",
+            "description": "sha256 of the CSV, to tell two vocabularies apart."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "terms",
+          "with_description",
+          "sha256"
+        ],
+        "title": "VocabularyInfo",
+        "description": "The vocabulary `/translate` applies (`VOCABULARY_PATH`, translator#4)."
       },
       "AtriumDocument_bbox": {
         "type": "array",

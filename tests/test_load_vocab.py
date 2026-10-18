@@ -672,3 +672,25 @@ class TestStrategyAEndToEnd:
 
         assert load_vocab._targets_only(load_vocab.harvest_teater_records(delay=0)) == {"kost": "bone"}
         assert "Strategy A failed: export down" in capsys.readouterr().out
+
+
+def test_description_is_read_by_header_name_only(tmp_path):
+    """A ``description`` column counts only under a header naming it (translator#4).
+
+    keyword-extract's ``*_flat.csv`` carries ``scheme`` in column 6, where this repository's CSV
+    carries ``description``: without a header, the sixth column must never be read as one.
+    """
+    from processors.vocab import load_vocabulary_records
+
+    named = tmp_path / "named.csv"
+    named.write_text(
+        "source_lemma,target_translation,source,source_id,uri,description\n"
+        "kostel,church,amcr,HES-000021,https://api.aiscr.cz/id/HES-000021,A building for worship.\n",
+        encoding="utf-8",
+    )
+    headerless = tmp_path / "headerless.csv"
+    headerless.write_text("kostel,church,amcr,HES-000021,https://api.aiscr.cz/id/HES-000021,objekt\n", encoding="utf-8")
+
+    assert load_vocabulary_records(named)["kostel"].description == "A building for worship."
+    record = load_vocabulary_records(headerless)["kostel"]
+    assert record.uri == "https://api.aiscr.cz/id/HES-000021" and record.description == ""

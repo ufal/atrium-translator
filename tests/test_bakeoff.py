@@ -13,6 +13,7 @@ model or GPU is touched.
 """
 
 import csv
+import json
 import sys
 import types
 
@@ -409,3 +410,100 @@ def test_comet_model_failure_is_not_fatal(samples, tmp_path, refs_tsv, monkeypat
 
     assert "COMET (Unbabel/wmt22-comet-da) failed for backend 'echo'" in capsys.readouterr().out
     assert (tmp_path / "bake_summary.csv").exists()
+
+
+# ── a real run on the cluster: one variant per run, then --combine (issue #4) ─
+
+
+_AMCR = """<?xml version="1.0" encoding="UTF-8"?>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/">
+  <amcr:popis>Výzkum v roce 1998 odkryl kostel.</amcr:popis>
+</amcr:amcr>"""
+
+
+def _with_metadata(samples):
+    (samples / "rec.xml").write_text(_AMCR, encoding="utf-8")
+    xpaths = samples / "fields.txt"
+    xpaths.write_text("//amcr:popis\n", encoding="utf-8")
+    return xpaths
+
+
+def test_terminology_counts_whole_words_only():
+    # "kost" is not expected inside "kostel", as in the backends' own matching
+    assert terminology_hits("starý kostel", "old church", {"kost": "bone", "kostel": "church"}) == (1, 1)
+
+
+def test_auto_source_is_refused(samples, tmp_path):
+    with pytest.raises(SystemExit):
+        bakeoff.main(_argv(samples, tmp_path, "--backends", "echo", "--source_lang", "auto"))
+
+
+def test_label_names_one_variant(samples, tmp_path):
+    bakeoff.main(_argv(samples, tmp_path, "--backends", "upper", "--label", "upper-v2"))
+    assert {r["backend"] for r in _read(tmp_path / "bake.csv")} == {"upper-v2"}
+    with pytest.raises(SystemExit):
+        bakeoff.main(_argv(samples, tmp_path, "--backends", "echo,upper", "--label", "x"))
+
+
+def test_rows_carry_seconds_and_the_summary_the_speed(samples, tmp_path):
+    bakeoff.main(_argv(samples, tmp_path, "--backends", "echo"))
+    rows = _read(tmp_path / "bake.csv")
+    assert all(float(r["seconds"]) >= 0.0 for r in rows)
+    (s,) = _read(tmp_path / "bake_summary.csv")
+    assert s["seconds"] != "" and list(s)[-2:] == ["seconds", "chars_per_s"]
+
+
+def test_by_kind_summary_keeps_metadata_and_alto_apart(samples, tmp_path):
+    xpaths = _with_metadata(samples)
+    argv = _argv(samples, tmp_path, "--backends", "echo")
+    argv[argv.index("--xpaths") + 1] = str(xpaths)
+    bakeoff.main(argv)
+    by_kind = _read(tmp_path / "bake_by_kind.csv")
+    assert [(r["kind"], r["backend"], r["segments"]) for r in by_kind] == [
+        ("metadata", "echo", "1"),
+        ("alto", "echo", "2"),
+    ]
+
+
+def test_kinds_selects_what_is_collected(samples, tmp_path):
+    xpaths = _with_metadata(samples)
+    argv = _argv(samples, tmp_path, "--backends", "echo", "--kinds", "metadata")
+    argv[argv.index("--xpaths") + 1] = str(xpaths)
+    bakeoff.main(argv)
+    assert {r["kind"] for r in _read(tmp_path / "bake.csv")} == {"metadata"}
+    with pytest.raises(SystemExit):
+        bakeoff.main(_argv(samples, tmp_path, "--backends", "echo", "--kinds", "pdf"))
+
+
+def test_meta_sidecar_says_what_ran(samples, tmp_path):
+    bakeoff.main(_argv(samples, tmp_path, "--backends", "echo", "--label", "echo-1"))
+    meta = json.loads((tmp_path / "bake.meta.json").read_text(encoding="utf-8"))
+    assert meta["variants"] == {"echo-1": {"backend": "echo"}}
+    assert meta["source_lang"] == "cs" and meta["segments"] == 2
+
+
+def test_combine_merges_variants_and_recomputes_the_baseline(samples, tmp_path):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    for name in ("echo", "upper"):
+        argv = _argv(samples, tmp_path, "--backends", name, "--label", f"{name}-run")
+        argv[argv.index("--out") + 1] = str(runs / f"{name}.csv")
+        bakeoff.main(argv)
+    out = tmp_path / "combined.csv"
+    bakeoff.main(["--combine", str(runs / "echo.csv"), str(runs / "upper.csv"), "--out", str(out)])
+
+    by = {s["backend"]: s for s in _read(tmp_path / "combined_summary.csv")}
+    assert list(by) == ["echo-run", "upper-run"]
+    assert by["echo-run"]["baseline"] == "echo-run" and by["echo-run"]["baseline_char_sim"] == ""
+    assert 0.0 < float(by["upper-run"]["baseline_char_sim"]) < 1.0
+    assert (tmp_path / "combined_by_kind.csv").exists()
+    meta = json.loads((tmp_path / "combined.meta.json").read_text(encoding="utf-8"))
+    assert len(meta["runs"]) == 2
+
+
+def test_combine_refuses_a_variant_named_twice(samples, tmp_path):
+    bakeoff.main(_argv(samples, tmp_path, "--backends", "echo"))
+    with pytest.raises(SystemExit):
+        bakeoff.main(
+            ["--combine", str(tmp_path / "bake.csv"), str(tmp_path / "bake.csv"), "--out", str(tmp_path / "c.csv")]
+        )

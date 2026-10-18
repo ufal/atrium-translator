@@ -1,8 +1,9 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
 > _XML in-place translation (AMČR metadata records, ALTO). 2 open issues: #4 (the bake-off; finish, pilot
 > atrium-project#67) and #46 (closes after AMČR's production run); #52 closed 2026-10-13. Open pull request: #54
-> (Dependabot, into `test`). `test` = `a7a10ee` (2026-10-14) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
-> release is not immutable, atrium-project#72). Twelve-factor detail lives in the hub:
+> (Dependabot, into `test`). `test` = `223a0b3` (2026-10-16) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
+> release is not immutable, atrium-project#72). Latest entry: 2026-10-18 (#4 phase B, the bake-off kit, refused
+> language pairs; files delivered in chat). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46,52}.digest.md` · `plans/{4,46,52}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -439,6 +440,67 @@ cell-merging stub: only page 76 changes, every number on its own row.
   `data_samples/README.md:23` names the LINDAT run `260928-110452`. Both pairs carry the fix: restore the LINDAT
   folder, or let the README name the `ct2` run (#4 plan A.2).
 * No code change.
+
+  Files delivered in chat.
+
+## 2026-10-18 — #4 phase B: the curated vocabulary with descriptions, refused pairs, the bake-off kit
+* **The vocabulary is keyword-extract's curated list** (atrium-project#72: AMČR, 13 October; K4TEL, 15 October).
+  * `load_vocab.py --from-release` keeps only the pairs of the asset's `vocabulary.csv`. Each pair takes the identity of
+    the concept that won it in `union_nested.json`; the flat match is used only for the 12 TEATER headings the union does
+    not list. That fixes `papír`, `archeolog` and `latina`, whose first flat match is a record keyword-extract excluded.
+  * A new optional sixth column, `description`: `note_en`, else `note_cs`, from `*_flat.json`, on one line, cut at a
+    word to `--description-chars` (default 500). `processors/vocab.py` reads it **by header name only**, so a
+    headerless wider file (keyword-extract's `scheme` sits in column 6) never passes for one.
+  * An asset without the curated list is refused (exit 3). A curated pair in no harvest is kept without provenance,
+    with a warning.
+  * `data_samples/vocabulary.csv` rebuilt from `v1.3.0-beta` (asset sha256 `948d7d37…`): 4,715 pairs (was 5,087;
+    396 dropped, 24 added, 18 retranslated, 93 with new provenance), 1,961 with a description.
+* **The LLM backend gets the descriptions** (AMČR: "the vocab (including descriptions) as one of the inputs").
+  * `LLM_GLOSSARY_DESCRIPTION_CHARS` (a limit, default 0 = none, in `/info`): a matched term with a description reads
+    `kostel = church (description: …)`, and the prompt says the description is context only. A longer one is cut at a
+    word, with a `trimmed` note. `ct2` never gets descriptions (test).
+  * `LLM_EXTRA_BODY`: a JSON object merged into every request. The client's own fields win, and a malformed value
+    stops the backend. It is how the bake-off turns Qwen3.8's thinking off.
+  * `LLM_LICENSE_COMPONENT`: the `para_config.txt` component recorded for a self-hosted model instead of `llm_api`.
+    Qwen3.8's row waits for its licence to be read off the model card in the bake-off prep.
+  * `LLMTranslator.describe()` (model, provider, endpoint host, description cap, extra-body keys; never the key) goes
+    into the paradata of the CLI and of `/translate`, which recorded no LLM model before.
+* **`/translate` can apply a vocabulary:** `VOCABULARY_PATH` (default empty: unchanged). A value that names no usable
+  CSV stops the service at startup with the fix in the message. `/info` reports `vocabulary {file, terms,
+  with_description, sha256}`, an additive spec change (compare: compatible). Whether the image sets it waits on the
+  bake-off.
+* **An untranslatable language pair is refused, never rerouted.** `_basic_translate` sent any pair LINDAT lacks to
+  `cs-en` without a word: `cs→it` wrote English into `_it.xml`, `hu→en` translated Hungarian as Czech (the defect AMČR
+  named in its report of 30 September, item 8).
+  * `processors/language.py` `language_pair_problem()`.
+  * CLI: exit 1, naming the pairs offered (in `auto` mode it checks the fallback language); also for a missing
+    `--vocabulary` and a backend that cannot start.
+  * Service: 422 with `reason: null`, `cause: "unsupported_language_pair"` and the offered sources in `errors`. No new
+    reason code, no shared module touched.
+  * `UnsupportedLanguagePairError` (a `TranslationError`, never per segment) is the backstop. Codes such as `CS` and
+    `ces` are read as `cs`.
+* **The samples say what they are** (#46, #4 plan A.2). The `ct2` run `260928-113756` moved to
+  `data_samples/ct2_translated_files/xml/`; `in-place_translated_files/xml/` is the LINDAT run `260928-110452` again,
+  restored from `d8d72b5`. Updated: `data_samples/README.md`, `.dockerignore`, a test comment.
+* **`eval/bakeoff.py`, ready for the cluster.**
+  * Run options: `--label` (one variant per run), `--kinds`, and `--combine` (merge the runs; the first is the baseline).
+  * Outputs: `seconds` and `chars_per_s`, `<out>_by_kind.csv` (the metadata fields and the ALTO blocks are never
+    averaged together), and `<out>.meta.json` (what ran: `describe()`, vocabulary sha, commit, warm-up).
+  * Changed defaults: `--source_lang` is `cs`, and `auto` is refused; terminology is counted at word boundaries.
+* **The bake-off kit (job T1, not committed):**
+  * `issue4_bakeoff_prep.sh`, for a networked node: a venv, EuroLLM-1.7B/9B, Qwen3.8-27B and -FP8, Qwen's licence
+    printed, the vLLM check.
+  * `issue4_bakeoff_job.sh`, the staged Slurm job: LINDAT if reachable; ct2 1.7B and 9B; Qwen3.8 on a local vLLM
+    without and with descriptions; combine; the AMČR samples again; the live-backend lane if reachable; a report.
+  * Dry-run here with stubs: the skip paths, the markers, combine and report work.
+* **Docs:** README (the refusal, `--vocabulary`, the `description` column, `--from-release` on `v1.3.0-beta`),
+  `service/README.md` (`VOCABULARY_PATH`, `LLM_EXTRA_BODY`, `LLM_LICENSE_COMPONENT`, the new limit; `UDPIPE_URL`'s row),
+  `.env.example`, `docs/translation-backends.md` (the curated vocabulary and descriptions, the refusal; Recommendation
+  and next steps rewritten for the bake-off).
+* **Checks:** 1158 passed, 3 skipped; ruff check and format clean; spec current; `bash -n` and shellcheck clean on
+  both scripts.
+* **Not done:** no version bump. v1.5.0-beta follows the bake-off, once immutable releases are on in this repository
+  (atrium-project#72). The milestone's date (15 October) is not moved here.
 
   Files delivered in chat.
 

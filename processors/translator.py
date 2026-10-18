@@ -151,6 +151,15 @@ class DegenerateTranslationError(TranslationError):
     """
 
 
+class UnsupportedLanguagePairError(TranslationError):
+    """The backend has no model for the requested language pair (translator#4).
+
+    A ``TranslationError``, never a ``DegenerateTranslationError``: the whole file fails
+    and nothing is written, because every segment of it would fail the same way. The CLI
+    and the service refuse such a pair before translating; this is the backstop.
+    """
+
+
 def _env_float(name: str, default: float) -> float:
     try:
         return float(os.environ.get(name, "") or default)
@@ -306,6 +315,7 @@ class LindatTranslator:
         # the process to the default host regardless of the configuration.
         self.base_url = resolve_translation_url(base_url).rstrip("/")
 
+        self.models_fallback = False
         self.supported_models = self._fetch_models()
         self.vocabulary: dict = {}
         self._multiword_terms: list = []
@@ -563,7 +573,13 @@ class LindatTranslator:
         model_name = f"{src_lang}-{tgt_lang}"
 
         if self.supported_models and model_name not in self.supported_models:
-            model_name, src_lang, tgt_lang = "cs-en", "cs", "en"
+            # This used to reroute any pair LINDAT lacks to cs-en without a word, so a run
+            # asked for cs→it wrote English into `_it.xml`. The CLI and the service refuse an
+            # untranslatable explicit pair before translating (language_pair_problem); this
+            # is the backstop, and it is never swallowed per segment.
+            raise UnsupportedLanguagePairError(
+                f"LINDAT has no '{model_name}' model; nothing was translated from '{src_lang}' to '{tgt_lang}'."
+            )
 
         # chunk_for_translation, not _chunk_text: a segment that is split is recorded
         # (limits_applied, atrium-project#53).
@@ -656,6 +672,8 @@ class LindatTranslator:
                 return data
             return []
         except Exception:
+            # The list a refusal names comes from here: say so (language_pair_problem).
+            self.models_fallback = True
             return ["fr-en", "cs-en", "de-en", "uk-en", "ru-en", "pl-en"]
 
     @staticmethod

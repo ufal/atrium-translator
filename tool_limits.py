@@ -71,6 +71,12 @@ LLM_MAX_RETRIES = limit("LLM_MAX_RETRIES", 4, unit="retries")
 #: this → the longest ones are kept → ``trimmed`` note.
 LLM_MAX_GLOSSARY_TERMS = limit("LLM_MAX_GLOSSARY_TERMS", 40, unit="terms")
 
+#: Longest concept description given to the LLM beside a glossary term, as context for
+#: choosing the term's sense (the vocabulary CSV's ``description`` column, translator#4).
+#: 0, the default, gives the model no descriptions. A longer one is cut at a word
+#: → ``trimmed`` note.
+LLM_GLOSSARY_DESCRIPTION_CHARS = limit("LLM_GLOSSARY_DESCRIPTION_CHARS", 0, unit="chars", minimum=0)
+
 #: Longest input one CTranslate2 NMT request may have. A longer chunk is re-split and
 #: translated in full → ``split`` note (CTranslate2 would otherwise drop the rest silently).
 CT2_MAX_INPUT_TOKENS = limit("CT2_MAX_INPUT_TOKENS", 1024, unit="tokens", minimum=16)
@@ -97,6 +103,7 @@ LIMITS = LimitSet(
     LLM_MAX_TOKENS,
     LLM_MAX_RETRIES,
     LLM_MAX_GLOSSARY_TERMS,
+    LLM_GLOSSARY_DESCRIPTION_CHARS,
     CT2_MAX_INPUT_TOKENS,
     CT2_MAX_DECODING_TOKENS,
     CT2_MAX_GLOSSARY_TERMS,

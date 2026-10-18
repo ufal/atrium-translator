@@ -299,6 +299,29 @@ to the backend's glossary API.  The `TranslationBackend` protocol (below)
 includes a `supports_glossary` flag so the pipeline can decide at runtime
 whether to use Tag-and-Protect or delegate to the backend.
 
+### The vocabulary: one curated list, with descriptions (atrium-project#72)
+
+Since 2026-10-18 the shipped `data_samples/vocabulary.csv` is built from
+atrium-keyword-extract's release asset (`python load_vocab.py --from-release v1.3.0-beta`):
+the 4,715 pairs of its curated `vocabulary.csv`, so the project curates one list rather
+than two (AMČR, 13 October). Each pair keeps its concept identity (`source`, `source_id`,
+`uri`), and 1,961 carry the concept's description (`note_en`, else `note_cs`, cut to 500
+characters) in a sixth column, `description`, which a loader reads by header name only.
+
+AMČR asked for the LLM backend to translate "with the vocab, including descriptions, as one
+of the inputs". `LLM_GLOSSARY_DESCRIPTION_CHARS` (a limit, default 0 = none) gives a matched
+term's description to the model beside the pair, `kostel = church (description: …)`, as
+context for choosing the sense; the prompt says it never belongs in the translation. A
+description longer than the limit is cut at a word (`trimmed` note). Only `openai_compatible`
+uses descriptions: EuroLLM-1.7B (`ct2`) already echoed the bare glossary into its output
+before the prompt fix of 2026-09-28, and its input budget is small. Most descriptions are
+Czech (TEATER has them for about half its terms, AMČR for few).
+
+`/translate` applies a vocabulary only when `VOCABULARY_PATH` names one (default: none, the
+behaviour before). A path that names no usable CSV stops the service at startup; `/info`
+reports the file, its term count and sha256. Whether the image should default to the shipped
+list is decided from the bake-off below.
+
 ---
 
 ## Backend interface design
@@ -321,6 +344,17 @@ default is `"lindat"` (the existing `LindatTranslator`); `"openai_compatible"`
 and `"ct2"` are the other two registered names.  New backends are registered by
 adding an adapter class and a registry entry — no changes to `main.py`,
 `utils.py`, or `service/api.py` are needed.
+
+**A pair the backend cannot translate is refused, never rerouted** (2026-10-18). LINDAT
+used to send any pair it has no model for to `cs-en` without a word, so `cs→it` wrote English
+into `_it.xml` and `hu→en` translated Hungarian as Czech. Now `language_pair_problem()`
+(`processors/language.py`) checks an explicit pair before anything is translated: the CLI
+exits 1 and the service answers 422 (`cause: "unsupported_language_pair"`, the offered source
+languages in `errors`), each naming what the backend offers; in `auto` mode the fallback
+source language is checked the same way. LINDAT is held to its exact `src-tgt` models, another
+backend to `supported_languages()` when that lists anything (the LLM backend lists nothing
+unless `LLM_LANGUAGES` is set, so it refuses nothing). `_basic_translate` raises
+`UnsupportedLanguagePairError` as the backstop.
 
 `supported_languages()` (for LINDAT, the source side of its `supported_models`
 pairs) is also what `--source_lang auto` checks a detection against. A segment
@@ -366,33 +400,47 @@ replica, and the OpenAI-compatible backend (temperature 0, a remote model) has n
 
 ## Recommendation
 
-1. **Primary candidate to prototype: Cohere Command A Translate.**
-   Best language/domain fit for cs→en archival text, native glossary support
-   (can retire Tag-and-Protect + UDPipe), and available as both a hosted API
-   and self-hostable research weights.
+Where it stands on 2026-10-18 (issue #4; pilot decision of 30 September: the self-hosted
+backend is the fallback and alternative to LINDAT, further model exploration is outside the
+pilot gate):
 
-2. **Permissive self-host alternative: MADLAD-400 (Apache-2.0).**
-   The path to commercially-licensed output and the broadest language coverage.
-   Best fit if NC licensing becomes a blocker or if offline/air-gapped
-   deployment is needed.
+1. **LINDAT (`lindat`) stays the default** until the bake-off says otherwise. Its output is
+   CC BY-NC-SA 4.0 (the CUBBITT models; UDPipe too when a vocabulary is applied), and AMČR's
+   use of it waits on a written permission (Pavel Straňák).
+2. **`ct2` with EuroLLM is the self-hosted fallback.** With `--source_lang cs` and the CC0
+   vocabulary a run resolves to MIT. EuroLLM-1.7B (int8, CPU) translated 33 of 37 AMČR fields
+   on 2026-09-28, all 15 records valid against AMČR 2.2; 9B is the size to measure next.
+3. **`openai_compatible` becomes a translation alternative in its own right** (AMČR on
+   atrium-project#72, 13 October), fed the vocabulary with descriptions. Served locally
+   (vLLM) its licence is the model's, recorded with `LLM_LICENSE_COMPONENT` once checked;
+   through a provider it is that provider's terms (`llm_api`).
 
-3. **API generalist: GLM-5.2 (MIT).**
-   If ATRIUM adopts a single frontier LLM for multiple NLP tasks, GLM-5.2
-   could serve translation alongside NER/summarisation via one API.  Requires
-   OCR-faithfulness guardrails and prompt-based terminology (less reliable).
+### The bake-off (`eval/bakeoff.py`)
 
-4. **Keep CUBBITT as the default backend.**
-   Free, EU-hosted, proven for cs→en, zero infrastructure.  Should remain the
-   default; alternatives are opt-in via configuration.
+One variant per run, each named with `--label`, combined with `--combine` (the first file is
+the baseline for `baseline_char_sim`):
+
+| Variant            | Backend             | Model / setting                                            |
+|--------------------|---------------------|------------------------------------------------------------|
+| `lindat`           | `lindat`            | LINDAT CUBBITT, Tag-and-Protect with the vocabulary        |
+| `ct2-eurollm-1.7b` | `ct2`               | EuroLLM-1.7B-Instruct, int8                                |
+| `ct2-eurollm-9b`   | `ct2`               | EuroLLM-9B-Instruct, int8                                  |
+| `llm-desc0`        | `openai_compatible` | Qwen3.8-27B on a local vLLM, glossary without descriptions |
+| `llm-desc300`      | `openai_compatible` | the same, `LLM_GLOSSARY_DESCRIPTION_CHARS=300`             |
+
+The sample is the 15 AMČR records of `data_samples/my_documents` (37 `metadata-en` free-text
+fields, the production shape of issue #46) with the ALTO sample as a separate slice
+(`<out>_by_kind.csv`). There are no reference translations, so the comparison is
+reference-less: failed / empty segments, number preservation, length ratio, terminology hits,
+divergence from LINDAT, speed, optionally COMET-QE, and a manual read of the outputs. 37
+fields is a small sample; the result comment says so.
 
 ### Suggested next steps
 
-1. Merge the `TranslationBackend` protocol (`processors/backend.py`) into the
-   codebase.
-2. Implement one reference adapter (Cohere Command A Translate recommended)
-   behind a `TRANSLATION_BACKEND=cohere` config flag.
-3. Run a small-scale quality comparison on sample AMCR + ALTO data: CUBBITT vs
-   the new adapter, with and without glossary, measuring BLEU/COMET + manual
-   review of terminology accuracy.
-4. Based on results, decide whether to make the new backend the default or
-   offer it as an opt-in alternative.
+1. Run the bake-off on the cluster (the job script is delivered with issue #4's thread).
+2. Post the comparison matrix on issue #4, with the recommended default and whether the image
+   should set `VOCABULARY_PATH`.
+3. Record the self-hosted LLM's licence in `para_config.txt` (from its model card) so
+   `LLM_LICENSE_COMPONENT` can name it.
+4. Leave further model exploration (Qwen with the vocabulary fed whole, other sizes) after the
+   pilot, as decided on 30 September.

@@ -515,3 +515,34 @@ def test_a_ct2_configuration_error_stops_the_service_at_startup(monkeypatch):
     backend = CT2Translator(model_dir="", family="eurollm")  # CT2_MODEL_DIR unset
     with pytest.raises(TranslationError, match="CT2_MODEL_DIR"):
         _run_lifespan(monkeypatch, backend)
+
+
+def test_ct2_prompt_never_carries_descriptions(monkeypatch, tmp_path):
+    """translator#4: the concept descriptions are for the LLM backend only.
+
+    EuroLLM-1.7B already echoed a bare glossary into 13 of 30 fields before the prompt fix of
+    2026-09-28; descriptions would crowd its small input budget. Whatever
+    LLM_GLOSSARY_DESCRIPTION_CHARS says, the ct2 prompt keeps bare pairs.
+    """
+    monkeypatch.setenv("LLM_GLOSSARY_DESCRIPTION_CHARS", "300")
+    vocab = tmp_path / "v.csv"
+    vocab.write_text(
+        "source_lemma,target_translation,source,source_id,uri,description\n"
+        "bod,point,amcr,HES-1,https://api.aiscr.cz/id/HES-1,A surveyed location given by its coordinates.\n",
+        encoding="utf-8",
+    )
+    tokenizer = _FakeTokenizer(outputs=[_POINT_EN])
+    _install_fake_modules(monkeypatch, tokenizer)
+    backend = CT2Translator(
+        vocab_path=str(vocab),
+        model_dir="/models/eurollm-ct2",
+        tokenizer_dir="/models/eurollm-hf",
+        family="eurollm",
+        languages=["cs", "en"],
+    )
+
+    backend.translate(_POINT, "cs", "en")
+
+    [(messages, _, _)] = tokenizer.chat_template_calls
+    assert "bod = point" in messages[0]["content"]
+    assert "surveyed location" not in messages[0]["content"] + messages[1]["content"]

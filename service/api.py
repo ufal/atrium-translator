@@ -21,6 +21,7 @@ is not ``.xml`` is 415 ``unsupported_media_type``, a record that cannot be opene
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -42,8 +43,14 @@ from atrium_paradata import ParadataLogger
 from main import log_backend_components, process_single_file, record_doc_id
 from processors.backend import get_backend
 from processors.identifier import LanguageIdentifier
-from processors.language import SourceLanguagePolicy, allowed_source_languages
+from processors.language import (
+    SourceLanguagePolicy,
+    allowed_source_languages,
+    language_pair_problem,
+    normalise_lang_code,
+)
 from processors.translator import resolve_translation_url
+from processors.vocab import load_vocabulary_records
 from tool_limits import LIMITS, MAX_UPLOAD, TRANSLATION_CHUNK_CHARS, max_request_mb
 from utils import DEFAULT_OUTPUT_MODE, normalize_output_mode
 
@@ -165,10 +172,22 @@ class TranslateResponse(BaseModel):
     )
 
 
+class VocabularyInfo(BaseModel):
+    """The vocabulary `/translate` applies (`VOCABULARY_PATH`, translator#4)."""
+
+    file: str = Field(description="The CSV's file name (not its path on the host).")
+    terms: int = Field(description="Term pairs loaded.")
+    with_description: int = Field(description="Terms that carry a concept description.")
+    sha256: str = Field(description="sha256 of the CSV, to tell two vocabularies apart.")
+
+
 class TranslatorInfo(InfoBase):
     """`/info` of atrium-translator."""
 
     supported_formats: List[str] = Field(description="The kinds of XML `/translate` reads.")
+    vocabulary: Optional[VocabularyInfo] = Field(
+        None, description="The vocabulary `/translate` applies, or null when `VOCABULARY_PATH` is unset."
+    )
 
 
 #: The 200 of /translate in its three shapes (the JSON one is TranslateResponse, added by FastAPI).
@@ -265,6 +284,41 @@ _state = ServiceState()
 #: the published image with nothing to mount.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 AMCR_FIELDS_PATH = os.getenv("AMCR_FIELDS_PATH", "amcr-fields.txt")
+#: The vocabulary CSV /translate applies (translator#4); empty: none, as before.
+VOCABULARY_PATH = os.getenv("VOCABULARY_PATH", "")
+
+
+def _resolve_vocabulary(path_value: str) -> tuple[Optional[Path], Optional[dict]]:
+    """The vocabulary ``VOCABULARY_PATH`` names, checked: ``(path, /info entry)``, or ``(None, None)`` when unset.
+
+    Stricter than ``AMCR_FIELDS_PATH`` on purpose. A missing XPath file only refuses metadata
+    requests, each with a 422 that says why; a vocabulary someone set and that is silently
+    not applied would change every translation without a trace. So a value that does not
+    name a usable CSV stops the service at startup, with the fix in the message.
+    """
+    if not path_value or not path_value.strip():
+        return None, None
+    candidate = Path(path_value.strip())
+    if not candidate.is_absolute():
+        candidate = _REPO_ROOT / candidate
+    if not candidate.is_file():
+        raise RuntimeError(
+            f"VOCABULARY_PATH={path_value!r} does not resolve to a file (looked at {candidate}). Point it at a "
+            "vocabulary CSV such as data_samples/vocabulary.csv, or unset it to translate without a vocabulary."
+        )
+    records = load_vocabulary_records(candidate)
+    if not records:
+        raise RuntimeError(
+            f"VOCABULARY_PATH={path_value!r} ({candidate}) holds no term pair "
+            "(source_lemma,target_translation). Fix the file, or unset the variable."
+        )
+    info = {
+        "file": candidate.name,
+        "terms": len(records),
+        "with_description": sum(1 for record in records.values() if record.description),
+        "sha256": hashlib.sha256(candidate.read_bytes()).hexdigest(),
+    }
+    return candidate, info
 
 
 def _as_bool(raw, *, default: bool) -> bool:
@@ -314,7 +368,11 @@ async def lifespan(app: FastAPI):
     # OpenAI-compatible LLM backend without code changes (issue #4).
     backend = os.getenv("TRANSLATION_BACKEND")
     logger.info("Warming up translation backend (%s)", backend or "lindat")
-    models["translator"] = get_backend(backend, vocab_path=None)
+    # The vocabulary first: a VOCABULARY_PATH that names no usable CSV stops the service here.
+    vocab_path, models["vocabulary_info"] = _resolve_vocabulary(VOCABULARY_PATH)
+    if vocab_path is not None:
+        logger.info("Applying the vocabulary %s (%d terms)", vocab_path, models["vocabulary_info"]["terms"])
+    models["translator"] = get_backend(backend, vocab_path=str(vocab_path) if vocab_path else None)
     # A backend with a model to load (ct2) loads it now: a configuration error stops the
     # service here instead of failing the first request, and /ready below means "loaded".
     warm = getattr(models["translator"], "warm", None)
@@ -424,6 +482,39 @@ def _refuse_if_draining() -> None:
         raise HTTPException(status_code=503, detail="Service is shutting down; retry against a live replica.")
 
 
+def _refuse_untranslatable_pair(source_lang: str, target_lang: str) -> None:
+    """422 for a language pair the warmed backend cannot translate (translator#4).
+
+    LINDAT used to translate such a request from Czech without a word. ``auto`` checks the
+    language a segment falls back to (``DEFAULT_SOURCE_LANG``). No registered reason exists
+    for it, so ``reason`` is null; ``cause`` names it and ``errors`` lists what is offered.
+    """
+    translator = models.get("translator")
+    if translator is None:
+        return
+    field = "source_lang"
+    pair_source = source_lang
+    if source_lang == "auto":
+        field, pair_source = "DEFAULT_SOURCE_LANG", SourceLanguagePolicy.from_env().default
+    problem = language_pair_problem(translator, pair_source, target_lang)
+    if problem:
+        offered = allowed_source_languages(translator, target_lang)
+        raise AtriumHTTPError(
+            422,
+            f"Cannot translate {pair_source} → {target_lang}: {problem}",
+            reason=None,
+            cause="unsupported_language_pair",
+            errors=[
+                {
+                    "field": field,
+                    "value": pair_source,
+                    "target_lang": target_lang,
+                    "supported_source_langs": sorted(offered) if offered else [],
+                }
+            ],
+        )
+
+
 # Opus 4.8 Hardening: Strict Content-Type Guards
 async def verify_content_type(request: Request):
     """Ensure incoming POST requests provide acceptable payload formats."""
@@ -500,6 +591,10 @@ async def translate_document(
     qp = request.query_params
     source_lang = source_lang or qp.get("source_lang") or "auto"
     target_lang = target_lang or qp.get("target_lang") or "en"
+    if source_lang.strip().lower() != "auto":
+        source_lang = normalise_lang_code(source_lang) or source_lang
+    target_lang = normalise_lang_code(target_lang) or target_lang
+    _refuse_untranslatable_pair(source_lang, target_lang)
     if is_alto is None:
         is_alto = _as_bool(qp.get("is_alto"), default=True)
     # The form field is validated by its enum; the query value is checked here, so both
@@ -663,12 +758,16 @@ async def translate_document(
             if not isinstance(effective_url, str) or not effective_url.strip():
                 effective_url = resolve_translation_url()
             para_config["translation_api"] = effective_url.rstrip("/") + "/"
-        elif backend_name == "ct2":
-            # Which model, device and quantisation the warmed backend uses (CT2_*).
+        else:
+            # Which model translated (ct2: CT2_*; openai_compatible: LLM_MODEL, provider, host).
             describe = getattr(models["translator"], "describe", None)
             details = describe() if callable(describe) else None
             if isinstance(details, dict):
                 para_config.update(details)
+        vocabulary_info = models.get("vocabulary_info")
+        if vocabulary_info:
+            para_config["vocabulary"] = vocabulary_info["file"]
+            para_config["vocabulary_sha256"] = vocabulary_info["sha256"]
 
         # The call's paradata (atrium-project#71). paradata_dir=None: a service writes no
         # paradata file; the run goes back as the response's `paradata`, and its run_id /
@@ -827,6 +926,7 @@ async def get_info():
         service=SERVICE,
         limits=LIMITS,
         supported_formats=["ALTO XML", "AMCR Metadata XML"],
+        vocabulary=models.get("vocabulary_info"),
     )
 
 

@@ -22,6 +22,15 @@ so the base install stays light (see ``requirements-llm.txt``):
                     advertised via supported_languages() (empty -> []).
     LLM_MIN_INTERVAL_S / LLM_MAX_RETRIES / LLM_BACKOFF_BASE_S
                     Rate-limit + retry knobs (mirror the LINDAT_* ones).
+    LLM_EXTRA_BODY  Optional JSON object merged into every request body, for
+                    server-specific switches, e.g. a vLLM serving Qwen3.8 with
+                    '{"chat_template_kwargs": {"enable_thinking": false}}'.
+                    The fields this client sets itself (model, messages,
+                    temperature, max_tokens) always win.
+    LLM_LICENSE_COMPONENT
+                    Optional para_config.txt component to record instead of
+                    ``llm_api`` (provider ToS) — for a model the deployment
+                    serves itself, whose licence is then known.
 
 Why this backend exists
 -----------------------
@@ -49,24 +58,39 @@ Glossary (``supports_glossary = True``)
 --------------------------------------
 When a vocabulary CSV is supplied, the relevant term pairs are injected into the
 prompt, so controlled terminology is handled natively by the model and the
-UDPipe Tag-and-Protect workaround is *not* used for this backend.
+UDPipe Tag-and-Protect workaround is *not* used for this backend.  With
+``LLM_GLOSSARY_DESCRIPTION_CHARS`` above 0, a term the CSV describes (its
+``description`` column) carries that description as context, so the model can
+choose the term's sense (AMČR on atrium-project#72, 13 October: "the vocab,
+including descriptions, as one of the inputs").
 """
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 
-from tool_limits import LLM_MAX_GLOSSARY_TERMS, LLM_MAX_RETRIES, LLM_MAX_TOKENS, LLM_TIMEOUT_S
+from tool_limits import (
+    LLM_GLOSSARY_DESCRIPTION_CHARS,
+    LLM_MAX_GLOSSARY_TERMS,
+    LLM_MAX_RETRIES,
+    LLM_MAX_TOKENS,
+    LLM_TIMEOUT_S,
+)
 
 from .chunking import chunk_for_translation
 from .http_retry import Throttle, request_with_retry
 from .limit_notes import note
 from .quality import degeneration_reason
 from .translator import DegenerateTranslationError, TranslationError
-from .vocab import get_matching_terms, load_vocabulary
+from .vocab import get_matching_terms, load_vocabulary_records
+
+#: Request fields this client sets itself; LLM_EXTRA_BODY cannot override them.
+_OWN_FIELDS = ("model", "messages", "temperature", "max_tokens")
 
 
 def _env_float(name: str, default: float) -> float:
@@ -96,6 +120,29 @@ _MAX_GLOSSARY_TERMS = LLM_MAX_GLOSSARY_TERMS.get()
 # their own hard ceiling without returning an error (M2). A reply the provider cut at
 # the cap is refused, not used (see _translate_chunk).
 _LLM_MAX_TOKENS = LLM_MAX_TOKENS.get()
+
+
+def _extra_body(raw: str) -> dict:
+    """``LLM_EXTRA_BODY`` as a dict; a value that is not a JSON object stops the backend here."""
+    if not raw or not raw.strip():
+        return {}
+    try:
+        value = json.loads(raw)
+    except ValueError as exc:
+        raise TranslationError(f"LLM_EXTRA_BODY is not valid JSON ({exc}); set it to a JSON object or unset it.")
+    if not isinstance(value, dict):
+        raise TranslationError("LLM_EXTRA_BODY must be a JSON object, e.g. '{\"chat_template_kwargs\": {...}}'.")
+    return {key: item for key, item in value.items() if key not in _OWN_FIELDS}
+
+
+def _cut(text: str, limit: int) -> str:
+    """*text* cut at a word boundary to at most *limit* characters, with "…"."""
+    if len(text) <= limit:
+        return text
+    cut = text[: max(limit - 1, 1)]
+    if " " in cut:
+        cut = cut[: cut.rindex(" ")]
+    return cut.rstrip(" ,;:") + "…"
 
 
 class LLMTranslator:
@@ -139,11 +186,19 @@ class LLMTranslator:
         self._throttle = Throttle(_env_float("LLM_MIN_INTERVAL_S", 0.0))
         self._max_retries = LLM_MAX_RETRIES.get()
         self._backoff_base_s = _env_float("LLM_BACKOFF_BASE_S", 1.0)
+        self.extra_body: dict = _extra_body(os.environ.get("LLM_EXTRA_BODY", ""))
+        self.license_component: str = os.environ.get("LLM_LICENSE_COMPONENT", "").strip()
 
         # Vocabulary -> prompt glossary (no UDPipe / Tag-and-Protect here).
-        self.vocabulary: dict = load_vocabulary(Path(vocab_path)) if vocab_path else {}
+        records = load_vocabulary_records(Path(vocab_path)) if vocab_path else {}
+        self.vocabulary: dict = {key: record.target_translation for key, record in records.items()}
+        # The concepts' descriptions, given as context when LLM_GLOSSARY_DESCRIPTION_CHARS > 0.
+        self._descriptions: dict = {key: record.description for key, record in records.items() if record.description}
         if self.vocabulary:
-            print("[INFO] Vocabulary loaded. LLM prompt-glossary injection enabled.")
+            print(
+                f"[INFO] Vocabulary loaded ({len(self.vocabulary)} terms, {len(self._descriptions)} with a "
+                "description). LLM prompt-glossary injection enabled."
+            )
 
         # Per-document tally of glossary terms injected (mirrors LindatTranslator's
         # protected_count so main.py's per-document stats keep working).
@@ -177,14 +232,30 @@ class LLMTranslator:
     def protected_count(self) -> int:
         return self._protected_count
 
+    def describe(self) -> dict:
+        """Which model translated, for the paradata record (never the key).
+
+        ``llm_endpoint_host`` is the endpoint's host name only: enough to tell a self-hosted
+        server from a provider, without the URL's path or query.
+        """
+        return {
+            "llm_model": self.model,
+            "llm_provider": self.provider,
+            "llm_endpoint_host": urlparse(self.base_url).hostname or "",
+            "llm_glossary_description_chars": LLM_GLOSSARY_DESCRIPTION_CHARS.get(),
+            "llm_extra_body_keys": sorted(self.extra_body),
+        }
+
     def license_components(self, vocab_loaded: bool = False) -> list:
         """Paradata component names this backend contributes (see para_config.txt).
 
         The LLM API itself maps to ``llm_api`` (provider ToS — deliberately
-        treated conservatively by para_licenses).  A loaded glossary still
-        derives from the AMCR/TEATER vocabulary, so those are recorded too.
+        treated conservatively by para_licenses), unless ``LLM_LICENSE_COMPONENT``
+        names the component of a model the deployment serves itself.  A loaded
+        glossary still derives from the AMCR/TEATER vocabulary, so those are
+        recorded too.
         """
-        comps = ["llm_api"]
+        comps = [self.license_component or "llm_api"]
         if vocab_loaded:
             comps += ["amcr_vocab", "teater_data"]
         return comps
@@ -232,25 +303,43 @@ class LLMTranslator:
                 f"{len(pairs) - cap} matched vocabulary term(s) left out of a prompt; the {cap} longest were kept",
             )
         pairs = pairs[:cap]
-        return [f"{src} = {tgt}" for src, tgt in pairs]
+        limit = LLM_GLOSSARY_DESCRIPTION_CHARS.get()
+        lines, cut = [], 0
+        for src, tgt in pairs:
+            description = self._descriptions.get(src, "") if limit > 0 else ""
+            if description:
+                short = _cut(description, limit)
+                cut += short != description
+                lines.append(f"{src} = {tgt} (description: {short})")
+            else:
+                lines.append(f"{src} = {tgt}")
+        if cut:
+            note(
+                LLM_GLOSSARY_DESCRIPTION_CHARS,
+                "trimmed",
+                cut,
+                f"{cut} glossary description(s) cut to {limit} characters in a prompt",
+            )
+        return lines
 
     def _build_messages(self, text: str, src_lang: str, tgt_lang: str) -> list:
         messages = [{"role": "system", "content": self._system_prompt(src_lang, tgt_lang)}]
         glossary = self._glossary_lines(text)
         if glossary:
             self._protected_count += len(glossary)
-            messages.append(
-                {
-                    "role": "system",
-                    "content": "Glossary — translate each source term on the left exactly as the "
-                    "right-hand target term:\n" + "\n".join(glossary),
-                }
-            )
+            header = "Glossary — translate each source term on the left exactly as the right-hand target term:"
+            if any("(description: " in line for line in glossary):
+                header += (
+                    " A description in parentheses explains the concept, so you can tell which sense "
+                    "the text uses; it is context only and never belongs in the translation."
+                )
+            messages.append({"role": "system", "content": header + "\n" + "\n".join(glossary)})
         messages.append({"role": "user", "content": text})
         return messages
 
     def _translate_chunk(self, chunk: str, src_lang: str, tgt_lang: str) -> str:
         payload = {
+            **self.extra_body,
             "model": self.model,
             "messages": self._build_messages(chunk, src_lang, tgt_lang),
             "temperature": 0,

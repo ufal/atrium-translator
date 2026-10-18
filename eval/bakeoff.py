@@ -10,7 +10,20 @@ sample of AMCR metadata + ALTO OCR and writes two CSVs:
     ``segments``, ``failed``, ``empty`` / ``empty_rate``, ``term_hits`` /
     ``term_expected`` / ``term_hit_rate``, mean ``number_preservation`` and
     ``length_ratio``, mean ``baseline_char_sim``, ``refs_used``, corpus ``chrF``
-    / ``BLEU``, and ``COMET`` / ``COMET_QE`` system scores.
+    / ``BLEU``, ``COMET`` / ``COMET_QE`` system scores, and the time the backend
+    took: ``seconds`` and ``chars_per_s`` (source characters per second);
+  * ``<out>_by_kind.csv`` — the same per backend and segment kind (``metadata``,
+    ``alto``), so the AMČR fields and the OCR slice are never averaged together;
+  * ``<out>.meta.json`` — what ran: each backend's ``describe()`` (model, device,
+    quantisation; never a key), the vocabulary's sha256, the commit, warm-up time.
+
+One variant per run, combined afterwards
+----------------------------------------
+On a cluster each variant usually needs its own environment (a ``ct2`` model per
+``CT2_MODEL_DIR``, an LLM server per ``LLM_*``, network for ``lindat``), so the
+bake-off runs one variant at a time, named with ``--label``, and ``--combine``
+merges the per-segment CSVs: it recomputes ``baseline_char_sim`` against the
+first file's variant and writes the three outputs above for all of them.
 
 Why the metric mix
 ------------------
@@ -44,6 +57,10 @@ deps (sacrebleu / unbabel-comet) are imported lazily and the harness degrades to
 a warning when they are absent. See "Suggested next steps" (under "Recommendation")
 in docs/translation-backends.md.
 
+The source language must be explicit (``--source_lang cs``, the default): the
+backends receive it as is, and the pipeline's language detection is not part of
+what is compared.
+
 Usage
 -----
     # CUBBITT only (no LLM env needed):
@@ -59,6 +76,12 @@ Usage
         --vocabulary data_samples/vocabulary.csv --refs refs.tsv \
         --comet-qe-model Unbabel/wmt22-cometkiwi-da --comet-gpus 1 \
         --limit 40 --out bakeoff.csv
+
+    # One variant per run (its own env), then combine:
+    CT2_MODEL_DIR=… python -m eval.bakeoff --backends ct2 --label ct2-eurollm-9b \
+        --vocabulary data_samples/vocabulary.csv --out runs/ct2-eurollm-9b.csv
+    python -m eval.bakeoff --combine runs/lindat.csv runs/ct2-eurollm-9b.csv \
+        --out bakeoff.csv
 """
 
 from __future__ import annotations
@@ -66,8 +89,14 @@ from __future__ import annotations
 import argparse
 import csv
 import difflib
+import hashlib
+import json
+import platform
 import re
+import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from lxml import etree
@@ -76,7 +105,7 @@ from lxml import etree
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from processors.backend import get_backend  # noqa: E402
-from processors.vocab import load_vocabulary  # noqa: E402
+from processors.vocab import get_matching_terms, load_vocabulary  # noqa: E402
 
 _SECURE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False, huge_tree=False)
 
@@ -130,14 +159,22 @@ def _metadata_field_texts(path: Path, xpaths: list[str]) -> list[str]:
     return out
 
 
-def collect_segments(samples_dir: Path, xpaths: list[str], limit: int | None) -> list[dict]:
+#: The segment kinds collect_segments() produces.
+KINDS = ("metadata", "alto")
+
+
+def collect_segments(
+    samples_dir: Path, xpaths: list[str], limit: int | None, kinds: tuple[str, ...] = KINDS
+) -> list[dict]:
     segments: list[dict] = []
     for path in sorted(samples_dir.rglob("*.xml")):
         try:
             if path.name.endswith(".alto.xml"):
+                if "alto" not in kinds:
+                    continue
                 for i, t in enumerate(_alto_block_texts(path)):
                     segments.append({"file": path.name, "kind": "alto", "id": f"block{i}", "src": t})
-            else:
+            elif "metadata" in kinds:
                 for i, t in enumerate(_metadata_field_texts(path, xpaths)):
                     segments.append({"file": path.name, "kind": "metadata", "id": f"field{i}", "src": t})
         except Exception as e:  # noqa: BLE001 - a malformed sample must not abort the run
@@ -166,17 +203,15 @@ def length_ratio(src: str, tgt: str) -> float | str:
 
 
 def terminology_hits(src: str, tgt: str, vocab: dict) -> tuple[int, int]:
-    """(#expected glossary targets present in tgt, #glossary terms found in src)."""
-    low_src = src.lower()
+    """(#expected glossary targets present in tgt, #glossary terms found in src).
+
+    A term counts as found in *src* as a whole word, the way the backends match it
+    (``get_matching_terms``): "kost" is not expected inside "kostel".
+    """
     low_tgt = tgt.lower()
-    expected = 0
-    hit = 0
-    for term, target in vocab.items():
-        if term in low_src:
-            expected += 1
-            if target.lower() in low_tgt:
-                hit += 1
-    return hit, expected
+    matched = get_matching_terms(src, vocab)
+    hit = sum(1 for _term, target in matched if target.lower() in low_tgt)
+    return hit, len(matched)
 
 
 def char_similarity(a: str, b: str) -> float:
@@ -236,6 +271,8 @@ SUMMARY_COLUMNS = (
     "BLEU",
     "COMET",
     "COMET_QE",
+    "seconds",
+    "chars_per_s",
 )
 
 
@@ -313,8 +350,29 @@ def summarise(rows: list[dict], backends: list[str], *, sacre=None, comet_system
             refs = [[r["ref"] for r in with_ref]]
             entry["chrF"] = round(sacre.corpus_chrf(hyps, refs).score, 2)
             entry["BLEU"] = round(sacre.corpus_bleu(hyps, refs).score, 2)
+        timed = [r for r in mine if isinstance(r.get("seconds"), float)]
+        seconds = sum(r["seconds"] for r in timed)
+        entry["seconds"] = round(seconds, 2) if timed else ""
+        chars = sum(r["src_len"] for r in timed if not r["failed"])
+        entry["chars_per_s"] = round(chars / seconds, 1) if timed and seconds > 0 else ""
         summary.append(entry)
     return summary
+
+
+def summarise_by_kind(rows: list[dict], backends: list[str], **kwargs) -> list[dict]:
+    """:func:`summarise` per segment kind: one row per (backend, kind) present, ``kind`` first.
+
+    The AMČR metadata fields and the OCR blocks are different tasks, so the report never
+    averages them together. The baseline divergence is the per-segment value, unchanged.
+    """
+    out: list[dict] = []
+    for kind in KINDS:
+        subset = [r for r in rows if r.get("kind") == kind]
+        if not subset:
+            continue
+        present = [name for name in backends if any(r["backend"] == name for r in subset)]
+        out.extend({"kind": kind, **entry} for entry in summarise(subset, present, **kwargs))
+    return out
 
 
 def _write_csv(path, rows: list[dict], fieldnames=None) -> None:
@@ -330,6 +388,83 @@ def _write_csv(path, rows: list[dict], fieldnames=None) -> None:
 def _default_summary_path(out: str) -> Path:
     p = Path(out)
     return p.with_name(f"{p.stem}_summary{p.suffix or '.csv'}")
+
+
+def _by_kind_path(out: str) -> Path:
+    p = Path(out)
+    return p.with_name(f"{p.stem}_by_kind{p.suffix or '.csv'}")
+
+
+def _meta_path(out: str) -> Path:
+    p = Path(out)
+    return p.with_name(f"{p.stem}.meta.json")
+
+
+def _git_commit() -> str:
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        ).stdout.strip()
+    except Exception:  # noqa: BLE001 - provenance nicety, never fatal
+        return ""
+
+
+def _sha256(path) -> str:
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def _write_meta(out: str, meta: dict) -> Path:
+    path = _meta_path(out)
+    path.write_text(json.dumps(meta, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
+    return path
+
+
+def _print_summary(summary: list[dict]) -> None:
+    print("\n=== SUMMARY ===")
+    for s in summary:
+        extras = "".join(
+            f"  {k}={s[k]}"
+            for k in ("baseline_char_sim", "chrF", "BLEU", "COMET", "COMET_QE", "seconds", "chars_per_s")
+            if s[k] != ""
+        )
+        print(
+            f"  {s['backend']:18s} segments={s['segments']:4d}  failed={s['failed']:3d}  empty={s['empty']:3d} "
+            f"({s['empty_rate'] or 0:.1%})  term_hit_rate={s['term_hit_rate']}  "
+            f"number_preservation={s['number_preservation']}{extras}"
+        )
+
+
+def _score_and_write(rows: list[dict], backend_names: list[str], args, *, sacre, comet_mod, want_comet: bool):
+    """COMET passes (optional), then the per-segment, summary and per-kind CSVs; returns the summary."""
+    comet_model = (getattr(args, "comet_model", "") or "").strip()
+    comet_qe_model = (getattr(args, "comet_qe_model", "") or "").strip()
+    comet_system: dict[str, dict] = {}
+    if comet_mod is not None:
+        gpus = int(getattr(args, "comet_gpus", 0) or 0)
+        if want_comet:
+            comet_system["COMET"] = _add_comet(rows, "COMET", comet_mod, comet_model, gpus, with_ref=True)
+        if comet_qe_model:
+            comet_system["COMET_QE"] = _add_comet(rows, "COMET_QE", comet_mod, comet_qe_model, gpus, with_ref=False)
+
+    summary = summarise(rows, backend_names, sacre=sacre, comet_system=comet_system)
+    by_kind = summarise_by_kind(rows, backend_names, sacre=sacre)
+    summary_out = Path(args.summary_out) if getattr(args, "summary_out", None) else _default_summary_path(args.out)
+    _write_csv(args.out, rows)
+    _write_csv(summary_out, summary, SUMMARY_COLUMNS)
+    _write_csv(_by_kind_path(args.out), by_kind, ("kind", *SUMMARY_COLUMNS))
+    _print_summary(summary)
+    print(f"\n[INFO] per-segment results → {args.out}")
+    print(f"[INFO] per-backend summary → {summary_out}")
+    print(f"[INFO] per-backend, per-kind summary → {_by_kind_path(args.out)}")
+    return summary
 
 
 def _add_comet(rows: list[dict], column: str, comet_mod, model_name: str, gpus: int, with_ref: bool) -> dict:
@@ -377,15 +512,30 @@ def run(args) -> list[dict]:
     if (want_comet or comet_qe_model) and comet_mod is None:
         print("[WARN] unbabel-comet not installed; COMET/COMET-QE skipped. pip install -r eval/requirements-eval.txt")
 
-    backend_names = [b.strip() for b in args.backends.split(",") if b.strip()]
+    started = datetime.now(timezone.utc)
+    names = [b.strip() for b in args.backends.split(",") if b.strip()]
+    label = (getattr(args, "label", None) or "").strip()
     backends = {}
-    for name in backend_names:
+    described: dict[str, dict] = {}
+    warm_s: dict[str, float] = {}
+    for name in names:
         ctor_kwargs = {"vocab_path": args.vocabulary} if args.vocabulary else {}
-        backends[name] = get_backend(name, **ctor_kwargs)
-        print(f"[INFO] backend '{name}' ready (supports_glossary={getattr(backends[name], 'supports_glossary', '?')}).")
+        backend = get_backend(name, **ctor_kwargs)
+        column = label or name  # the `backend` column: the variant's label when one is given
+        warm = getattr(backend, "warm", None)
+        if callable(warm):  # load the model before the clock starts (ct2)
+            t0 = time.perf_counter()
+            warm()
+            warm_s[column] = round(time.perf_counter() - t0, 2)
+        describe = getattr(backend, "describe", None)
+        described[column] = {"backend": name, **(describe() if callable(describe) else {})}
+        backends[column] = backend
+        print(f"[INFO] backend '{column}' ready (supports_glossary={getattr(backend, 'supports_glossary', '?')}).")
+    backend_names = list(backends)
     baseline = backend_names[0] if backend_names else ""
 
-    segments = collect_segments(Path(args.samples), xpaths, args.limit)
+    kinds = tuple(k.strip() for k in (getattr(args, "kinds", None) or ",".join(KINDS)).split(",") if k.strip())
+    segments = collect_segments(Path(args.samples), xpaths, args.limit, kinds)
     print(f"[INFO] {len(segments)} segment(s) collected from {args.samples}.")
 
     rows: list[dict] = []
@@ -395,12 +545,14 @@ def run(args) -> list[dict]:
         seg_rows: dict[str, dict] = {}
         for name, backend in backends.items():
             error = ""
+            t0 = time.perf_counter()
             try:
                 tgt = backend.translate(src, args.source_lang, args.target_lang)
             except Exception as e:  # noqa: BLE001 - record the failure, keep going
                 tgt = ""
                 error = str(e)
                 print(f"[WARN] {name} failed on {seg['file']}:{seg['id']}: {e}")
+            seconds = round(time.perf_counter() - t0, 3)
             tgt = tgt or ""
             hit, exp = terminology_hits(src, tgt, vocab)
             row = {
@@ -417,6 +569,7 @@ def run(args) -> list[dict]:
                 "term_hits": hit,
                 "term_expected": exp,
                 "baseline_char_sim": "",
+                "seconds": seconds,
                 "src": src,
                 "tgt": tgt,
                 "error": error,
@@ -436,32 +589,89 @@ def run(args) -> list[dict]:
                 if name != baseline and not row["failed"]:
                     row["baseline_char_sim"] = char_similarity(base["tgt"], row["tgt"])
 
-    comet_system: dict[str, dict] = {}
-    if comet_mod is not None:
-        gpus = int(getattr(args, "comet_gpus", 0) or 0)
-        if want_comet:
-            comet_system["COMET"] = _add_comet(rows, "COMET", comet_mod, comet_model, gpus, with_ref=True)
-        if comet_qe_model:
-            comet_system["COMET_QE"] = _add_comet(rows, "COMET_QE", comet_mod, comet_qe_model, gpus, with_ref=False)
+    summary = _score_and_write(rows, backend_names, args, sacre=sacre, comet_mod=comet_mod, want_comet=want_comet)
+    meta = {
+        "variants": described,
+        "warm_seconds": warm_s,
+        "source_lang": args.source_lang,
+        "target_lang": args.target_lang,
+        "samples": str(args.samples),
+        "kinds": list(kinds),
+        "limit": args.limit,
+        "segments": len(segments),
+        "vocabulary": str(args.vocabulary or ""),
+        "vocabulary_sha256": _sha256(args.vocabulary) if args.vocabulary else "",
+        "commit": _git_commit(),
+        "python": platform.python_version(),
+        "started_utc": started.isoformat(timespec="seconds"),
+        "finished_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    print(f"[INFO] what ran → {_write_meta(args.out, meta)}")
+    return summary
 
-    summary = summarise(rows, backend_names, sacre=sacre, comet_system=comet_system)
-    summary_out = Path(args.summary_out) if getattr(args, "summary_out", None) else _default_summary_path(args.out)
-    _write_csv(args.out, rows)
-    _write_csv(summary_out, summary, SUMMARY_COLUMNS)
 
-    # Console summary.
-    print("\n=== SUMMARY ===")
-    for s in summary:
-        extras = "".join(
-            f"  {k}={s[k]}" for k in ("baseline_char_sim", "chrF", "BLEU", "COMET", "COMET_QE") if s[k] != ""
-        )
-        print(
-            f"  {s['backend']:18s} segments={s['segments']:4d}  failed={s['failed']:3d}  empty={s['empty']:3d} "
-            f"({s['empty_rate'] or 0:.1%})  term_hit_rate={s['term_hit_rate']}  "
-            f"number_preservation={s['number_preservation']}{extras}"
-        )
-    print(f"\n[INFO] per-segment results → {args.out}")
-    print(f"[INFO] per-backend summary → {summary_out}")
+#: Per-segment columns read back as numbers by --combine (the rest stay text).
+_INT_COLUMNS = ("failed", "src_len", "tgt_len", "term_hits", "term_expected")
+_FLOAT_COLUMNS = ("length_ratio", "number_preservation", "baseline_char_sim", "seconds", "chrF", "BLEU")
+
+
+def _typed(row: dict) -> dict:
+    """A per-segment row as read from CSV, with its numeric columns numeric again ("" stays "")."""
+    out = dict(row)
+    for key in _INT_COLUMNS:
+        out[key] = int(out.get(key) or 0)
+    for key in _FLOAT_COLUMNS:
+        value = out.get(key, "")
+        out[key] = float(value) if value not in ("", None) else ""
+    return out
+
+
+def combine(args) -> list[dict]:
+    """Merge per-variant per-segment CSVs (``--combine``) into one bake-off.
+
+    The variants keep their order: the first file's variant is the baseline. Divergence
+    from it is recomputed segment by segment (``file``, ``id``); COMET passes run if asked.
+    """
+    rows: list[dict] = []
+    names: list[str] = []
+    for path in args.combine:
+        with open(path, encoding="utf-8", newline="") as fh:
+            part = [_typed(r) for r in csv.DictReader(fh)]
+        if not part:
+            print(f"[WARN] {path} has no rows; left out.")
+            continue
+        for name in dict.fromkeys(r["backend"] for r in part):
+            if name in names:
+                raise SystemExit(
+                    f"[ERROR] variant {name!r} appears in more than one file; give each run its own --label."
+                )
+            names.append(name)
+        rows.extend(part)
+    if not rows:
+        raise SystemExit("[ERROR] --combine found no rows to merge.")
+    baseline = names[0]
+    base = {(r["file"], r["id"]): r for r in rows if r["backend"] == baseline}
+    for row in rows:
+        row["baseline_char_sim"] = ""
+        ref = base.get((row["file"], row["id"]))
+        if row["backend"] != baseline and ref is not None and not ref["failed"] and not row["failed"]:
+            row["baseline_char_sim"] = char_similarity(ref["tgt"], row["tgt"])
+
+    with_refs = any(r.get("ref") for r in rows)
+    sacre = _load_sacrebleu() if with_refs else None
+    comet_model = (getattr(args, "comet_model", "") or "").strip()
+    comet_qe_model = (getattr(args, "comet_qe_model", "") or "").strip()
+    want_comet = bool(with_refs and comet_model)
+    comet_mod = _load_comet() if (want_comet or comet_qe_model) else None
+    if (want_comet or comet_qe_model) and comet_mod is None:
+        print("[WARN] unbabel-comet not installed; COMET/COMET-QE skipped. pip install -r eval/requirements-eval.txt")
+    summary = _score_and_write(rows, names, args, sacre=sacre, comet_mod=comet_mod, want_comet=want_comet)
+    metas = {}
+    for path in args.combine:
+        meta_path = _meta_path(path)
+        if meta_path.is_file():
+            metas[str(path)] = json.loads(meta_path.read_text(encoding="utf-8"))
+    print(f"[INFO] what ran → {_write_meta(args.out, {'combined': list(map(str, args.combine)), 'runs': metas})}")
     return summary
 
 
@@ -477,8 +687,28 @@ def main(argv: list[str] | None = None) -> None:
     )
     p.add_argument("--vocabulary", default=None, help="Glossary CSV (enables terminology hit-rate + backend glossary).")
     p.add_argument("--refs", default=None, help="Optional TSV '<file>:<id>\\t<reference>' for chrF/BLEU/COMET.")
-    p.add_argument("--source_lang", default="auto")
+    p.add_argument(
+        "--source_lang",
+        default="cs",
+        help="The source language every backend receives (default cs). 'auto' is refused: language detection is "
+        "the pipeline's, not part of what is compared.",
+    )
     p.add_argument("--target_lang", default="en")
+    p.add_argument(
+        "--label",
+        default=None,
+        help="Name this run's variant in the `backend` column (e.g. ct2-eurollm-9b, llm-desc300); one backend only.",
+    )
+    p.add_argument(
+        "--kinds", default=",".join(KINDS), help="Segment kinds to collect: metadata, alto or both (default)."
+    )
+    p.add_argument(
+        "--combine",
+        nargs="+",
+        metavar="CSV",
+        default=None,
+        help="Merge per-segment CSVs of earlier runs (the first is the baseline) instead of translating.",
+    )
     p.add_argument(
         "--limit", type=int, default=None, help="Cap the number of segments (for quick runs / free-tier limits)."
     )
@@ -495,7 +725,18 @@ def main(argv: list[str] | None = None) -> None:
         help="Reference-free COMET-QE checkpoint (opt-in), e.g. Unbabel/wmt22-cometkiwi-da.",
     )
     p.add_argument("--comet-gpus", type=int, default=0, help="GPUs for COMET/COMET-QE scoring (0 = CPU).")
-    run(p.parse_args(argv))
+    args = p.parse_args(argv)
+    if args.combine:
+        combine(args)
+        return
+    if str(args.source_lang).strip().lower() == "auto":
+        p.error("--source_lang auto is not supported: give the language every backend receives (e.g. cs)")
+    if args.label and len([b for b in args.backends.split(",") if b.strip()]) != 1:
+        p.error("--label names ONE variant: pass a single --backends value with it")
+    unknown = sorted(set(k.strip() for k in args.kinds.split(",") if k.strip()) - set(KINDS))
+    if unknown:
+        p.error(f"--kinds: unknown kind(s) {unknown}; choose from {', '.join(KINDS)}")
+    run(args)
 
 
 if __name__ == "__main__":

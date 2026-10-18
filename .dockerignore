@@ -20,6 +20,7 @@ env/
 # into one, but the image's CMD passes `-o /data/output`.) atrium-project#69, H5.
 data_samples/appended_translated_files/
 data_samples/in-place_translated_files/
+data_samples/ct2_translated_files/
 # Not runtime (H5): the test suite and the evaluation scripts run from a checkout, never
 # from the image, and the dev logs are documentation.
 tests/
