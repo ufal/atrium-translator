@@ -179,6 +179,26 @@ def test_glossary_injected_into_prompt(mock_post):
 
 
 @patch("processors.llm_translator.requests.post")
+def test_one_system_message_for_chat_templates_that_allow_only_one(mock_post):
+    """Qwen3's template refuses a second system message: vLLM answered 400 to every segment
+    with a glossary in the bake-off (job 7144164)."""
+    captured = {}
+
+    def capture(url, json=None, headers=None, timeout=None):
+        captured["json"] = json
+        return _resp(200, _completion("the church"))
+
+    mock_post.side_effect = capture
+    b = _backend()
+    b.vocabulary = {"kostel": "church"}
+    b.translate("Našli jsme kostel poblíž.", "cs", "en")
+    roles = [m["role"] for m in captured["json"]["messages"]]
+    assert roles == ["system", "user"]
+    system = captured["json"]["messages"][0]["content"]
+    assert system.startswith("You are a professional translator") and "kostel = church" in system
+
+
+@patch("processors.llm_translator.requests.post")
 def test_glossary_word_boundary_matching(mock_post):
     """Short key 'kost' must not match inside 'kostel' (L1 word-boundary fix)."""
     captured = {}

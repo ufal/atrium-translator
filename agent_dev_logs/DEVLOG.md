@@ -1,9 +1,9 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
 > _XML in-place translation (AMČR metadata records, ALTO). 2 open issues: #4 (the bake-off; finish, pilot
 > atrium-project#67) and #46 (closes after AMČR's production run); #52 closed 2026-10-13. Open pull request: #54
-> (Dependabot, into `test`). `test` = `0a64328` (2026-10-18) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
-> release is not immutable, atrium-project#72). Latest entry: 2026-10-18 (evening: job T1 read, the fail-fast
-> follow-up, T1b; files delivered in chat). Twelve-factor detail lives in the hub:
+> (Dependabot, into `test`). `test` = `54d81cf` (2026-10-18) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
+> release is not immutable, atrium-project#72). Latest entry: 2026-10-19 (job T1b read: the glossary request and
+> the Blackwell cuBLAS fixed; T1c; files delivered in chat). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46,52}.digest.md` · `plans/{4,46,52}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -529,6 +529,33 @@ cell-merging stub: only page 76 changes, every number on its own row.
   Qwen's model-card licence. Re-run: `FORCE=1 ONLY="20 21 30 40 50 90"`.
 * **Checks:** 1170 passed, 3 skipped; ruff clean; `bash -n` and shellcheck clean; the job dry-run here with a stub
   interpreter (lock, skip, `.done`, combine).
+
+  Files delivered in chat.
+
+## 2026-10-19 — #4 job T1b read: no glossary ever reached Qwen; ct2 on a Blackwell GPU
+* **Job T1b** (7144164, dll-4gpu1, `54d81cf`):
+  * LLM arms (Qwen3.8-27B bf16, vLLM 0.31): 99 of 1,230 segments failed in both, exactly the 99 with a
+    vocabulary term, each `HTTP 400.`. The glossary went as a second `system` message, which Qwen3's chat template
+    refuses, so terms were 0/232 and desc0 equalled desc300. The 1,131 others: numbers 0.999, length ratio 1.01,
+    0.96 char similarity to LINDAT, 30 chars/s (LINDAT 20).
+  * `ct2` 1.7B/9B: `CUBLAS_STATUS_NOT_SUPPORTED` on every segment; the job had fallen back to `module cuda/12.3`,
+    whose cuBLAS predates Blackwell. The bake-off's guard stopped both after 10 identical errors and wrote nothing
+    (exit 2). `warm()`'s 4-token probe had passed.
+  * Samples: the same; the LINDAT part never ran (the stage stopped at the ct2 failure).
+  * Qwen3.8-27B and -FP8: `license: apache-2.0` on the model card.
+* **Fixes:**
+  * `LLMTranslator._build_messages`: one system message, instructions then glossary (new test);
+  * `processors/http_retry.provider_message`: a refusal names what the server said (`error.message`, `detail`,
+    or the body's start, 300 characters), for LINDAT too (tests);
+  * `CT2Translator._probe`: 4 tokens of a record-sized Czech sentence built as a translation's (EuroLLM: the chat
+    template and the end tokens); `NOT_SUPPORTED` names the Blackwell fix (cuBLAS ≥ 12.8, an Ampere/Hopper GPU, or
+    `CT2_DEVICE=cpu`) (tests);
+  * docs: `requirements-ct2.txt`, `docs/translation-backends.md` (the GPU note, the next steps).
+* **T1c** (scripts re-delivered): the samples stage runs LINDAT first, so the missing
+  `in-place_translated_files/xml/` is regenerated; `code_state` records the GPU's compute capability. Submitted in
+  two parts: the LLM arms on dll-4gpu1, then `ct2` and the samples on an Ampere GPU.
+* **Checks:** 1177 passed, 3 skipped; ruff clean.
+* **Dev logs:** `{4}` (T1b, T1c).
 
   Files delivered in chat.
 

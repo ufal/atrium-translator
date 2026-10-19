@@ -102,7 +102,13 @@ def _runtime_hint(device: str, error: Exception) -> str:
     """The message for a model that loaded but cannot generate on *device*, with the fix."""
     text = str(error)
     message = f"CTranslate2 loaded the model but cannot run it on CT2_DEVICE={device!r}: {text}"
-    if "cublas" in text.lower() or "cudnn" in text.lower() or ".so." in text:
+    if "NOT_SUPPORTED" in text:
+        message += (
+            " — this GPU's cuBLAS cannot run the model's int8 kernels. A Blackwell GPU (compute capability"
+            " 12.x) needs CUDA 12.8's cuBLAS or newer (pip install -U nvidia-cublas-cu12, on LD_LIBRARY_PATH);"
+            " or run on an Ampere or Hopper GPU, or set CT2_DEVICE=cpu (see docs/translation-backends.md)."
+        )
+    elif "cublas" in text.lower() or "cudnn" in text.lower() or ".so." in text:
         message += (
             " — CTranslate2 4.x runs on CUDA 12: install its cuBLAS into the environment"
             " (pip install nvidia-cublas-cu12) and put that package's lib folder on LD_LIBRARY_PATH,"
@@ -129,8 +135,14 @@ _NMT_FAMILIES = {"madlad", "nllb", "opus"}
 # Accepted by CTranslate2 on every device, in addition to the device's own types.
 _PORTABLE_COMPUTE_TYPES = ("default", "auto")
 
-# The text of warm()'s probe generation: short, so the probe costs a few tokens.
-_PROBE_TEXT = "Dobrý den."
+# The text of warm()'s probe generation: a record-like sentence, sent the way a real one is.
+# A 4-token prompt passed on a GPU whose cuBLAS then refused every real prompt (translator#4,
+# job 7144164: CUBLAS_STATUS_NOT_SUPPORTED on 1,230 of 1,230 segments).
+_PROBE_TEXT = (
+    "Archeologický výzkum v roce 2019 odkryl na ploše 120 m² zahloubené objekty z doby laténské, "
+    "mezi nimi dvě sídlištní jámy a část žlabu; nálezy keramiky, mazanice a zvířecích kostí jsou "
+    "uloženy v depozitáři muzea v Kolíně pod přírůstkovým číslem 45/2019."
+)
 # A limit since atrium-project#53 (CT2_MAX_GLOSSARY_TERMS in tool_limits.py, read per use);
 # this name is its value at import, kept for the callers and tests that read it.
 _MAX_GLOSSARY_TERMS = CT2_MAX_GLOSSARY_TERMS.get()
@@ -416,15 +428,22 @@ class CT2Translator:
             self._probed = True
 
     def _probe(self) -> None:
-        """One generation of a few tokens; a failure is a :class:`TranslationError` naming the fix."""
+        """A few tokens for a real-sized prompt, built as a translation's is (EuroLLM: the chat
+        template; NMT: SentencePiece pieces); a failure is a :class:`TranslationError` naming the fix."""
         try:
             if self.family in _NMT_FAMILIES:
                 tokens = list(self._sp.encode(_PROBE_TEXT, out_type=str)) + ["</s>"]
-                self._engine.translate_batch([tokens], beam_size=1, max_decoding_length=2)
+                self._engine.translate_batch([tokens], beam_size=1, max_decoding_length=4)
             else:
-                ids = self._tokenizer(_PROBE_TEXT, add_special_tokens=False)["input_ids"]
+                messages = self._llm_messages(_PROBE_TEXT, "cs", "en", [])
+                prompt = self._tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                ids = self._tokenizer(prompt, add_special_tokens=False)["input_ids"]
                 tokens = self._tokenizer.convert_ids_to_tokens(ids)
-                self._engine.generate_batch([tokens], max_length=2, include_prompt_in_result=False)
+                self._engine.generate_batch(
+                    [tokens], max_length=4, include_prompt_in_result=False, end_token=self._end_tokens()
+                )
+        except ImportError as e:  # transformers renders chat templates with Jinja2
+            raise TranslationError(f"Install requirements-ct2.txt (jinja2) for the EuroLLM chat template: {e}") from e
         except (RuntimeError, OSError, ValueError) as e:
             raise TranslationError(_runtime_hint(self.device, e)) from e
 

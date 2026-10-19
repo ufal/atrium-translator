@@ -166,9 +166,12 @@ hr, sl, lv, lt, et, hu, ro, es, it, nl, hi.  Of the candidates:
 - **On a GPU:** CTranslate2 4.x runs on CUDA 12 and loads `libcublas.so.12`, which a CUDA 13
   PyTorch in the same environment does not bring: `pip install nvidia-cublas-cu12` and put its
   `lib` folder on `LD_LIBRARY_PATH` (`requirements-ct2.txt` has the line), or use a CUDA 12
-  runtime. Without it the model loads and every generation fails, as in the bake-off job of
-  2026-10-18 (1,230 of 1,230 segments). `warm()` therefore runs one short generation after
-  the load; the service and the CLI stop there with the fix (or `CT2_DEVICE=cpu`).
+  runtime. A Blackwell GPU (compute capability 12.x) needs cuBLAS 12.8 or newer: CUDA 12.3's
+  answered `CUBLAS_STATUS_NOT_SUPPORTED` to every prompt on an RTX PRO 6000 (job 7144164).
+  Without a working cuBLAS the model loads and every generation fails, as in the bake-off jobs
+  of 2026-10-18 (1,230 of 1,230 segments). `warm()` therefore runs a few tokens of a record-sized
+  prompt, built as a translation's is, after the load; the service and the CLI stop there with
+  the fix (or `CT2_DEVICE=cpu`).
 - **Prompt:** the user turn is EuroLLM-Instruct's documented translation format,
   languages in words (`Translate the following Czech source text to
   English:\nCzech: … \nEnglish: `); the instructions sit in the system turn.
@@ -447,9 +450,12 @@ A variant that measures nothing ends the run with exit status 2 and says why: it
 
 ### Suggested next steps
 
-1. Re-run the ct2 and LLM variants on the cluster with CUDA 12 cuBLAS and vLLM's
-   `--max-num-seqs 64` (Qwen3.8 is a hybrid model: vLLM 0.31 refused its default 1024). The
-   LINDAT baseline of 18 October stands: 1,230 segments, 0 failed, 229 of 232 terms kept.
+1. Re-run (job T1c) the LLM variants, whose glossary never reached Qwen3.8 in job 7144164 (it
+   came as a second system message, which Qwen3's chat template refuses: every segment with a
+   vocabulary term failed with HTTP 400; it is one system message now), and the ct2 variants on
+   a GPU whose cuBLAS runs them. The LINDAT baseline of 18 October stands: 1,230 segments, 0
+   failed, 229 of 232 terms kept; Qwen3.8-27B without a glossary: 1,131 segments, 0.96 char
+   similarity to LINDAT, 30 characters/s against LINDAT's 20.
 2. Post the comparison matrix on issue #4, with the recommended default and whether the image
    should set `VOCABULARY_PATH`.
 3. Record the self-hosted LLM's licence in `para_config.txt` (from its model card) so

@@ -323,7 +323,13 @@ class LLMTranslator:
         return lines
 
     def _build_messages(self, text: str, src_lang: str, tgt_lang: str) -> list:
-        messages = [{"role": "system", "content": self._system_prompt(src_lang, tgt_lang)}]
+        """One system message (instructions, then the glossary), then the text.
+
+        The glossary is part of the one system message: Qwen3's chat template refuses a system
+        message that is not the first (vLLM answers 400), which failed every segment with a
+        vocabulary term in translator#4's bake-off (job 7144164: 99 of 1,230).
+        """
+        system = self._system_prompt(src_lang, tgt_lang)
         glossary = self._glossary_lines(text)
         if glossary:
             self._protected_count += len(glossary)
@@ -333,9 +339,8 @@ class LLMTranslator:
                     " A description in parentheses explains the concept, so you can tell which sense "
                     "the text uses; it is context only and never belongs in the translation."
                 )
-            messages.append({"role": "system", "content": header + "\n" + "\n".join(glossary)})
-        messages.append({"role": "user", "content": text})
-        return messages
+            system += "\n\n" + header + "\n" + "\n".join(glossary)
+        return [{"role": "system", "content": system}, {"role": "user", "content": text}]
 
     def _translate_chunk(self, chunk: str, src_lang: str, tgt_lang: str) -> str:
         payload = {

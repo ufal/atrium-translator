@@ -466,7 +466,10 @@ def test_warm_runs_one_short_probe_generation_once(monkeypatch):
     assert len(backend._engine.calls) == 1, "the probe runs once per backend"
     tokens, kwargs = backend._engine.calls[0]
     assert tokens == [["tok-101", "tok-102", "tok-103"]]
-    assert kwargs["max_length"] == 2
+    assert kwargs["max_length"] == 4 and kwargs["end_token"] == "<|im_end|>"
+    # The probe's prompt is built as a translation's: the chat template over the system and user turns.
+    messages = tokenizer.chat_template_calls[0][0]
+    assert [m["role"] for m in messages] == ["system", "user"] and "Archeologický výzkum" in messages[1]["content"]
 
 
 class _NoCublasGenerator(_FakeGenerator):
@@ -487,12 +490,29 @@ def test_a_model_that_loads_but_cannot_run_fails_at_warm_with_the_fix(monkeypatc
     assert backend._probed is False, "a later warm() probes again"
 
 
+class _NotSupportedGenerator(_FakeGenerator):
+    def generate_batch(self, sequences, **kwargs):
+        raise RuntimeError("cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED")
+
+
+def test_a_gpu_whose_cublas_refuses_the_kernels_gets_the_blackwell_hint(monkeypatch):
+    """Job 7144164: CUDA 12.3's cuBLAS on an RTX PRO 6000 (Blackwell) loaded EuroLLM, then refused every prompt."""
+    tokenizer = _FakeTokenizer()
+    backend = _eurollm(monkeypatch, tokenizer)
+    monkeypatch.setattr(sys.modules["ctranslate2"], "Generator", _NotSupportedGenerator)
+    with pytest.raises(TranslationError) as info:
+        backend.warm()
+    message = str(info.value)
+    assert "CUBLAS_STATUS_NOT_SUPPORTED" in message and "Blackwell" in message and "12.8" in message
+    assert "CT2_DEVICE=cpu" in message
+
+
 def test_the_nmt_probe_translates_a_few_tokens(monkeypatch):
     backend = _nmt("madlad")
     backend.warm()
     tokens, kwargs = backend._engine.calls[0]
     assert tokens[-1] == "</s>"
-    assert kwargs["max_decoding_length"] == 2
+    assert kwargs["max_decoding_length"] == 4 and len(tokens) > 20, "a record-sized sentence, not two words"
 
 
 def test_an_nmt_probe_failure_names_the_device(monkeypatch):

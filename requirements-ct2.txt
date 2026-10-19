@@ -19,6 +19,10 @@
 #     pip install nvidia-cublas-cu12
 #     export LD_LIBRARY_PATH="$(python -c 'import nvidia.cublas, os; print(os.path.join(nvidia.cublas.__path__[0], "lib"))'):$LD_LIBRARY_PATH"
 #
+# A Blackwell GPU (compute capability 12.x, e.g. RTX PRO 6000) needs cuBLAS 12.8 or newer: the
+# CUDA 12.3 runtime's cuBLAS answers CUBLAS_STATUS_NOT_SUPPORTED to every int8 prompt. The pip
+# package is current; an older CUDA module is not. Ampere and Hopper GPUs run with either.
+#
 # Without it the model loads and every generation fails; the backend's start-up probe
 # (warm()) reports that, with this fix, before any document is touched.
 ctranslate2>=4.8.2

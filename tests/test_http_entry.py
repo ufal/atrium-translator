@@ -88,6 +88,48 @@ def test_non_retryable_status_raises_immediately():
     assert calls["n"] == 1
 
 
+class _Refusal:
+    """A non-200 response with a body, as vLLM and OpenAI-compatible servers send one."""
+
+    def __init__(self, status_code, body=None, text=""):
+        self.status_code, self._body, self.text = status_code, body, text
+
+    def json(self):
+        if self._body is None:
+            raise ValueError("no JSON")
+        return self._body
+
+
+@pytest.mark.parametrize(
+    "response, said",
+    [
+        (
+            _Refusal(400, {"error": {"message": "System message must be at the beginning."}}),
+            "System message must be at the beginning.",
+        ),
+        (_Refusal(400, {"detail": "bad   request\n body"}), "bad request body"),
+        (_Refusal(422, None, "plain text refusal"), "plain text refusal"),
+    ],
+)
+def test_a_refusal_names_what_the_server_said(response, said):
+    """translator#4, job 7144164: 198 segments failed with "HTTP 400." and no cause."""
+    with pytest.raises(RuntimeError) as info:
+        request_with_retry(lambda: response, max_retries=0, backoff_base_s=0.0, label="LLM translation")
+    assert str(info.value) == f"LLM translation failed: HTTP {response.status_code}: {said}"
+
+
+def test_a_bodyless_refusal_keeps_the_short_message():
+    with pytest.raises(RuntimeError, match=r"^x failed: HTTP 404\.$"):
+        request_with_retry(lambda: _Resp(404), max_retries=0, backoff_base_s=0.0, label="x")
+
+
+def test_a_long_provider_text_is_cut():
+    long = _Refusal(400, {"error": {"message": "a" * 1000}})
+    with pytest.raises(RuntimeError) as info:
+        request_with_retry(lambda: long, max_retries=0, backoff_base_s=0.0)
+    assert len(str(info.value)) < 360 and str(info.value).endswith("…")
+
+
 def test_network_error_is_retried_then_succeeds():
     perform = _perform_sequence(requests.exceptions.ConnectionError("boom"), _Resp(200))
     out = request_with_retry(perform, max_retries=3, backoff_base_s=0.0)
