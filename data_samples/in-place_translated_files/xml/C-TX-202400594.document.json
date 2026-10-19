@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "record_type": "atrium-document",
+  "doc_id": "C-TX-202400594",
+  "derived_from": {
+    "translated_xml": "C-TX-202400594_en.xml"
+  },
+  "provenance": {
+    "license": "CC BY-NC-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+    "license_detail": {
+      "effective_license": "CC BY-NC-SA 4.0",
+      "effective_license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      "is_non_commercial": true,
+      "is_share_alike": true,
+      "determined_by": [
+        "lindat_cubbitt",
+        "udpipe2_models"
+      ],
+      "components": [
+        {
+          "name": "lindat_cubbitt",
+          "license": "CC BY-NC-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+          "rank": 6
+        },
+        {
+          "name": "udpipe2_engine",
+          "license": "MPL 2.0",
+          "license_url": "https://www.mozilla.org/en-US/MPL/2.0/",
+          "rank": 2
+        },
+        {
+          "name": "udpipe2_models",
+          "license": "CC BY-NC-SA 4.0",
+          "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+          "rank": 6
+        },
+        {
+          "name": "amcr_vocab",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "rank": 0
+        },
+        {
+          "name": "teater_data",
+          "license": "CC0",
+          "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "rank": 0
+        }
+      ],
+      "unknown_licenses": [],
+      "notes": "Effective output license is CC BY-NC-SA 4.0, the most restrictive among 5 component(s) used. Outputs are NON-COMMERCIAL: downstream commercial use is not permitted while this component is in the pipeline. SHARE-ALIKE applies: derivatives must be licensed under the same terms."
+    },
+    "contributors": [
+      {
+        "program": "translator",
+        "run_id": "261019-091348",
+        "run_uuid": "urn:uuid:84a10c42-b88c-4bbe-9b09-d17db82b5d27",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples/in-place_translated_files/xml/paradata/261019-091348_translator.json",
+        "blocks": "translations,derived_from",
+        "at": "2026-10-19T09:14:35.671453+00:00"
+      }
+    ]
+  },
+  "assembled": {
+    "blocks": {
+      "translations": {
+        "program": "translator",
+        "run_id": "261019-091348",
+        "run_uuid": "urn:uuid:84a10c42-b88c-4bbe-9b09-d17db82b5d27",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples/in-place_translated_files/xml/paradata/261019-091348_translator.json",
+        "updated_at": "2026-10-19T09:14:35.552373+00:00"
+      },
+      "derived_from": {
+        "program": "translator",
+        "run_id": "261019-091348",
+        "run_uuid": "urn:uuid:84a10c42-b88c-4bbe-9b09-d17db82b5d27",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples/in-place_translated_files/xml/paradata/261019-091348_translator.json",
+        "updated_at": "2026-10-19T09:14:35.556281+00:00"
+      }
+    },
+    "had_baseline": false,
+    "note": "Blocks reflect CONTRIBUTED steps only; a block is absent until its tool has run."
+  },
+  "translations": {
+    "source_lang": "cs",
+    "target_lang": "en",
+    "backend": "lindat",
+    "output_mode": "replace"
+  }
+}
