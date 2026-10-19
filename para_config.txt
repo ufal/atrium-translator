@@ -3,7 +3,7 @@
 # components or versions change.
 [tool]
 program = translator
-version = v1.4.0-beta
+version = v1.5.0-beta
 repository_fallback = https://github.com/ufal/atrium-translator
 
 [components]
@@ -36,6 +36,10 @@ teater_data    = CC0             ; conditional ; TEATER thesaurus data
 # emits a warning. That is the safe default for a prototype backend — the
 # licensing owner should pin the real terms before any non-experimental use.
 llm_api        = LLM provider ToS ; conditional ; OpenAI-compatible LLM API output (provider terms govern reuse)
+# A model this deployment serves itself, named by LLM_LICENSE_COMPONENT instead of llm_api.
+# Qwen3.8-27B and Qwen3.8-27B-FP8: `license: apache-2.0` in both model cards, read by the
+# bake-off job of issue #4 (2026-10-19), where it is the recommended self-hosted alternative.
+qwen3_8        = Apache-2.0      ; conditional ; Qwen3.8-27B (or -FP8), self-hosted for openai_compatible
 # CTranslate2 self-host (Phase 3) — permissive stack: Apache-2.0 models on the
 # MIT-licensed CTranslate2 engine. Enables the "permissive recipe" in
 # docs/translation-backends.md (combine with --source_lang to avoid the CC BY-NC
