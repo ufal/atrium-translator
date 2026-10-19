@@ -720,8 +720,9 @@ curl -s -X POST localhost:8000/translate \
 ```
 
 `output_mode=append` works the same way, but its AMCR output does not validate against AMCR 2.2 (see above).
-The service does not validate against an XSD — run the batch image with `--xsd` for that — and it does not
-apply a `--vocabulary` (Tag-and-Protect) either: the CLI does, when one is given or named in config.txt.
+The service does not validate against an XSD — run the batch image with `--xsd` for that. It applies a
+vocabulary only when the deployment sets `VOCABULARY_PATH` (see `service/README.md`); the CLI applies one
+when it is given with `--vocabulary` or named in config.txt.
 
 `is_alto`, `source_lang`, `target_lang` and `output_mode` are accepted **either** as multipart form
 fields or as query-string parameters.

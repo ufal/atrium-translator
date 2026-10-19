@@ -418,11 +418,11 @@ decision of 30 September (the self-hosted backend is the fallback and alternativ
 1. **LINDAT (`lindat`) stays the default.** It kept the most glossary terms (229 of 232) and failed no segment.
    Its output is CC BY-NC-SA 4.0 (the CUBBITT models; UDPipe too when a vocabulary is applied), and AMČR's use
    of it waits on a written permission (Pavel Straňák).
-2. **The self-hosted alternative is `openai_compatible` with Qwen3.8-27B on a local vLLM.** It is level with
-   LINDAT on every measured check (terms 227 of 232, numbers 0.997, length ratio 1.03, 94 % character similarity
-   to LINDAT's output), failed no segment, and ran about three times as fast. The model is Apache-2.0: record it
-   with `LLM_LICENSE_COMPONENT=qwen3_8`. Measured in bf16 on one 96 GB GPU (RTX PRO 6000), served with
-   `--language-model-only --max-num-seqs 64` (vLLM 0.31; Qwen3.8 is a hybrid model) and
+2. **The self-hosted alternative is `openai_compatible` with Qwen3.8-27B on a local vLLM.** It comes close
+   to LINDAT on every measured check (terms 227 of 232 against LINDAT's 229, numbers 0.997, length ratio 1.03,
+   94 % character similarity to LINDAT's output), failed no segment, and ran about three times as fast. The
+   model is Apache-2.0: record it with `LLM_LICENSE_COMPONENT=qwen3_8`. Measured in bf16 on one 96 GB GPU
+   (RTX PRO 6000), served with `--language-model-only --max-num-seqs 64` (vLLM 0.31; Qwen3.8 is a hybrid model) and
    `LLM_EXTRA_BODY='{"chat_template_kwargs": {"enable_thinking": false}}'`. `Qwen/Qwen3.8-27B-FP8` (about 28 GB,
    tensor parallel 2 on two 24 GB cards) is not measured yet.
 3. **Descriptions stay off** (`LLM_GLOSSARY_DESCRIPTION_CHARS=0`): with 300 characters, 1,210 of 1,230 outputs

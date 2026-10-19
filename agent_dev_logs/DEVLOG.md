@@ -583,6 +583,13 @@ cell-merging stub: only page 76 changes, every number on its own row.
 
   Files delivered in chat.
 
+## 2026-10-19 (late) — Two doc statements corrected after the release
+* `docs/translation-backends.md` Recommendation: Qwen3.8-27B "comes close to" LINDAT (terms 227 against 229 of
+  232), not "level with" it.
+* `README.md` (§ the service's replace example): the service applies a vocabulary when `VOCABULARY_PATH` is set
+  (`v1.5.0-beta`); the sentence still said it never does.
+* Docs only, no release. **Checks:** 1,177 passed, 3 skipped.
+
 ---
 
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the
