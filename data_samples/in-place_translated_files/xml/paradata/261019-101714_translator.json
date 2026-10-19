@@ -1,0 +1,139 @@
+{
+  "schema_version": "2.0",
+  "program": "translator",
+  "tool_version": "v1.4.0-beta",
+  "repository": "https://github.com/ufal/atrium-translator",
+  "runner_ref": "",
+  "docker_image": "",
+  "python_version": "3.11.4 (main, Jul 26 2023, 14:53:35) [GCC 11.3.0]",
+  "run_id": "261019-101714",
+  "run_uuid": "urn:uuid:a0e8bec6-f6c3-4c37-b489-2921e6a5e4c8",
+  "run_agent": "",
+  "license": "CC BY-NC-SA 4.0",
+  "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "license_detail": {
+    "effective_license": "CC BY-NC-SA 4.0",
+    "effective_license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+    "is_non_commercial": true,
+    "is_share_alike": true,
+    "determined_by": [
+      "lindat_cubbitt",
+      "udpipe2_models"
+    ],
+    "components": [
+      {
+        "name": "lindat_cubbitt",
+        "license": "CC BY-NC-SA 4.0",
+        "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "rank": 6
+      },
+      {
+        "name": "udpipe2_engine",
+        "license": "MPL 2.0",
+        "license_url": "https://www.mozilla.org/en-US/MPL/2.0/",
+        "rank": 2
+      },
+      {
+        "name": "udpipe2_models",
+        "license": "CC BY-NC-SA 4.0",
+        "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "rank": 6
+      },
+      {
+        "name": "amcr_vocab",
+        "license": "CC0",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "rank": 0
+      },
+      {
+        "name": "teater_data",
+        "license": "CC0",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "rank": 0
+      }
+    ],
+    "unknown_licenses": [],
+    "notes": "Effective output license is CC BY-NC-SA 4.0, the most restrictive among 5 component(s) used. Outputs are NON-COMMERCIAL: downstream commercial use is not permitted while this component is in the pipeline. SHARE-ALIKE applies: derivatives must be licensed under the same terms."
+  },
+  "start_time": "2026-10-19T10:17:14.277045+00:00",
+  "end_time": "2026-10-19T10:19:05.276908+00:00",
+  "duration_seconds": 111.0,
+  "config": {
+    "input_path": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents",
+    "output_dir": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples_tmp/in-place_translated_files/xml",
+    "source_lang": "cs",
+    "target_lang": "en",
+    "formats": "xml",
+    "mode": "metadata",
+    "output_mode": "replace",
+    "translation_backend": "lindat",
+    "xpaths_file": "amcr-fields.txt",
+    "xsd_url": "https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd",
+    "vocabulary": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/vocabulary.csv",
+    "chunk_limit": 4000,
+    "lang_id_model": "facebook/fasttext-language-identification",
+    "translation_api": "https://lindat.mff.cuni.cz/services/translation/api/v2/",
+    "default_source_lang": "cs",
+    "fasttext_confidence_threshold": 0.5,
+    "lang_id_min_letters": 20,
+    "lang_id_languages": "backend-supported",
+    "vocabulary_protected_terms": {
+      "C-9100725A": 14,
+      "C-N1000137": 7,
+      "C-N9007794": 3,
+      "C-N9000112": 10,
+      "C-TX-195304352": 1,
+      "C-202000543A-DT-27": 2,
+      "C-TX-202400594": 2,
+      "C-9141192A": 9,
+      "C-TX-202500252": 3,
+      "C-DT-100003326": 4,
+      "C-9107617A": 8,
+      "C-N1000019": 4,
+      "C-9124095A": 14,
+      "C-N9000080": 1,
+      "C-9115020A": 20
+    },
+    "vocabulary_protected_terms_total": 102,
+    "lindat_degenerate_replies": {
+      "C-9100725A": 2,
+      "C-N1000137": 0,
+      "C-N9007794": 3,
+      "C-N9000112": 2,
+      "C-TX-195304352": 2,
+      "C-202000543A-DT-27": 2,
+      "C-TX-202400594": 1,
+      "C-9141192A": 2,
+      "C-TX-202500252": 1,
+      "C-DT-100003326": 1,
+      "C-9107617A": 5,
+      "C-N1000019": 3,
+      "C-9124095A": 5,
+      "C-N9000080": 2,
+      "C-9115020A": 4
+    },
+    "lindat_degenerate_replies_total": 35,
+    "xsd_validation": {
+      "valid": 15,
+      "invalid": [],
+      "strict": false
+    }
+  },
+  "statistics": {
+    "input_files_total": 15,
+    "successfully_processed": 15,
+    "skipped_files": 0,
+    "output_counts_by_type": {
+      "xml": 15,
+      "csv": 15,
+      "json": 0
+    },
+    "performance_per_minute": {
+      "xml": 8.1081,
+      "csv": 8.1081,
+      "json": 0.0
+    }
+  },
+  "skipped_files_detail": [],
+  "limits_applied": []
+}

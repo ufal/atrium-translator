@@ -53,10 +53,10 @@
       "segments": 1230,
       "vocabulary": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/vocabulary.csv",
       "vocabulary_sha256": "1d7af82172451215c085a8f86052743a4a58099817288c425f3fa80cf7f2ec39",
-      "commit": "54d81cf5cbbe381dddeb6eb46d8af24424d1b818",
+      "commit": "a048708d081958448a57b86d1192df3e55e03372",
       "python": "3.11.4",
-      "started_utc": "2026-10-18T17:04:06+00:00",
-      "finished_utc": "2026-10-18T17:11:06+00:00"
+      "started_utc": "2026-10-19T08:42:50+00:00",
+      "finished_utc": "2026-10-19T08:57:34+00:00"
     },
     "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/llm-desc300.csv": {
       "variants": {
@@ -83,10 +83,10 @@
       "segments": 1230,
       "vocabulary": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/vocabulary.csv",
       "vocabulary_sha256": "1d7af82172451215c085a8f86052743a4a58099817288c425f3fa80cf7f2ec39",
-      "commit": "54d81cf5cbbe381dddeb6eb46d8af24424d1b818",
+      "commit": "a048708d081958448a57b86d1192df3e55e03372",
       "python": "3.11.4",
-      "started_utc": "2026-10-18T17:11:07+00:00",
-      "finished_utc": "2026-10-18T17:18:08+00:00"
+      "started_utc": "2026-10-19T08:57:35+00:00",
+      "finished_utc": "2026-10-19T09:12:19+00:00"
     }
   }
 }

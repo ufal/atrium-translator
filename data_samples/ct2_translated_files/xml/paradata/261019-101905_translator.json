@@ -1,0 +1,126 @@
+{
+  "schema_version": "2.0",
+  "program": "translator",
+  "tool_version": "v1.4.0-beta",
+  "repository": "https://github.com/ufal/atrium-translator",
+  "runner_ref": "",
+  "docker_image": "",
+  "python_version": "3.11.4 (main, Jul 26 2023, 14:53:35) [GCC 11.3.0]",
+  "run_id": "261019-101905",
+  "run_uuid": "urn:uuid:f92c8256-2d4f-4910-ba01-6301348d1965",
+  "run_agent": "",
+  "license": "MIT",
+  "license_url": "https://opensource.org/license/mit/",
+  "license_detail": {
+    "effective_license": "MIT",
+    "effective_license_url": "https://opensource.org/license/mit/",
+    "is_non_commercial": false,
+    "is_share_alike": false,
+    "determined_by": [
+      "ctranslate2",
+      "eurollm"
+    ],
+    "components": [
+      {
+        "name": "ctranslate2",
+        "license": "MIT",
+        "license_url": "https://opensource.org/license/mit/",
+        "rank": 1
+      },
+      {
+        "name": "eurollm",
+        "license": "Apache-2.0",
+        "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+        "rank": 1
+      },
+      {
+        "name": "amcr_vocab",
+        "license": "CC0",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "rank": 0
+      },
+      {
+        "name": "teater_data",
+        "license": "CC0",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "rank": 0
+      }
+    ],
+    "unknown_licenses": [],
+    "notes": "Effective output license is MIT, the most restrictive among 4 component(s) used."
+  },
+  "start_time": "2026-10-19T10:19:05.924367+00:00",
+  "end_time": "2026-10-19T10:22:26.729678+00:00",
+  "duration_seconds": 200.805,
+  "config": {
+    "input_path": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents",
+    "output_dir": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples_tmp/ct2_translated_files/xml",
+    "source_lang": "cs",
+    "target_lang": "en",
+    "formats": "xml",
+    "mode": "metadata",
+    "output_mode": "replace",
+    "translation_backend": "ct2",
+    "xpaths_file": "amcr-fields.txt",
+    "xsd_url": "https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd",
+    "vocabulary": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/vocabulary.csv",
+    "chunk_limit": 4000,
+    "lang_id_model": "facebook/fasttext-language-identification",
+    "ct2_model_family": "eurollm",
+    "ct2_model": "eurollm-1.7b-int8",
+    "ct2_device": "cuda",
+    "ct2_compute_type": "int8_float16",
+    "default_source_lang": "cs",
+    "fasttext_confidence_threshold": 0.5,
+    "lang_id_min_letters": 20,
+    "lang_id_languages": "backend-supported",
+    "vocabulary_protected_terms": {
+      "C-9100725A": 4,
+      "C-N1000137": 5,
+      "C-N9007794": 2,
+      "C-N9000112": 5,
+      "C-TX-195304352": 1,
+      "C-202000543A-DT-27": 0,
+      "C-TX-202400594": 1,
+      "C-9141192A": 5,
+      "C-TX-202500252": 0,
+      "C-DT-100003326": 2,
+      "C-9107617A": 1,
+      "C-N1000019": 2,
+      "C-9124095A": 4,
+      "C-N9000080": 1,
+      "C-9115020A": 10
+    },
+    "vocabulary_protected_terms_total": 43,
+    "xsd_validation": {
+      "valid": 15,
+      "invalid": [],
+      "strict": false
+    }
+  },
+  "statistics": {
+    "input_files_total": 15,
+    "successfully_processed": 15,
+    "skipped_files": 0,
+    "output_counts_by_type": {
+      "xml": 15,
+      "csv": 15,
+      "json": 0
+    },
+    "performance_per_minute": {
+      "xml": 4.482,
+      "csv": 4.482,
+      "json": 0.0
+    }
+  },
+  "skipped_files_detail": [],
+  "limits_applied": [
+    {
+      "limit": "translation_rerun_rounds",
+      "value": 1,
+      "effect": "skipped",
+      "count": 7,
+      "detail": "field(s) still degenerate after the backend's retries and the re-run kept their source text"
+    }
+  ]
+}

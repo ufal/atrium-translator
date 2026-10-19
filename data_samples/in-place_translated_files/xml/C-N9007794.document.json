@@ -55,11 +55,11 @@
     "contributors": [
       {
         "program": "translator",
-        "run_id": "261019-091348",
-        "run_uuid": "urn:uuid:84a10c42-b88c-4bbe-9b09-d17db82b5d27",
-        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples/in-place_translated_files/xml/paradata/261019-091348_translator.json",
+        "run_id": "261019-101714",
+        "run_uuid": "urn:uuid:a0e8bec6-f6c3-4c37-b489-2921e6a5e4c8",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples_tmp/in-place_translated_files/xml/paradata/261019-101714_translator.json",
         "blocks": "translations,derived_from",
-        "at": "2026-10-19T09:14:16.063350+00:00"
+        "at": "2026-10-19T10:17:33.448450+00:00"
       }
     ]
   },
@@ -67,17 +67,17 @@
     "blocks": {
       "translations": {
         "program": "translator",
-        "run_id": "261019-091348",
-        "run_uuid": "urn:uuid:84a10c42-b88c-4bbe-9b09-d17db82b5d27",
-        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples/in-place_translated_files/xml/paradata/261019-091348_translator.json",
-        "updated_at": "2026-10-19T09:14:15.932030+00:00"
+        "run_id": "261019-101714",
+        "run_uuid": "urn:uuid:a0e8bec6-f6c3-4c37-b489-2921e6a5e4c8",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples_tmp/in-place_translated_files/xml/paradata/261019-101714_translator.json",
+        "updated_at": "2026-10-19T10:17:33.331507+00:00"
       },
       "derived_from": {
         "program": "translator",
-        "run_id": "261019-091348",
-        "run_uuid": "urn:uuid:84a10c42-b88c-4bbe-9b09-d17db82b5d27",
-        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples/in-place_translated_files/xml/paradata/261019-091348_translator.json",
-        "updated_at": "2026-10-19T09:14:15.936661+00:00"
+        "run_id": "261019-101714",
+        "run_uuid": "urn:uuid:a0e8bec6-f6c3-4c37-b489-2921e6a5e4c8",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples_tmp/in-place_translated_files/xml/paradata/261019-101714_translator.json",
+        "updated_at": "2026-10-19T10:17:33.335624+00:00"
       }
     },
     "had_baseline": false,

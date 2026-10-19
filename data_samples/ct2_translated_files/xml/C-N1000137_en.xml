@@ -26,8 +26,8 @@
       <amcr:zachovalost xml:lang="cs" id="HES-001454">lokalita pod zástavbou</amcr:zachovalost>
       <amcr:jistota xml:lang="cs" id="HES-001449">jisté (&gt; 95 %)</amcr:jistota>
       <amcr:chranene_udaje>
-        <amcr:nazev>Žalov - fortification 1 - Levý Hradec</amcr:nazev>
-        <amcr:popis>Location of Levý Hradec. The hillfort of Levý Hradec is located on a ridge above the left bank of the Vltava River. A church was documented at the site at the end of the 9th century (the foundations found by archaeological research are however somewhat younger). One of the most important centers of the early Czech state. The fortification is documented only fragmentarily. The area is formed by an acropolis with the church of St. Clement and a long-term monitored fortified area, recently considered to be a second fortified area to the south of the first.</amcr:popis>
+        <amcr:nazev>Žalov - ohrazení 1 - Levý Hradec</amcr:nazev>
+        <amcr:popis>The location of Levý Hradec. The hillfort at Levý Hradec is located on a promontory over the left bank of the Vltava. The church from the end of the 9th century is documented at the site (however, the foundations found during the archaeological research are somewhat younger). One of the most important centers of the early Czech state. The fortification is documented only fragmentarily. The site is formed by an acropolis with the church of St. Clement and a long-term monitored fortified area, recently considered a second fortified area to the south of the first.</amcr:popis>
       </amcr:chranene_udaje>
     </amcr:lokalita>
     <amcr:historie>

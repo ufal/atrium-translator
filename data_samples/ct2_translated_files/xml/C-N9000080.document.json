@@ -49,10 +49,11 @@
     "contributors": [
       {
         "program": "translator",
-        "run_id": "260928-113756",
-        "paradata_ref": "data_samples/in-place_translated_files/xml/paradata/260928-113756_translator.json",
+        "run_id": "261019-101905",
+        "run_uuid": "urn:uuid:f92c8256-2d4f-4910-ba01-6301348d1965",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples_tmp/ct2_translated_files/xml/paradata/261019-101905_translator.json",
         "blocks": "translations,derived_from",
-        "at": "2026-09-28T11:39:01.991412+00:00"
+        "at": "2026-10-19T10:22:23.443060+00:00"
       }
     ]
   },
@@ -60,15 +61,17 @@
     "blocks": {
       "translations": {
         "program": "translator",
-        "run_id": "260928-113756",
-        "paradata_ref": "data_samples/in-place_translated_files/xml/paradata/260928-113756_translator.json",
-        "updated_at": "2026-09-28T11:39:01.950050+00:00"
+        "run_id": "261019-101905",
+        "run_uuid": "urn:uuid:f92c8256-2d4f-4910-ba01-6301348d1965",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples_tmp/ct2_translated_files/xml/paradata/261019-101905_translator.json",
+        "updated_at": "2026-10-19T10:22:23.323854+00:00"
       },
       "derived_from": {
         "program": "translator",
-        "run_id": "260928-113756",
-        "paradata_ref": "data_samples/in-place_translated_files/xml/paradata/260928-113756_translator.json",
-        "updated_at": "2026-09-28T11:39:01.953585+00:00"
+        "run_id": "261019-101905",
+        "run_uuid": "urn:uuid:f92c8256-2d4f-4910-ba01-6301348d1965",
+        "paradata_ref": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples_tmp/ct2_translated_files/xml/paradata/261019-101905_translator.json",
+        "updated_at": "2026-10-19T10:22:23.328329+00:00"
       }
     },
     "had_baseline": false,

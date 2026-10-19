@@ -34,8 +34,8 @@
       <amcr:datum_ukonceni>1960-12-31</amcr:datum_ukonceni>
       <amcr:hlavni_typ xml:lang="cs" id="HES-001058">skupina/síť sond</amcr:hlavni_typ>
       <amcr:chranene_udaje>
-        <amcr:lokalizace_okolnosti>The spa area in the south-western part of the village, the Palliardi spring, south of the Emperor's Spa building. The reason: the spring needs to be regulated.</amcr:lokalizace_okolnosti>
-        <amcr:souhrn_upresneni>During the research, a wooden structure was revealed. The subsequent archaeological research uncovered remains of a pile-dwelling and multiple levels with remnants of processed and unprocessed wood, wooden structures, a large amount of plant macroresidues (hazel nuts, acorns), several pieces of chipped industry dating to the Mesolithic and fragments of ceramic vessels dating to the Late Bronze Age. The research author interpreted the remnants of the wooden structure as a light-weight construction from the Late Bronze Age.</amcr:souhrn_upresneni>
+        <amcr:lokalizace_okolnosti>The spa area in the south-western part of the town, the Palliardi spring, south of the Emperor's Spa building. The reason: the spring has been modified.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>The source of the inscription was reconstructed as a wooden structure. The subsequent archaeological research revealed remains of hauling and multiple levels with remnants of processed and unprocessed wood, wooden structures, a large number of plant macroresidues (pine cones, hazel nuts), several pieces of chipped industry dating back to the Mesolithic and fragments of ceramic vessels dating back to the Early Bronze Age. The researcher interpreted the remnants of a wooden structure as a light-weight construction from the Late Bronze Age.</amcr:souhrn_upresneni>
       </amcr:chranene_udaje>
     </amcr:akce>
     <amcr:historie>
@@ -77,7 +77,7 @@
           <amcr:id>nalo-93683</amcr:id>
           <amcr:druh xml:lang="cs" id="HES-000473">pramen</amcr:druh>
           <amcr:specifikace xml:lang="cs" id="HES-000896">konstrukce kamenná</amcr:specifikace>
-          <amcr:poznamka>Probably a stone embankment of the spring.</amcr:poznamka>
+          <amcr:poznamka>Probably the stone reinforcement of the spring.</amcr:poznamka>
         </amcr:nalez_objekt>
         <amcr:nalez_predmet>
           <amcr:id>nalp-165933</amcr:id>
@@ -141,7 +141,7 @@
           <amcr:druh xml:lang="cs" id="HES-000705">zlomek keramiky</amcr:druh>
           <amcr:specifikace xml:lang="cs" id="HES-000981">keramika kamenina</amcr:specifikace>
           <amcr:pocet>x</amcr:pocet>
-          <amcr:poznamka>Waldenburské zboží, fragments from bottles for mineral water</amcr:poznamka>
+          <amcr:poznamka>Waldenburské zboží, fragments of mineral water bottles.</amcr:poznamka>
         </amcr:nalez_predmet>
       </amcr:komponenta>
       <amcr:komponenta>
