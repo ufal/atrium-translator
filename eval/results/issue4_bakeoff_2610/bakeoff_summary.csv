@@ -1,4 +1,6 @@
 backend,segments,failed,empty,empty_rate,term_hits,term_expected,term_hit_rate,number_preservation,length_ratio,baseline,baseline_char_sim,refs_used,chrF,BLEU,COMET,COMET_QE,seconds,chars_per_s
 lindat,1230,0,0,0.0,229,232,0.9871,0.9934,1.0325,lindat,,0,,,,,2507.55,20.2
+ct2-eurollm-1.7b,1230,584,0,0.0,87,141,0.617,0.9942,1.635,lindat,0.794,0,,,,,774.13,38.1
+ct2-eurollm-9b,1230,96,0,0.0,157,230,0.6826,0.9913,1.1405,lindat,0.919,0,,,,,1023.6,49.0
 llm-desc0,1230,0,0,0.0,227,232,0.9784,0.9967,1.0297,lindat,0.9444,0,,,,,882.39,57.3
 llm-desc300,1230,0,0,0.0,226,232,0.9741,0.9967,1.0298,lindat,0.9442,0,,,,,883.56,57.2

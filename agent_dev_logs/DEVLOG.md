@@ -559,6 +559,30 @@ cell-merging stub: only page 76 changes, every number on its own row.
 
   Files delivered in chat.
 
+## 2026-10-19 (evening) — #4: the bake-off decided; v1.5.0-beta prepared; #46's sample folder
+* **Jobs T1c (7147048) and T1d (7147059)**, translator `a048708` on the cluster, with R2c on `test` (`a32d5bf`):
+  * LLM arms (Qwen3.8-27B bf16, RTX PRO 6000): 1,230 segments, 0 failed, terms 227/232 (desc0) and 226/232
+    (desc300), numbers 0.997, 0.944 similarity to LINDAT, 57 chars/s. Descriptions change 20 of 1,230 outputs.
+  * `ct2` first landed on a Quadro P5000 (Pascal: no `int8_float16`) and refused at start; on the RTX A4000:
+    EuroLLM-9B 96 failed (89 of them ALTO blocks of at most 10 characters), terms 157/230, 49 chars/s; 1.7B 584
+    failed. The job now picks the compute type the GPU offers and stages each sample set until its run succeeds.
+  * LINDAT (T1, 18 October): 0 failed, 229/232, 20 chars/s.
+* **Decision** (`docs/translation-backends.md`): `lindat` stays the default; `openai_compatible` with Qwen3.8-27B
+  self-hosted is the alternative (Apache-2.0: new `qwen3_8` component); EuroLLM is not recommended; descriptions
+  off; `VOCABULARY_PATH` unset by default. The result table is in `eval/results/issue4_bakeoff_2610/` (all five arms).
+* **Samples** (pushed as `355c709`): both AMČR replace folders regenerated with the curated vocabulary (LINDAT
+  `261019-101714`, 37 `ok`; `ct2` `261019-101905`); `data_samples/README.md` follows. #46's folder is the
+  production shape again. A failed sample run copied into `test` (`a048708`) had emptied the `ct2` logs; T1d's set
+  replaced them. Four stale paradata files are to be removed.
+* **v1.5.0-beta** prepared: `para_config.txt`, `CITATION.cff`, the spec (version only; compatible with
+  v1.4.0-beta), the CONTRIBUTING row; a Known limits section in `service/README.md` (atrium-project#77 B).
+  Immutable releases were switched on here the same day (atrium-project#72, @stranak), so v1.5.0-beta is this
+  repository's first immutable release; v1.4.0-beta stays mutable.
+* **Checks:** 1,177 passed, 3 skipped; ruff clean; `check_version` agrees.
+* **Dev logs:** `{4,46}`.
+
+  Files delivered in chat.
+
 ---
 
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the

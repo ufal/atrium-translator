@@ -19,23 +19,25 @@ data_samples/
 
 Which run produced each folder — each `paradata/` folder holds that run's record:
 
-| Folder                           | Backend                                  | `--source_lang` | `--xsd`  | Run             | Log `status`              |
-|----------------------------------|------------------------------------------|-----------------|----------|-----------------|---------------------------|
-| `in-place_translated_files/alto` | `lindat` (LINDAT CUBBITT)                | `auto`          | —        | `260926-122251` | 2095 `ok`                 |
-| `appended_translated_files/alto` | `lindat`                                 | `auto`          | —        | `260926-120736` | 2095 `ok`                 |
-| `in-place_translated_files/xml`  | `lindat`                                 | `cs`            | AMCR 2.2 | `260928-110452` | 37 `ok`                   |
-| `appended_translated_files/xml`  | `lindat`                                 | `auto`          | —        | `260926-140310` | 37 `ok`                   |
-| `ct2_translated_files/xml`       | `ct2` (EuroLLM-1.7B-Instruct, int8, CPU) | `cs`            | AMCR 2.2 | `260928-113756` | 33 `ok`, 4 `untranslated` |
+| Folder                           | Backend                                  | `--source_lang` | `--xsd`  | Run             | Log `status`                         |
+|----------------------------------|------------------------------------------|-----------------|----------|-----------------|--------------------------------------|
+| `in-place_translated_files/alto` | `lindat` (LINDAT CUBBITT)                | `auto`          | —        | `260926-122251` | 2095 `ok`                            |
+| `appended_translated_files/alto` | `lindat`                                 | `auto`          | —        | `260926-120736` | 2095 `ok`                            |
+| `in-place_translated_files/xml`  | `lindat`                                 | `cs`            | AMCR 2.2 | `261019-101714` | 37 `ok`                              |
+| `appended_translated_files/xml`  | `lindat`                                 | `auto`          | —        | `260926-140310` | 37 `ok`                              |
+| `ct2_translated_files/xml`       | `ct2` (EuroLLM-1.7B-Instruct, int8, GPU) | `cs`            | AMCR 2.2 | `261019-101905` | 27 `ok`, 3 `rerun`, 7 `untranslated` |
 
 > **The AMCR replace folder is the shape of AMČR's production run** (issue #46): LINDAT, `replace`,
-> `--source_lang cs`, validated against AMCR 2.2 with `--xsd`, made with v1.2.2-beta on 2026-09-28. All 15 records
-> were translated; the 37 degenerate LINDAT replies of the run were re-requested and recovered (`lindat_degenerate_replies`
-> in its paradata), so every field is `ok`.
+> `--source_lang cs`, the curated vocabulary (102 terms protected), validated against AMCR 2.2 with `--xsd` (15/15),
+> made on 2026-10-19 by translator#4's bake-off job (7147059). All 15 records were translated; the 35 degenerate LINDAT
+> replies of the run were re-requested and recovered (`lindat_degenerate_replies` in its paradata), so every field is
+> `ok`. The run of 2026-09-28 it replaces is in git history at `d8d72b5`.
 >
-> **`ct2_translated_files/xml` is the self-hosted alternative** (issue #4): EuroLLM-1.7B-Instruct after the prompt fix
-> of 2026-09-28 (`0962214`), the same records, `replace`, `--source_lang cs`, AMCR 2.2. Until 2026-10-18 these files sat in
-> `in-place_translated_files/xml` while this README named the LINDAT run there; the LINDAT set is restored from
-> `d8d72b5`. The first `ct2` run, from 2026-09-27, is in git history at `1e1ce67`; it predates the prompt fix.
+> **`ct2_translated_files/xml` is the `ct2` EuroLLM-1.7B run of the same job**: the same records, `replace`,
+> `--source_lang cs`, the curated vocabulary, AMCR 2.2 (15/15), int8 on an RTX A4000 (`int8_float16`). Its 7
+> `untranslated` fields kept their Czech text: the model ran on past the source and the guard refused the reply. The
+> bake-off found EuroLLM unfit as the self-hosted alternative ([docs/translation-backends.md](../docs/translation-backends.md#recommendation));
+> the folder stays as the record of that run. The CPU run of 2026-09-28 (33 `ok`, 4 `untranslated`) is at `0a64328`.
 
 Each folder holds, per input document:
 
@@ -81,8 +83,9 @@ from its own translation, so no number moves to its neighbour's row.
 > **`vocabulary.csv`** is **CC0** per that statement. Since 2026-10-18 it is built from atrium-keyword-extract's
 > `v1.3.0-beta` vocabulary (`python load_vocab.py --from-release v1.3.0-beta`): the 4,715 pairs of its curated list, each
 > with the identity of the concept that won it and, for 1,961 of them, the concept's description (cut to 500 characters).
-> The harvest of September 2026 it replaces had 5,087 pairs. The sample folders above were translated with that older
-> list. The other files here stay under [LICENSE](LICENSE) (CC BY-NC 4.0).
+> The harvest of September 2026 it replaces had 5,087 pairs. The two AMCR replace folders (`xml`, 2026-10-19) were made
+> with this list; the ALTO and append folders with the older one. The other files here stay under
+> [LICENSE](LICENSE) (CC BY-NC 4.0).
 
 ### Regenerating them
 
@@ -118,6 +121,7 @@ model as in [docs/translation-backends.md](../docs/translation-backends.md)) —
 LINDAT set stays as it is:
 
 ```bash
+# The committed run used the GPU: CT2_DEVICE=cuda CT2_COMPUTE_TYPE=int8_float16 (a Pascal card has int8_float32 only)
 export CT2_MODEL_DIR="$PWD/models/ct2/eurollm-1.7b-int8" CT2_MODEL_FAMILY=eurollm \
        CT2_TOKENIZER_DIR="$PWD/models/hf/EuroLLM-1.7B-Instruct" \
        CT2_DEVICE=cpu CT2_COMPUTE_TYPE=int8 CT2_LANGUAGES=cs,en

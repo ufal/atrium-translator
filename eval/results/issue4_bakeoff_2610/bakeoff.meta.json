@@ -1,6 +1,8 @@
 {
   "combined": [
     "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/lindat.csv",
+    "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/ct2-eurollm-1.7b.csv",
+    "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/ct2-eurollm-9b.csv",
     "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/llm-desc0.csv",
     "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/llm-desc300.csv"
   ],
@@ -27,6 +29,64 @@
       "python": "3.11.4",
       "started_utc": "2026-10-18T12:56:43+00:00",
       "finished_utc": "2026-10-18T13:38:32+00:00"
+    },
+    "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/ct2-eurollm-1.7b.csv": {
+      "variants": {
+        "ct2-eurollm-1.7b": {
+          "backend": "ct2",
+          "ct2_model_family": "eurollm",
+          "ct2_model": "eurollm-1.7b-int8",
+          "ct2_device": "cuda",
+          "ct2_compute_type": "int8_float16"
+        }
+      },
+      "warm_seconds": {
+        "ct2-eurollm-1.7b": 41.54
+      },
+      "source_lang": "cs",
+      "target_lang": "en",
+      "samples": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents",
+      "kinds": [
+        "metadata",
+        "alto"
+      ],
+      "limit": null,
+      "segments": 1230,
+      "vocabulary": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/vocabulary.csv",
+      "vocabulary_sha256": "1d7af82172451215c085a8f86052743a4a58099817288c425f3fa80cf7f2ec39",
+      "commit": "a048708d081958448a57b86d1192df3e55e03372",
+      "python": "3.11.4",
+      "started_utc": "2026-10-19T09:44:02+00:00",
+      "finished_utc": "2026-10-19T09:57:39+00:00"
+    },
+    "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/ct2-eurollm-9b.csv": {
+      "variants": {
+        "ct2-eurollm-9b": {
+          "backend": "ct2",
+          "ct2_model_family": "eurollm",
+          "ct2_model": "eurollm-9b-int8",
+          "ct2_device": "cuda",
+          "ct2_compute_type": "int8_float16"
+        }
+      },
+      "warm_seconds": {
+        "ct2-eurollm-9b": 131.38
+      },
+      "source_lang": "cs",
+      "target_lang": "en",
+      "samples": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents",
+      "kinds": [
+        "metadata",
+        "alto"
+      ],
+      "limit": null,
+      "segments": 1230,
+      "vocabulary": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/vocabulary.csv",
+      "vocabulary_sha256": "1d7af82172451215c085a8f86052743a4a58099817288c425f3fa80cf7f2ec39",
+      "commit": "a048708d081958448a57b86d1192df3e55e03372",
+      "python": "3.11.4",
+      "started_utc": "2026-10-19T09:57:47+00:00",
+      "finished_utc": "2026-10-19T10:17:03+00:00"
     },
     "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/runs/llm-desc0.csv": {
       "variants": {

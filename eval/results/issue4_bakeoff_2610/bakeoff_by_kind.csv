@@ -1,7 +1,11 @@
 kind,backend,segments,failed,empty,empty_rate,term_hits,term_expected,term_hit_rate,number_preservation,length_ratio,baseline,baseline_char_sim,refs_used,chrF,BLEU,COMET,COMET_QE,seconds,chars_per_s
 metadata,lindat,37,0,0,0.0,49,49,1.0,0.9785,1.1075,lindat,,0,,,,,105.09,70.3
+metadata,ct2-eurollm-1.7b,37,10,0,0.0,24,38,0.6316,0.9856,1.2561,lindat,0.5976,0,,,,,37.05,171.0
+metadata,ct2-eurollm-9b,37,1,0,0.0,41,49,0.8367,0.9608,1.1377,lindat,0.6676,0,,,,,79.16,93.0
 metadata,llm-desc0,37,0,0,0.0,49,49,1.0,0.9626,1.1751,lindat,0.6824,0,,,,,84.64,87.3
 metadata,llm-desc300,37,0,0,0.0,49,49,1.0,0.9626,1.1755,lindat,0.6819,0,,,,,84.88,87.0
 alto,lindat,1193,0,0,0.0,180,183,0.9836,0.9937,1.0302,lindat,,0,,,,,2402.47,18.0
+alto,ct2-eurollm-1.7b,1193,574,0,0.0,63,103,0.6117,0.9945,1.6516,lindat,0.8026,0,,,,,737.07,31.4
+alto,ct2-eurollm-9b,1193,95,0,0.0,116,181,0.6409,0.992,1.1406,lindat,0.9272,0,,,,,944.44,45.3
 alto,llm-desc0,1193,0,0,0.0,178,183,0.9727,0.9974,1.0252,lindat,0.9525,0,,,,,797.75,54.1
 alto,llm-desc300,1193,0,0,0.0,177,183,0.9672,0.9974,1.0253,lindat,0.9524,0,,,,,798.67,54.0

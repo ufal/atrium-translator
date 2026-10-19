@@ -190,7 +190,7 @@ The XML and multipart answers of `/translate` are declared as their media types;
 | `AMCR_FIELDS_PATH`          | `amcr-fields.txt` | file of AMCR XPath targets for metadata mode, one per line; relative paths resolve against the repo root. Absent ⇒ metadata requests are refused 422, ALTO unaffected (issue #46)                                                                                                                                                                                                                                                     |
 | `VOCABULARY_PATH`           |                   | vocabulary CSV `/translate` applies (issue #4): the LLM and `ct2` backends put the matching terms into the prompt, `lindat` protects them (Tag-and-Protect, which calls `UDPIPE_URL`). Relative paths resolve against the repo root. Empty: no vocabulary. Set to a missing file or one with no term pair: the service **refuses to start**, naming the file. `/info` reports the file, its term count and SHA-256 under `vocabulary` |
 | `LLM_EXTRA_BODY`            |                   | `openai_compatible`: a JSON object merged into every request body (e.g. `{"chat_template_kwargs": {"enable_thinking": false}}` for a vLLM serving Qwen3.8); not a JSON object ⇒ the service refuses to start                                                                                                                                                                                                                          |
-| `LLM_LICENSE_COMPONENT`     |                   | `openai_compatible`: the `para_config.txt` component recorded for the model instead of `llm_api` (provider terms) — for a model the deployment serves itself                                                                                                                                                                                                                                                                          |
+| `LLM_LICENSE_COMPONENT`     |                   | `openai_compatible`: the `para_config.txt` component recorded for the model instead of `llm_api` (provider terms) — for a model the deployment serves itself (`qwen3_8`: Qwen3.8-27B, Apache-2.0)                                                                                                                                                                                                                                     |
 | `TRANSLATION_URL`           | LINDAT            | translation API base URL for the `lindat` backend; `LINDAT_BASE_URL` is an alias (issue #63)                                                                                                                                                                                                                                                                                                                                          |
 | `UDPIPE_URL`                | LINDAT            | UDPipe 2 endpoint for vocabulary lemma matching (Tag-and-Protect); same name as atrium-nlp-enrich (issue #63). The service calls it only with `VOCABULARY_PATH` set and the `lindat` backend                                                                                                                                                                                                                                          |
 | `PORT`                      | `8000`            | port the service **binds**, and the one `service/healthcheck.py` probes (issues #55, #58)                                                                                                                                                                                                                                                                                                                                             |
@@ -261,6 +261,19 @@ checks this table against `tool_limits.py` and `.env.example`.
 Platform limits (not settings): libxml2's default limits (parsed without `huge_tree`: nesting
 depth, a 10 MB text node) — a document over them fails as malformed XML (500); Starlette's
 multipart defaults.
+
+## Known limits
+
+- **LINDAT's output is CC BY-NC-SA 4.0** (the CUBBITT models, and UDPipe's when a vocabulary is applied), and
+  AMČR's use of the default backend waits on LINDAT's written permission. The self-hosted alternative is
+  `openai_compatible` with Qwen3.8-27B (Apache-2.0; [docs/translation-backends.md](../docs/translation-backends.md#recommendation)).
+- **A language pair the backend has no model for is refused** (422 `unsupported_language_pair`), never routed
+  through Czech: LINDAT has no `cs-it` or `hu-en`, for example.
+- **`ct2` with EuroLLM drops short segments.** In the bake-off of 2026-10-19 EuroLLM-9B ran on past 96 of 1,230
+  segments, almost all a number or a single word; the guard keeps their source text (`untranslated`). On a GPU
+  it needs CUDA 12's cuBLAS (12.8+ on a Blackwell card) and `int8_float16` needs compute capability 7.0+.
+- **The bake-off is reference-less and small:** 37 metadata fields and 1,193 ALTO blocks, measured by
+  failures, kept terms and numbers, length and similarity to LINDAT. No human has scored the translations yet.
 
 ## Shutdown behavior (issue #55)
 
