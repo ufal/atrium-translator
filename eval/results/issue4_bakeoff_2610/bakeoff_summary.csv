@@ -1,0 +1,4 @@
+backend,segments,failed,empty,empty_rate,term_hits,term_expected,term_hit_rate,number_preservation,length_ratio,baseline,baseline_char_sim,refs_used,chrF,BLEU,COMET,COMET_QE,seconds,chars_per_s
+lindat,1230,0,0,0.0,229,232,0.9871,0.9934,1.0325,lindat,,0,,,,,2507.55,20.2
+llm-desc0,1230,99,0,0.0,0,0,,0.9994,1.0132,lindat,0.9622,0,,,,,419.94,30.0
+llm-desc300,1230,99,0,0.0,0,0,,0.9994,1.0132,lindat,0.9622,0,,,,,420.52,30.0

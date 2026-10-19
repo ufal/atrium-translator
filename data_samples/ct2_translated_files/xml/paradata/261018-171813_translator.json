@@ -1,0 +1,161 @@
+{
+  "schema_version": "2.0",
+  "program": "translator",
+  "tool_version": "v1.4.0-beta",
+  "repository": "https://github.com/ufal/atrium-translator",
+  "runner_ref": "",
+  "docker_image": "",
+  "python_version": "3.11.4 (main, Jul 26 2023, 14:53:35) [GCC 11.3.0]",
+  "run_id": "261018-171813",
+  "run_uuid": "urn:uuid:3c0d5fb6-2043-49a3-a0d0-afac96c6d18e",
+  "run_agent": "",
+  "license": "CC BY-NC 4.0",
+  "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+  "license_detail": {
+    "effective_license": "CC BY-NC 4.0",
+    "effective_license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+    "is_non_commercial": true,
+    "is_share_alike": false,
+    "determined_by": [],
+    "components": [],
+    "unknown_licenses": [],
+    "notes": "License helper unavailable or no components recorded; defaulted conservatively to CC BY-NC 4.0."
+  },
+  "start_time": "2026-10-18T17:18:13.013126+00:00",
+  "end_time": "2026-10-18T17:18:41.836375+00:00",
+  "duration_seconds": 28.823,
+  "config": {
+    "input_path": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents",
+    "output_dir": "/lnet/work/projects/atrium/translator_runs/issue4_bakeoff/samples/ct2_translated_files/xml",
+    "source_lang": "cs",
+    "target_lang": "en",
+    "formats": "xml",
+    "mode": "metadata",
+    "output_mode": "replace",
+    "translation_backend": "ct2",
+    "xpaths_file": "amcr-fields.txt",
+    "xsd_url": "https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd",
+    "vocabulary": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/vocabulary.csv",
+    "chunk_limit": 4000,
+    "lang_id_model": "facebook/fasttext-language-identification",
+    "ct2_model_family": "eurollm",
+    "ct2_model": "eurollm-1.7b-int8",
+    "ct2_device": "cuda",
+    "ct2_compute_type": "int8_float16",
+    "default_source_lang": "cs",
+    "fasttext_confidence_threshold": 0.5,
+    "lang_id_min_letters": 20,
+    "lang_id_languages": "backend-supported",
+    "vocabulary_protected_terms": {
+      "C-202000543A-DT-27": 0,
+      "C-9141192A": 0,
+      "C-DT-100003326": 0,
+      "C-TX-202500252": 0,
+      "C-N1000019": 0,
+      "C-N9000080": 0,
+      "C-9115020A": 0,
+      "C-9124095A": 0,
+      "C-9107617A": 0,
+      "C-N9007794": 0,
+      "C-N9000112": 0,
+      "C-TX-202400594": 0,
+      "C-9100725A": 0,
+      "C-N1000137": 0,
+      "C-TX-195304352": 0
+    },
+    "vocabulary_protected_terms_total": 0
+  },
+  "statistics": {
+    "input_files_total": 15,
+    "successfully_processed": 0,
+    "skipped_files": 15,
+    "output_counts_by_type": {
+      "xml": 0,
+      "csv": 0,
+      "json": 0
+    },
+    "performance_per_minute": {
+      "xml": 0.0,
+      "csv": 0.0,
+      "json": 0.0
+    }
+  },
+  "skipped_files_detail": [
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-202000543A-DT-27.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.200415+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-9141192A.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.244098+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-DT-100003326.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.287594+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-TX-202500252.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.331259+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-N1000019.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.374403+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-N9000080.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.418263+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-9115020A.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.461614+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-9124095A.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.505026+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-9107617A.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.547632+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-N9007794.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.590687+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-N9000112.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.633567+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-TX-202400594.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.677311+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-9100725A.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.745971+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-N1000137.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.788324+00:00"
+    },
+    {
+      "file": "/lnet/work/projects/atrium/GITHUB/atrium-translator/data_samples/my_documents/C-TX-195304352.xml",
+      "reason": "cuBLAS failed with status CUBLAS_STATUS_NOT_SUPPORTED",
+      "timestamp": "2026-10-18T17:18:41.831495+00:00"
+    }
+  ],
+  "limits_applied": []
+}
