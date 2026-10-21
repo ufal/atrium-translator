@@ -31,9 +31,15 @@ behaviour on texts that begin with a very long sentence.
 
 from __future__ import annotations
 
-# Single source of truth for the default chunk size, shared by the translator,
-# the lemmatizer, and the paradata config snapshot in main.py (finding #13).
-DEFAULT_CHUNK_SIZE: int = 4000
+from tool_limits import TRANSLATION_CHUNK_CHARS
+
+from .limit_notes import note
+
+# The chunk size is a setting since atrium-project#53: TRANSLATION_CHUNK_CHARS, declared in
+# tool_limits.py and read on every call. This name stays for the callers that import it (the
+# lemmatizer's own UDPipe chunking, and older code): it is the DEFAULT, not the effective
+# value — read TRANSLATION_CHUNK_CHARS.get() for that.
+DEFAULT_CHUNK_SIZE: int = TRANSLATION_CHUNK_CHARS.default
 
 # Separators grouped into priority *tiers*.  The first tier (scanned in order)
 # that yields any acceptable split point wins; lower-priority tiers are not
@@ -47,10 +53,33 @@ _SEP_TIERS: list[list[tuple[str, int]]] = [
 ]
 
 
-def chunk_text(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
+def chunk_for_translation(text: str) -> list[str]:
+    """Split *text* for ONE translation request, at the effective TRANSLATION_CHUNK_CHARS.
+
+    Every backend calls this, not :func:`chunk_text`, so a segment that had to be split
+    is recorded (``limits_applied``, effect ``split``): it is translated in full, but its
+    pieces are re-joined with a line break, which is how the limit shapes the result. The
+    note counts segments, not calls: the same text sent again within a document is not
+    counted twice.
+    """
+    size = TRANSLATION_CHUNK_CHARS.get()
+    chunks = chunk_text(text, size)
+    if len(chunks) > 1:
+        note(
+            TRANSLATION_CHUNK_CHARS,
+            "split",
+            1,
+            f"a segment longer than {size} characters was translated in pieces re-joined with a line break",
+            key=text,  # once per segment, however often it is sent (the re-run sends it again)
+        )
+    return chunks
+
+
+def chunk_text(text: str, chunk_size: int | None = None) -> list[str]:
     """
     Split *text* into chunks no longer than *chunk_size* characters, keeping
-    whole sentences together wherever possible.
+    whole sentences together wherever possible. *chunk_size* defaults to the
+    effective ``TRANSLATION_CHUNK_CHARS``.
 
     Boundaries are tried tier by tier (see ``_SEP_TIERS``); the highest-priority
     tier that has a match inside the current window determines the split point.
@@ -58,6 +87,8 @@ def chunk_text(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
     back to the last word boundary, and finally to a hard cut for a single token
     longer than *chunk_size*.
     """
+    if chunk_size is None:
+        chunk_size = TRANSLATION_CHUNK_CHARS.get()
     if not text or not text.strip():
         return []
     text = text.strip()

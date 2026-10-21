@@ -102,7 +102,7 @@ bash scripts/server.sh          # auto: Docker Compose api service, else local u
 bash scripts/server.sh --local  # force local uvicorn (no Docker)
 ```
 
-The script is idempotent and health-waits on `/info`. Port defaults to `8000`
+The script is idempotent and waits on `/ready` (readiness). Port defaults to `8000`
 (`ATRIUM_TR_PORT` to change). Backend selection: `TRANSLATION_BACKEND=lindat`
 (default) or `openai_compatible`.
 

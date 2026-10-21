@@ -7,6 +7,18 @@ rewritten XML with its markup intact. The service version is read from
 
 ## Quick start
 
+The published image, with one of the AMČR metadata samples of this repository (LINDAT is called, so
+the container needs egress to `lindat.mff.cuni.cz`):
+
+```bash
+docker run --rm -p 8000:8000 ghcr.io/ufal/atrium-translator-api:<version>     # the release without its v
+curl --fail-with-body -sS -F "file=@small_data_samples/C-202000543A-DT-27.xml" \
+     "localhost:8000/translate?is_alto=false&source_lang=cs&target_lang=en&response_format=json" -o out.json
+```
+
+Expected: HTTP 200 and `out.json` with `"type": "metadata"`, the translated XML in `content`,
+`limits_applied` (usually `[]`) and `paradata`. From a checkout instead:
+
 ```bash
 pip install -r requirements.txt -r service/requirements.txt
 python -m service.api                          # honours PORT/HOST; default 0.0.0.0:8000
@@ -16,27 +28,47 @@ uvicorn service.api:app --host 0.0.0.0 --port 8000
 docker compose --profile api up -d
 ```
 
+## Models and caches
+
+| What                                                                                                                                                  | Where it comes from                                                                                                                                                                               | Without egress                                                                                                                                                                                                                    |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| FastText language identification (`facebook/fasttext-language-identification`, `model.bin`, 1.18 GB, CC BY-NC 4.0), used only with `source_lang=auto` | in the image at `/opt/models/fasttext-lid.bin` (`LANG_ID_MODEL_PATH`), Hub revision `3af127d…`, checked by SHA-256 at build; from a checkout, downloaded once at the same revision into `HF_HOME` | the image needs nothing. A checkout without the file starts degraded: `GET /health?deep=true` says so, and `auto` falls back to the element's label, the document language, `DEFAULT_SOURCE_LANG`. Pass `source_lang` to avoid it |
+| LINDAT translation (the default backend, `TRANSLATION_URL`)                                                                                           | a remote service                                                                                                                                                                                  | every request fails (500 after `LINDAT_MAX_RETRIES`); use `TRANSLATION_BACKEND=openai_compatible` with a self-hosted server                                                                                                       |
+| LINDAT UDPipe (`UDPIPE_URL`), only with `VOCABULARY_PATH` and the `lindat` backend                                                                    | a remote service                                                                                                                                                                                  | the terms of a chunk go unprotected                                                                                                                                                                                               |
+| The vocabulary CSV                                                                                                                                    | bundled: `data_samples/vocabulary.csv`, built from atrium-keyword-extract `v1.3.0-beta`                                                                                                           | —                                                                                                                                                                                                                                 |
+| `openai_compatible` and `ct2` models                                                                                                                  | your LLM server (`LLM_BASE_URL`); a converted model directory (`CT2_MODEL_DIR`)                                                                                                                   | —                                                                                                                                                                                                                                 |
+
+The image's language-ID model arrived with the first release after `v1.5.0-beta`; earlier images
+download it at start.
+
 ## Endpoints
 
-| Method | Path         | Purpose                                                                                                                                                                        |
-|--------|--------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GET    | `/info`      | service identity + capabilities: `service`, `version`, `endpoints`, `limits`, `chunk_limit`, backends                                                                          |
-| GET    | `/health`    | liveness probe — 200 always, even mid-shutdown. `?deep=true` additionally checks the translation backend warmed up (503 on failure or while draining)                          |
-| GET    | `/ready`     | readiness probe (issue #55) — 503 until the backend has warmed up, 200 while serving, 503 the instant `SIGTERM` arrives. The Kubernetes `readinessProbe`/`startupProbe` target |
-| POST   | `/translate` | translate one XML document (multipart upload; optional baseline ATRIUM Document JSON)                                                                                          |
+| Method | Path         | Purpose                                                                                                                                                                                |
+|--------|--------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GET    | `/info`      | service identity + capabilities: `service`, `version`, `endpoints`, `limits` (every [limit](#limits), current value), `limits_meta` (the variable that sets each), `supported_formats` |
+| GET    | `/health`    | liveness probe — 200 always, even mid-shutdown. `?deep=true` additionally checks the translation backend warmed up (503 on failure or while draining)                                  |
+| GET    | `/ready`     | readiness probe (issue #55) — 503 until the backend has warmed up, 200 while serving, 503 the instant `SIGTERM` arrives. The Kubernetes `readinessProbe`/`startupProbe` target         |
+| POST   | `/translate` | translate one XML document (multipart upload; optional baseline ATRIUM Document JSON)                                                                                                  |
 
-Machine-readable schemas: `GET /openapi.json`, or the Swagger UI at `/docs`, from a
-running server. The repo-root `README.md` covers the CLI and the translation logic itself.
+Machine-readable schemas: the committed [`openapi.json`](openapi.json), which every release also
+attaches (see [OpenAPI](#openapi-the-typed-contract)); or `GET /openapi.json` and the Swagger UI at
+`/docs` from a running server. The repo-root `README.md` covers the CLI and the translation logic
+itself.
 
 ### `POST /translate` (multipart form)
 
-| Field           | In    | Type    | Default | Meaning                                                                |
-|-----------------|-------|---------|---------|------------------------------------------------------------------------|
-| `file`          | form  | file    | —       | **Required.** The XML document. Filename must end in `.xml`.           |
-| `document_json` | form  | file    | —       | Optional baseline ATRIUM Document JSON to accrete onto.                |
-| `source_lang`   | query | string  | `auto`  | ISO 639-1 code, or `auto` to detect with FastText.                     |
-| `target_lang`   | query | string  | `en`    | ISO 639-1 code.                                                        |
-| `is_alto`       | query | boolean | `true`  | `true` → ALTO dual-pass reconstruction; `false` → XPath metadata mode. |
+| Field             | In            | Type    | Default       | Meaning                                                                                                                                                                                                                                                          |
+|-------------------|---------------|---------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `file`            | form          | file    | —             | **Required.** The XML document. Filename must end in `.xml`.                                                                                                                                                                                                     |
+| `document_json`   | form          | file    | —             | Optional baseline ATRIUM Document JSON to accrete onto, or an AMČR seed (`doc_id`, `source`). One that cannot be opened is a 422 `invalid_record`; an empty part counts as none.                                                                                 |
+| `source_lang`     | form or query | string  | `auto`        | ISO 639-1 code, or `auto`: FastText per block/field, trusted only when confident and translatable, else the element's label, the document's language, `DEFAULT_SOURCE_LANG`. A confident guess the backend cannot translate is reported, not refused: see below. |
+| `target_lang`     | form or query | string  | `en`          | ISO 639-1 code.                                                                                                                                                                                                                                                  |
+| `is_alto`         | form or query | boolean | `true`        | `true` → ALTO dual-pass reconstruction; `false` → XPath metadata mode.                                                                                                                                                                                           |
+| `output_mode`     | form or query | string  | `OUTPUT_MODE` | `replace` or `append` (issue #46). Unset → the `OUTPUT_MODE` env var, then `replace`; an unknown value degrades to the default with a warning.                                                                                                                   |
+| `response_format` | form or query | string  | `xml`         | `xml`: the translated XML, or `multipart/mixed` with a record (below). `json`: one JSON object instead (atrium-project#32 round 2). Anything else is a 422.                                                                                                      |
+
+Every field is read from the multipart body first and the query string second (issue #46), so either calling
+style works.
 
 ```bash
 curl -sf -F "file=@page.alto.xml" \
@@ -51,30 +83,102 @@ curl -sf -F "file=@page.alto.xml" \
 the translated document, structurally identical to the input.
 
 When `document_json` is supplied the response is instead `multipart/mixed`: the
-translated XML first, then the updated ATRIUM Document JSON, each with its own
-`Content-Disposition` filename.
+translated XML first, then the updated ATRIUM Document JSON, then `limits_applied.json`
+(see [Limits](#limits)), then `paradata.json` (`application/ld+json`, the call's
+provenance, below), each with its own `Content-Disposition` filename.
 
-The response carries no JSON envelope by design — the document is the payload, so
+**Limits applied.** When a limit shaped the translation without refusing it — a segment
+split into chunks, a language decided on a sample, a segment left in the source language
+after its retries — the response carries an `X-Atrium-Limits-Applied` header,
+`<key>=<effect>:<count>` pairs joined by `; ` (ASCII only; e.g.
+`lang_id_document_chars=sampled:1; translation_rerun_rounds=skipped:3`). No header means
+no limit applied. The full notes, with a sentence each, are the multipart response's
+`limits_applied.json` part and the run's paradata `limits_applied`.
+
+By default the response carries no JSON envelope — the document is the payload, so
 the endpoint composes with `curl -o` and with the pipeline's other stages.
 
-### Errors
+**`response_format=json`** (atrium-project#32 round 2) answers one `application/json` object
+instead, typed in the spec as `TranslateResponse` — the shape a client generated from
+`openapi.json` reads without a multipart parser:
 
-Harmonised across all five ATRIUM services (`agent_skill_strategy.md` §4.4), so a
+```json
+{"type": "alto", "filename": "CTX000000003-1_en.alto.xml", "media_type": "application/xml",
+ "content": "<?xml version='1.0' encoding='UTF-8'?>\n<alto …>…</alto>",
+ "limits_applied": [],
+ "document_json": {"doc_id": "CTX000000003", "translations": {"…": "…"}, "…": "…"},
+ "paradata": {"@id": "urn:uuid:…", "@type": "CreateAction", "…": "…"}}
+```
+
+`type` is `alto` or `metadata`; `content` is the translated XML as UTF-8 text; `document_json`
+is present only when a record was sent; `limits_applied` is the full list (the header is still
+set).
+
+**An untranslatable source language** (translator#52). With `source_lang=auto`, a segment
+identified with confidence as a language the backend cannot translate (Latin or Hungarian on
+LINDAT) is still translated from the fallback language. The record's
+`translations.unsupported_source_langs` counts such segments per language (e.g.
+`{"la": 1, "hu": 1}`), so a caller sees it in the `document_json` it gets back; a call without
+a record carries no such field. It is not a `limits_applied` note: nothing was cut, and none of
+the shared effects fits. In the CLI's `_log.csv` those rows have the status `unsupported_lang`.
+
+**`paradata`** is the call's provenance (atrium-project#71): one Process Run Crate `CreateAction`,
+built by `atrium_rocrate.create_action()`, in the JSON response and as the multipart form's
+`paradata.json`. Its `@id` is the call's `run_uuid`, which also stamps every block the call wrote
+into the record; `object` is the upload (by content hash) and the record sent, `result` the blocks
+written and the translated XML; `agent` is `ATRIUM_RUN_AGENT` when set. A bare XML answer has no
+place for it, and an error response carries none. The service writes no paradata file. Hub
+[the hub's RO-Crate export](https://github.com/ufal/atrium-project/blob/main/docs/rocrate_export.md) §5
+describes it.
+
+## Errors
+
+Harmonised across all six ATRIUM services (`agent_skill_strategy.md` §4.4), so a
 client can treat them uniformly:
 
-| Status | Meaning                      | When                                                                                                                                                        |
-|--------|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `413`  | Payload too large            | Upload exceeds `MAX_UPLOAD_MB`, or the declared envelope exceeds the cap. Enforced *during* the read, so an oversized body is refused rather than buffered. |
-| `415`  | Unsupported media type       | `Content-Type` is neither `multipart/form-data` nor `application/json`.                                                                                     |
-| `422`  | Unusable input               | Missing filename, or a filename not ending in `.xml`.                                                                                                       |
-| `500`  | Translation failed           | The pipeline raised — malformed XML, or the backend failed after retries.                                                                                   |
-| `503`  | Warming up, or shutting down | Before the backend is warm, or after `SIGTERM`. **Retryable** against another replica.                                                                      |
+| Status | `reason`                 | When                                                                                                                                                                                                                                 | What to do                                                                                                                                                    |
+|--------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `413`  | `limit_exceeded`         | A part exceeds `MAX_UPLOAD_MB`, or the declared request exceeds `max_request_mb` (2 × `MAX_UPLOAD_MB` + 1 MB). The declared size is checked before the body is read; a request without one is bounded part by part while it is read. | split the document, or raise `MAX_UPLOAD_MB`                                                                                                                  |
+| `415`  | `unsupported_media_type` | A filename not ending in `.xml` (`accepted: [".xml"]`), or a `Content-Type` that is neither `multipart/form-data` nor `application/json` (`accepted` lists both).                                                                    | send an `.xml` file as `multipart/form-data`                                                                                                                  |
+| `422`  | `invalid_record`         | The `document_json` part is not UTF-8 JSON, not a JSON object, or has a newer `schema_version` major than this tool reads.                                                                                                           | send the record the previous stage returned, or none; update this service if the record is newer                                                              |
+| `422`  | `null`                   | A missing or unusable filename, metadata mode with no XPath targets, an unknown `response_format`, or request validation (`errors` names the field).                                                                                 | fix the field `errors` or `detail` names; for metadata mode, point `AMCR_FIELDS_PATH` at the XPath list                                                       |
+| `422`  | `null`                   | `cause: "unsupported_language_pair"`: the backend cannot translate `source_lang` → `target_lang` (with `auto`, the fallback language is checked). Nothing is translated, never rerouted (translator#4).                              | set `source_lang` to one of `errors[].supported_source_langs`, or use another `TRANSLATION_BACKEND`                                                           |
+| `500`  | `null`                   | The pipeline raised: malformed XML, or the backend failed after its retries.                                                                                                                                                         | read the service log: for a backend failure check that LINDAT (or your server) answers and retry later once; for malformed XML fix the input; report a repeat |
+| `503`  | `null`                   | Warming up, or shutting down after `SIGTERM`.                                                                                                                                                                                        | retry with backoff, against another replica                                                                                                                   |
 
-Error bodies are FastAPI's `{"detail": ...}`. `detail` is a **string** for the
-errors this service raises itself (the table above), and a **list of validation
-objects** when FastAPI rejects the request before the handler runs — a `POST` with
-`Content-Type: application/json` and no `file` part returns `422` in that second
-shape. A client should not assume `detail` is a string.
+Every error has one JSON body (the hub's [agent skill strategy](https://github.com/ufal/atrium-project/blob/test/docs/agent_skill_strategy.md) §4.4, atrium-project#32
+item 2): `{"status": <int>, "reason": <code or null>, "detail": "<text>"}`. `detail` is
+always a string; a `limit_exceeded` body adds `limit` (`key`, `env`, `value`, `observed`,
+`unit`), and a request-validation 422 adds `errors`, FastAPI's list of problems:
+
+```json
+{"status": 413, "reason": "limit_exceeded", "detail": "File too large: over 50 MB (MAX_UPLOAD_MB).",
+ "limit": {"key": "max_upload_mb", "env": "MAX_UPLOAD_MB", "value": 50.0, "observed": null, "unit": "MB"}}
+```
+
+## OpenAPI (the typed contract)
+
+The service's OpenAPI document is committed as [`service/openapi.json`](openapi.json) and
+attached to every release as `openapi.json` with its `openapi.json.sha256` (atrium-project#32
+round 2). It is what a client is generated from: every request and response field is typed,
+every error response is the `ErrorBody` above, the registered `reason` codes are listed in
+`x-atrium-reason-codes`, and a returned record is typed by the vendored record schema
+(`AtriumDocument`). `GET /info` reports `openapi_sha256`, the digest of the spec the running
+image serves — equal to the release's `openapi.json.sha256` for an image built from that tag.
+The XML and multipart answers of `/translate` are declared as their media types; the JSON one
+(`response_format=json`) is fully typed.
+
+- **After an API change**, regenerate and commit it:
+  `python atrium_openapi.py export --app service.api:app --out service/openapi.json`.
+  On the `test` branch, `tests/test_openapi_contract.py` fails while it is stale.
+- **Compatibility.** Each release compares its spec with the previous release's
+  (`release.yml`, `atrium_openapi.py compare` with oasdiff): a breaking change fails the
+  release unless the major version went up (for 0.x, that means 1.0), and a removed reason
+  code always fails. New fields, endpoints and reason codes are additive.
+- **fastapi and pydantic are pinned** exactly (`service/requirements.txt`,
+  `requirements-test.txt`): the spec is generated by them. Bump both by hand and regenerate.
+- **The release bundle** ships `atrium_openapi.py` (the service imports it to finish and digest
+  the spec) and `service/openapi.json`.
 
 ## How it works
 
@@ -98,20 +202,28 @@ shape. A client should not assume `detail` is a string.
 
 ## Configuration (environment)
 
-| Variable              | Default           | Meaning                                                                                                                                                                                                                        |
-|-----------------------|-------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `MAX_UPLOAD_MB`       | `50`              | canonical upload limit                                                                                                                                                                                                         |
-| `ALLOWED_ORIGINS`     | `*`               | CSV of CORS origins. The code default is the `*` wildcard (credentials are then disabled, per the CORS spec); `.env.example` ships it commented (`# ALLOWED_ORIGINS=*`) so the default stays `*` until an operator narrows it. |
-| `TRANSLATION_BACKEND` | `lindat`          | backend seam shared with the CLI (issue #4)                                                                                                                                                                                    |
-| `OUTPUT_MODE`         | `replace`         | `replace` overwrites the source-language field; `append` keeps it and adds an `xml:lang`-marked sibling (ALTO labels rather than duplicates). Shared with the CLI's `--output-mode` (issue #46)                                |
-| `AMCR_FIELDS_PATH`    | `amcr-fields.txt` | file of AMCR XPath targets for metadata mode, one per line; relative paths resolve against the repo root. Absent ⇒ metadata requests are refused 422, ALTO unaffected (issue #46)                                              |
-| `TRANSLATION_URL`     | LINDAT            | translation API base URL for the `lindat` backend; `LINDAT_BASE_URL` is an alias (issue #63)                                                                                                                                   |
-| `UDPIPE_URL`          | LINDAT            | UDPipe 2 endpoint for vocabulary lemma matching; same name as atrium-nlp-enrich (issue #63)                                                                                                                                    |
-| `PORT`                | `8000`            | port the service **binds**, and the one `service/healthcheck.py` probes (issues #55, #58)                                                                                                                                      |
-| `HOST`                | `0.0.0.0`         | bind address (issue #58). ⚠️ see the warning below                                                                                                                                                                             |
-| `GRACEFUL_SHUTDOWN_S` | `20`              | seconds uvicorn waits for in-flight requests (issue #55)                                                                                                                                                                       |
-| `RELOAD`              | `false`           | filesystem auto-reload — development only, never in a deployment                                                                                                                                                               |
-| `LOG_LEVEL`           | `INFO`            | root logger level for the `python -m service.api` start path (issue #61)                                                                                                                                                       |
+| Variable                    | Default           | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|-----------------------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `MAX_UPLOAD_MB`             | `50`              | canonical upload limit                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `ALLOWED_ORIGINS`           | `*`               | CSV of CORS origins. The code default is the `*` wildcard (credentials are then disabled, per the CORS spec); `.env.example` ships it commented (`# ALLOWED_ORIGINS=*`) so the default stays `*` until an operator narrows it.                                                                                                                                                                                                        |
+| `TRANSLATION_BACKEND`       | `lindat`          | backend seam shared with the CLI (issue #4)                                                                                                                                                                                                                                                                                                                                                                                           |
+| `OUTPUT_MODE`               | `replace`         | `replace` overwrites the source-language field; `append` keeps it and adds an `xml:lang`-marked sibling (ALTO: keeps every `String`'s `CONTENT` and adds `<ALTERNATIVE PURPOSE="translation:<lang>">`). Shared with the CLI's `--output-mode` (issue #46)                                                                                                                                                                             |
+| `DEFAULT_SOURCE_LANG`       | `cs`              | with `source_lang=auto` (the `/translate` default): the language used when detection cannot be trusted and neither the element's label nor the document's language settles it                                                                                                                                                                                                                                                         |
+| `LANG_ID_MIN_CONFIDENCE`    | `0.5`             | FastText score a detected language needs before it is used (`auto` only)                                                                                                                                                                                                                                                                                                                                                              |
+| `LANG_ID_MIN_LETTERS`       | `20`              | texts with fewer letters are not sent to FastText; they inherit their label / the document language (`auto` only)                                                                                                                                                                                                                                                                                                                     |
+| `LANG_ID_MODEL_PATH`        |                   | the FastText language-ID model file (`auto` only). The published images set it to `/opt/models/fasttext-lid.bin`; unset (a checkout), the pinned Hub revision is downloaded into `HF_HOME`. A path that is not a file: the service starts, `/health?deep=true` reports the identifier unavailable, and `auto` falls back (see Models and caches)                                                                                      |
+| `TRANSLATION_RERUN_DELAY_S` | `10.0`            | cool-down before each re-run round — **added to the request's duration** whenever a document has a flagged segment                                                                                                                                                                                                                                                                                                                    |
+| `AMCR_FIELDS_PATH`          | `amcr-fields.txt` | file of AMCR XPath targets for metadata mode, one per line; relative paths resolve against the repo root. Absent ⇒ metadata requests are refused 422, ALTO unaffected (issue #46)                                                                                                                                                                                                                                                     |
+| `VOCABULARY_PATH`           |                   | vocabulary CSV `/translate` applies (issue #4): the LLM and `ct2` backends put the matching terms into the prompt, `lindat` protects them (Tag-and-Protect, which calls `UDPIPE_URL`). Relative paths resolve against the repo root. Empty: no vocabulary. Set to a missing file or one with no term pair: the service **refuses to start**, naming the file. `/info` reports the file, its term count and SHA-256 under `vocabulary` |
+| `LLM_EXTRA_BODY`            |                   | `openai_compatible`: a JSON object merged into every request body (e.g. `{"chat_template_kwargs": {"enable_thinking": false}}` for a vLLM serving Qwen3.8); not a JSON object ⇒ the service refuses to start                                                                                                                                                                                                                          |
+| `LLM_LICENSE_COMPONENT`     |                   | `openai_compatible`: the `para_config.txt` component recorded for the model instead of `llm_api` (provider terms) — for a model the deployment serves itself (`qwen3_8`: Qwen3.8-27B, Apache-2.0)                                                                                                                                                                                                                                     |
+| `TRANSLATION_URL`           | LINDAT            | translation API base URL for the `lindat` backend; `LINDAT_BASE_URL` is an alias (issue #63)                                                                                                                                                                                                                                                                                                                                          |
+| `UDPIPE_URL`                | LINDAT            | UDPipe 2 endpoint for vocabulary lemma matching (Tag-and-Protect); same name as atrium-nlp-enrich (issue #63). The service calls it only with `VOCABULARY_PATH` set and the `lindat` backend                                                                                                                                                                                                                                          |
+| `PORT`                      | `8000`            | port the service **binds**, and the one `service/healthcheck.py` probes (issues #55, #58)                                                                                                                                                                                                                                                                                                                                             |
+| `HOST`                      | `0.0.0.0`         | bind address (issue #58). ⚠️ see the warning below                                                                                                                                                                                                                                                                                                                                                                                    |
+| `GRACEFUL_SHUTDOWN_S`       | `20`              | seconds uvicorn waits for in-flight requests (issue #55)                                                                                                                                                                                                                                                                                                                                                                              |
+| `RELOAD`                    | `false`           | filesystem auto-reload — development only, never in a deployment                                                                                                                                                                                                                                                                                                                                                                      |
+| `LOG_LEVEL`                 | `INFO`            | root logger level for the `python -m service.api` start path (issue #61)                                                                                                                                                                                                                                                                                                                                                              |
 
 `TRANSLATION_URL` and `UDPIPE_URL` make the two LINDAT-hosted backing services
 attachable (12-factor IV): set either to reach a self-hosted or stubbed instance
@@ -121,6 +233,14 @@ the `lindat` backend actually resolved is what `/translate` writes into the
 to, never a literal, since a provenance claim that is confidently wrong is worse
 than one that is absent. The `LINDAT_MIN_INTERVAL_S` / `LINDAT_MAX_RETRIES` /
 `LINDAT_BACKOFF_BASE_S` transport dials are separate and unchanged.
+
+**Degenerate replies cost time, not correctness.** A LINDAT reply that comes back as a repetition loop is
+re-requested (`LINDAT_GUARD_RETRIES`; the first time immediately, then with back-off), and a segment still degenerate after that is re-run once
+the document is done (`TRANSLATION_RERUN_ROUNDS` × `TRANSLATION_RERUN_DELAY_S`; the `ct2` backend decodes a re-run
+with a wider beam, since the same request would get the same reply); one that never recovers keeps
+its source text. All of that happens inside the synchronous `/translate` request, so on a bad day for the
+backend a request takes longer — size `GRACEFUL_SHUTDOWN_S` (and the orchestrator's grace period) with that in
+mind, or lower `TRANSLATION_RERUN_DELAY_S` for the service.
 
 `PORT` and `HOST` are read by `service/api.py`'s `__main__` block, which is what the `api`
 image's `ENTRYPOINT` (`python -m service.api`) runs. Before issue #58 the entrypoint baked
@@ -132,15 +252,86 @@ and not the listener, and the container reported unhealthy forever.
 > `service/healthcheck.py` always probes loopback by design and never reads `HOST`, so a
 > loopback bind passes every probe while being unreachable from outside the container.
 
+## Limits
+
+Every limit this service has (atrium-project#53). Each is an environment setting, declared once
+in [`tool_limits.py`](../tool_limits.py) (the CLI reads the same declaration), reported with its
+current value in `GET /info` `limits` and with the variable that sets it in `limits_meta`. A
+malformed value stops the service at startup, naming the variable. Over a limit the service
+**refuses** (`reason: "limit_exceeded"`) or **translates the input in full** and says how the
+limit shaped the result (`X-Atrium-Limits-Applied`, `limits_applied`). The LLM and CT2 rows
+apply only when `TRANSLATION_BACKEND` selects that backend. On the `test` branch,
+`tests/test_limits_contract.py` checks this table against `tool_limits.py` and `.env.example`.
+
+| Key (`/info`)                    | Variable                                     | Default | Unit    | Over the limit                                                                                         |
+|----------------------------------|----------------------------------------------|---------|---------|--------------------------------------------------------------------------------------------------------|
+| `max_upload_mb`                  | `MAX_UPLOAD_MB`                              | 50      | MB      | 413 `limit_exceeded` — per part: the XML and the baseline document JSON                                |
+| `max_request_mb`                 | — (derived from `MAX_UPLOAD_MB`: 2 × it + 1) | —       | MB      | 413 `limit_exceeded`, from the declared `Content-Length`, before the body is read                      |
+| `translation_chunk_chars`        | `TRANSLATION_CHUNK_CHARS`                    | 4000    | chars   | translated in full, in pieces re-joined with a line break — `split` note                               |
+| `lang_id_segment_chars`          | `LANG_ID_SEGMENT_CHARS`                      | 2000    | chars   | `source_lang=auto`: the segment's language is decided on its first N characters — `sampled` note       |
+| `lang_id_document_chars`         | `LANG_ID_DOCUMENT_CHARS`                     | 20000   | chars   | `source_lang=auto`: the document's language is decided on its first N characters — `sampled` note      |
+| `lindat_timeout_s`               | `LINDAT_TIMEOUT_S`                           | 60      | s       | the call is retried (`LINDAT_MAX_RETRIES`)                                                             |
+| `lindat_max_retries`             | `LINDAT_MAX_RETRIES`                         | 4       | retries | the file fails → 500                                                                                   |
+| `lindat_guard_retries`           | `LINDAT_GUARD_RETRIES`                       | 2       | retries | the segment is flagged for the end-of-document re-run                                                  |
+| `translation_rerun_rounds`       | `TRANSLATION_RERUN_ROUNDS`                   | 1       | rounds  | the segment keeps its source text (logged `untranslated`) — `skipped` note with the count              |
+| `udpipe_timeout_s`               | `UDPIPE_TIMEOUT_S`                           | 30      | s       | CLI with a vocabulary (LINDAT): the chunk is not lemmatised, its terms go unprotected — `skipped` note |
+| `llm_timeout_s`                  | `LLM_TIMEOUT_S`                              | 120     | s       | the call is retried (`LLM_MAX_RETRIES`)                                                                |
+| `llm_max_tokens`                 | `LLM_MAX_TOKENS`                             | 2048    | tokens  | a reply cut at it (`finish_reason=length`) is degenerate: re-run, else kept as source — never used     |
+| `llm_max_retries`                | `LLM_MAX_RETRIES`                            | 4       | retries | the file fails → 500                                                                                   |
+| `llm_max_glossary_terms`         | `LLM_MAX_GLOSSARY_TERMS`                     | 40      | terms   | CLI `--vocab`: the longest terms are kept — `trimmed` note                                             |
+| `llm_glossary_description_chars` | `LLM_GLOSSARY_DESCRIPTION_CHARS`             | 0       | chars   | 0: no descriptions in the prompt; a longer description is cut at a word — `trimmed` note               |
+| `ct2_max_input_tokens`           | `CT2_MAX_INPUT_TOKENS`                       | 1024    | tokens  | the chunk is re-split and translated in full — `split` note                                            |
+| `ct2_max_decoding_tokens`        | `CT2_MAX_DECODING_TOKENS`                    | 2048    | tokens  | a reply that reaches it is degenerate: re-run, else kept as source — never used                        |
+| `ct2_max_glossary_terms`         | `CT2_MAX_GLOSSARY_TERMS`                     | 40      | terms   | CLI `--vocab`: the longest terms are kept — `trimmed` note                                             |
+
+Platform limits (not settings): libxml2's default limits (parsed without `huge_tree`: nesting
+depth, a 10 MB text node) — a document over them fails as malformed XML (500); Starlette's
+multipart defaults.
+
+## Partial results
+
+A 200 can still be a result a limit or a backend shaped. Two places say so:
+
+- **`limits_applied`** (JSON and multipart answers) and the `X-Atrium-Limits-Applied` header:
+  `split` (a long segment translated in pieces), `sampled` (the language decided on the first
+  characters), `trimmed` (a glossary cut to its limit) and `skipped` (segments the guard kept in the
+  source language after the re-run rounds, with their count). The table above says which limit
+  produces which note.
+- **`translations.unsupported_source_langs`** in the returned record: segments identified as a language
+  the backend cannot translate, translated from the fallback language instead, counted per language.
+
+The service has no `partial` status of its own; a caller that needs every segment translated checks
+for a `skipped` note.
+
+## Known limits
+
+- **LINDAT's output is CC BY-NC-SA 4.0** (the CUBBITT models, and UDPipe's when a vocabulary is applied), and
+  AMČR's use of the default backend waits on LINDAT's written permission. The self-hosted alternative is
+  `openai_compatible` with Qwen3.8-27B (Apache-2.0; [docs/translation-backends.md](../docs/translation-backends.md#recommendation)).
+- **A language pair the backend has no model for is refused** (422 `unsupported_language_pair`), never routed
+  through Czech: LINDAT has no `cs-it` or `hu-en`, for example.
+- **`ct2` with EuroLLM drops short segments.** In the bake-off of 2026-10-19 EuroLLM-9B ran on past 96 of 1,230
+  segments, almost all a number or a single word; the guard keeps their source text (`untranslated`). On a GPU
+  it needs CUDA 12's cuBLAS (12.8+ on a Blackwell card) and `int8_float16` needs compute capability 7.0+.
+- **The bake-off is reference-less and small:** 37 metadata fields and 1,193 ALTO blocks, measured by
+  failures, kept terms and numbers, length and similarity to LINDAT. No human has scored the translations yet.
+
 ## Shutdown behavior (issue #55)
 
-The published `api` image (`ghcr.io/ufal/atrium-translator:<version>-api`, new in that
+The published `api` image (`ghcr.io/ufal/atrium-translator-api:<version>`, new in that
 issue — before it this service was only reachable via a compose entrypoint override, so no
 API image existed to deploy) declares `HEALTHCHECK` (shallow `GET /health`, via the
 vendored `service/healthcheck.py`) and `STOPSIGNAL SIGTERM`, and sets
 `ENV GRACEFUL_SHUTDOWN_S=20`, which `service/api.py`'s `__main__` block passes to uvicorn
 as `timeout_graceful_shutdown`. (It was the `--timeout-graceful-shutdown 20` CLI flag until
 issue #58 moved the whole start command into that block so `$PORT` could be honoured.)
+
+With `TRANSLATION_BACKEND=ct2` the model — and EuroLLM's tokenizer — is loaded during startup, before
+`GET /ready` turns 200: a configuration error (`CT2_MODEL_DIR` unset, a missing tokenizer, an unsupported
+`CT2_COMPUTE_TYPE`) stops the service instead of failing the first request, and concurrent first requests share one
+load. One short generation follows the load, so a model that loads but cannot run stops the service there too, with
+the fix: on `CT2_DEVICE=cuda`, CTranslate2 4.x needs CUDA 12's cuBLAS (`libcublas.so.12`; see `requirements-ct2.txt`),
+or use `CT2_DEVICE=cpu`. The published images do not include `requirements-ct2.txt`; a `ct2` service needs an image that does.
 
 On `SIGTERM` the service flips `GET /ready` to **503** at once so an orchestrator stops
 routing to it, answers new `/translate` calls with 503, and lets in-flight translation
@@ -156,8 +347,12 @@ signal could not be processed at all.
 ⚠️ This is the fleet's slowest request shape: one **retried** LINDAT call per chunk, so a
 large document can legitimately run for minutes and outlive the 20s drain budget. Raise
 `GRACEFUL_SHUTDOWN_S` and the deployment's grace period together for that workload — see
-[docs/k8s_deployment.md](https://github.com/ufal/atrium-project/blob/test/docs/k8s_deployment.md)
-("Known limits") in the hub.
+the hub's [Kubernetes deployment guide](https://github.com/ufal/atrium-project/blob/test/docs/k8s_deployment.md) ("Known limits").
 
 A clean shutdown exits **143** (128 + SIGTERM), not 0: uvicorn re-raises the captured
 signal on purpose so a supervisor sees the real cause. That is a normal stop, not a crash.
+
+## Tests
+
+The tests and their fixtures are on the [`test` branch](https://github.com/ufal/atrium-translator/tree/test); this
+branch carries only what the running service and the skill need.

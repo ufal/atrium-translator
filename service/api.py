@@ -3,59 +3,117 @@ service/api.py
 
 FastAPI service for the ATRIUM LINDAT Translator.
 Brings this repository into API parity with the rest of the ATRIUM pipeline.
+
+The typed contract (atrium-project#32 round 2). Every route declares its response model
+and its error statuses, so the committed ``service/openapi.json`` — attached to every
+release, and what the AMČR pipeline generates its clients from — types every field.
+``/translate`` answers the translated XML (or multipart/mixed with the record) as before;
+``response_format=json`` asks for one JSON object instead (``TranslateResponse``), the
+shape a generated client reads without a multipart parser. Both of those carry the run's
+Process Run Crate ``CreateAction`` (atrium-project#71); a bare XML answer has no place for it. The models below DOCUMENT the
+responses (``response_model=None``), and ``tests/test_api_contract.py`` validates real
+responses against the published schema. Refusals carry registered reasons: an upload that
+is not ``.xml`` is 415 ``unsupported_media_type``, a record that cannot be opened is 422
+``invalid_record``. Regenerate the spec after an API change::
+
+    python atrium_openapi.py export --app service.api:app --out service/openapi.json
 """
 
 import argparse
 import asyncio
+import hashlib
+import json
 import logging
 import os
 import tempfile
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import Response, StreamingResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
 
+import atrium_rocrate
+from atrium_document import canonical_doc_id
+from atrium_limits import LimitExceeded, LimitNotes
 from atrium_paradata import ParadataLogger
-from main import process_single_file, record_doc_id
+from main import log_backend_components, process_single_file, record_doc_id
 from processors.backend import get_backend
-from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
+from processors.language import (
+    SourceLanguagePolicy,
+    allowed_source_languages,
+    language_pair_problem,
+    normalise_lang_code,
+)
 from processors.translator import resolve_translation_url
+from processors.vocab import load_vocabulary_records
+from tool_limits import LIMITS, MAX_UPLOAD, TRANSLATION_CHUNK_CHARS, max_request_mb
 from utils import DEFAULT_OUTPUT_MODE, normalize_output_mode
 
 # Shared ATRIUM meta-contract helpers (§4). Byte-identical across every service,
 # enforced by para-drift.reusable.yml.
 try:
     from .atrium_service import (
+        AtriumDocument,
+        AtriumHTTPError,
+        CreateAction,
+        InfoBase,
+        LimitNote,
         ServiceState,
         add_cors,
+        attach_error_handlers,
         attach_health,
         attach_inflight_middleware,
+        attach_openapi_contract,
         build_info,
+        error_body,
+        error_responses,
+        operation_id,
+        parse_record_part,
         read_tool_version,
-        resolve_max_upload_mb,
+        read_upload_bounded,
         serve_lifecycle,
     )
 except ImportError:
     from atrium_service import (
+        AtriumDocument,
+        AtriumHTTPError,
+        CreateAction,
+        InfoBase,
+        LimitNote,
         ServiceState,
         add_cors,
+        attach_error_handlers,
         attach_health,
         attach_inflight_middleware,
+        attach_openapi_contract,
         build_info,
+        error_body,
+        error_responses,
+        operation_id,
+        parse_record_part,
         read_tool_version,
-        resolve_max_upload_mb,
+        read_upload_bounded,
         serve_lifecycle,
     )
 
 logger = logging.getLogger(__name__)
 
-# Canonical upload limit (§4.5): MAX_UPLOAD_MB, with a deprecated MAX_UPLOAD_BYTES fallback.
-MAX_UPLOAD_MB = resolve_max_upload_mb(50)
-MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)  # retained: imported by tests/clients
+#: The tool id (/info `service`, the spec's `x-atrium-service`): the repository name.
+SERVICE = "atrium-translator"
+
+#: Where para_config.txt (the tool version and licences the paradata records) lives: the repo root.
+_PARA_CONFIG_DIR = str(Path(__file__).resolve().parents[1])
+
+# Every limit this service has is declared in tool_limits.py (atrium-project#53, factor III)
+# and read per request. These are the import-time values, kept because tests and clients
+# import them.
+MAX_UPLOAD_MB = MAX_UPLOAD.get()
+MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)
 
 # Read uploads a megabyte at a time so the limit is enforced DURING the read.
 _UPLOAD_CHUNK_BYTES = 1024 * 1024
@@ -65,11 +123,95 @@ _UPLOAD_CHUNK_BYTES = 1024 * 1024
 # optional baseline document JSON), so a legitimate envelope can be about twice
 # the per-file limit; the extra megabyte covers multipart boundaries and headers.
 # This is a coarse early reject, not the real limit -- _read_bounded() below is.
+# Reported in /info as the derived limit `max_request_mb` (tool_limits.max_request_mb).
 MAX_REQUEST_BYTES = 2 * MAX_UPLOAD_BYTES + _UPLOAD_CHUNK_BYTES
+
+_MIB = 1024 * 1024
+
+#: Response header carrying the limits-applied summary (atrium-project#53);
+#: atrium_service.EXPOSED_HEADERS lets a browser read it.
+LIMITS_HEADER = "X-Atrium-Limits-Applied"
+
+#: What /translate reads (§4.4 `accepted` of its 415): an XML file, by its name.
+ACCEPTED_SUFFIXES = [".xml"]
+
+
+# ── the typed contract (atrium-project#32 round 2) ──────────────────────────────────────────
+# These models document the responses the handlers build; they do not filter them. A field
+# the handler always sends has no default (required); one it sends only sometimes defaults to
+# None. Descriptions are published in service/openapi.json, so they are written for the client.
+
+#: `response_format` of /translate. `xml` is what the endpoint has always answered.
+ResponseFormat = Literal["xml", "json"]
+
+
+class TranslateResponse(BaseModel):
+    """`/translate` with `response_format=json`: the translated XML and the record in one object."""
+
+    model_config = ConfigDict(extra="allow")
+
+    type: str = Field(description="What the upload was translated as: `alto` (ALTO XML) or `metadata` (AMČR XML).")
+    filename: str = Field(description="The translated file's name, e.g. `CTX000000003-1_en.alto.xml`.")
+    media_type: str = Field(description="The media type of `content`: `application/xml`.")
+    content: str = Field(description="The translated XML document, as UTF-8 text.")
+    limits_applied: List[LimitNote] = Field(
+        description="Every limit that shaped the translation without refusing it (also the response header)."
+    )
+    document_json: Optional[AtriumDocument] = Field(
+        None,
+        description=(
+            "Only when a record was sent as `document_json`: the record with the translator's `translations` "
+            "block and `derived_from.translated_xml` added."
+        ),
+    )
+    paradata: Optional[CreateAction] = Field(
+        description=(
+            "The call's provenance: its Process Run Crate `CreateAction` (atrium-project#71), whose `@id` is the "
+            "`run_uuid` stamped into `document_json`."
+        ),
+    )
+
+
+class VocabularyInfo(BaseModel):
+    """The vocabulary `/translate` applies (`VOCABULARY_PATH`, translator#4)."""
+
+    file: str = Field(description="The CSV's file name (not its path on the host).")
+    terms: int = Field(description="Term pairs loaded.")
+    with_description: int = Field(description="Terms that carry a concept description.")
+    sha256: str = Field(description="sha256 of the CSV, to tell two vocabularies apart.")
+
+
+class TranslatorInfo(InfoBase):
+    """`/info` of atrium-translator."""
+
+    supported_formats: List[str] = Field(description="The kinds of XML `/translate` reads.")
+    vocabulary: Optional[VocabularyInfo] = Field(
+        None, description="The vocabulary `/translate` applies, or null when `VOCABULARY_PATH` is unset."
+    )
+
+
+#: The 200 of /translate in its three shapes (the JSON one is TranslateResponse, added by FastAPI).
+_TRANSLATE_200: Dict[str, Any] = {
+    "description": (
+        "The translated XML (`application/xml`, as an attachment). With a record sent, `multipart/mixed`: the "
+        "XML, the record (`application/json`), `limits_applied.json` and `paradata.json` (the call's Process Run "
+        "Crate `CreateAction`, `application/ld+json`). With `response_format=json`, one `TranslateResponse`."
+    ),
+    "headers": {
+        LIMITS_HEADER: {
+            "description": "`key=effect:count; …` for each limit that applied; absent when none did.",
+            "schema": {"type": "string"},
+        }
+    },
+    "content": {
+        "application/xml": {"schema": {"type": "string"}},
+        "multipart/mixed": {"schema": {"type": "string"}},
+    },
+}
 
 
 def _reject_oversized_envelope(request: Request) -> None:
-    """413 on a declared Content-Length past MAX_REQUEST_BYTES, before reading.
+    """413 ``limit_exceeded`` on a declared Content-Length past the request cap, before reading.
 
     Starlette spools a multipart part to a temporary FILE once it grows past its
     own in-memory threshold, so an unbounded upload fills the container's disk
@@ -78,37 +220,54 @@ def _reject_oversized_envelope(request: Request) -> None:
     per-part accounting in _read_bounded().
     """
     declared = request.headers.get("content-length", "")
-    if declared.isdigit() and int(declared) > MAX_REQUEST_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Request too large. Max upload size is {MAX_UPLOAD_BYTES} bytes per file.",
+    limit_mb = max_request_mb()
+    if declared.isdigit() and int(declared) > limit_mb * _MIB:
+        raise LimitExceeded(
+            "max_request_mb",
+            limit_mb,
+            round(int(declared) / _MIB, 2),
+            unit="MB",
+            env="MAX_UPLOAD_MB",
+            detail=(
+                f"Request too large: over {limit_mb:g} MB (two parts of MAX_UPLOAD_MB={MAX_UPLOAD.get():g} "
+                "plus 1 MB of multipart overhead)."
+            ),
         )
 
 
 async def _read_bounded(upload: UploadFile, limit_bytes: int, label: str) -> bytes:
-    """Read *upload* fully, raising 413 as soon as it exceeds *limit_bytes*.
+    """Read *upload* fully, refusing it (413 ``limit_exceeded``) once it exceeds *limit_bytes*.
 
     The obvious form -- `content = await upload.read()` and then check
     `len(content)` -- decides whether the upload was too large only after the
     whole of it is resident in memory, so the 413 it raises is unreachable for
     exactly the inputs that need it: an unauthenticated caller could OOM-kill
     the container before the check ran. Reading in bounded chunks and stopping
-    at the limit costs one extra join and makes the limit real.
+    at the limit costs one extra join and makes the limit real. The reader itself
+    moved to the shared atrium_service.read_upload_bounded (atrium-project#53), so
+    every service now reads uploads this way.
     """
-    chunks: list[bytes] = []
-    total = 0
-    while True:
-        chunk = await upload.read(_UPLOAD_CHUNK_BYTES)
-        if not chunk:
-            break
-        total += len(chunk)
-        if total > limit_bytes:
-            raise HTTPException(
-                status_code=413,
-                detail=f"{label} too large. Max size is {limit_bytes} bytes.",
-            )
-        chunks.append(chunk)
-    return b"".join(chunks)
+    return await read_upload_bounded(upload, limit_bytes / _MIB, label)
+
+
+#: A client-supplied name used as a file name inside the request's temporary directory:
+#: at most this many UTF-8 bytes, printable, and no path separators.
+_MAX_NAME_BYTES = 200
+
+
+def _safe_file_name(name: str | None) -> str | None:
+    """*name* reduced to a plain file name, or ``None`` when nothing usable is left.
+
+    The upload's and the baseline's names, and the baseline record's ``doc_id``, all
+    become paths under the request's temporary directory. They are the client's, so a
+    name like ``../../x.xml`` must not climb out of it (atrium-project#68 §D).
+    """
+    if not name:
+        return None
+    base = Path(str(name).replace("\\", "/")).name
+    if base in ("", ".", "..") or not base.isprintable() or len(base.encode("utf-8")) > _MAX_NAME_BYTES:
+        return None
+    return base
 
 
 models = {}
@@ -125,6 +284,41 @@ _state = ServiceState()
 #: the published image with nothing to mount.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 AMCR_FIELDS_PATH = os.getenv("AMCR_FIELDS_PATH", "amcr-fields.txt")
+#: The vocabulary CSV /translate applies (translator#4); empty: none, as before.
+VOCABULARY_PATH = os.getenv("VOCABULARY_PATH", "")
+
+
+def _resolve_vocabulary(path_value: str) -> tuple[Optional[Path], Optional[dict]]:
+    """The vocabulary ``VOCABULARY_PATH`` names, checked: ``(path, /info entry)``, or ``(None, None)`` when unset.
+
+    Stricter than ``AMCR_FIELDS_PATH`` on purpose. A missing XPath file only refuses metadata
+    requests, each with a 422 that says why; a vocabulary someone set and that is silently
+    not applied would change every translation without a trace. So a value that does not
+    name a usable CSV stops the service at startup, with the fix in the message.
+    """
+    if not path_value or not path_value.strip():
+        return None, None
+    candidate = Path(path_value.strip())
+    if not candidate.is_absolute():
+        candidate = _REPO_ROOT / candidate
+    if not candidate.is_file():
+        raise RuntimeError(
+            f"VOCABULARY_PATH={path_value!r} does not resolve to a file (looked at {candidate}). Point it at a "
+            "vocabulary CSV such as data_samples/vocabulary.csv, or unset it to translate without a vocabulary."
+        )
+    records = load_vocabulary_records(candidate)
+    if not records:
+        raise RuntimeError(
+            f"VOCABULARY_PATH={path_value!r} ({candidate}) holds no term pair "
+            "(source_lemma,target_translation). Fix the file, or unset the variable."
+        )
+    info = {
+        "file": candidate.name,
+        "terms": len(records),
+        "with_description": sum(1 for record in records.values() if record.description),
+        "sha256": hashlib.sha256(candidate.read_bytes()).hexdigest(),
+    }
+    return candidate, info
 
 
 def _as_bool(raw, *, default: bool) -> bool:
@@ -174,7 +368,17 @@ async def lifespan(app: FastAPI):
     # OpenAI-compatible LLM backend without code changes (issue #4).
     backend = os.getenv("TRANSLATION_BACKEND")
     logger.info("Warming up translation backend (%s)", backend or "lindat")
-    models["translator"] = get_backend(backend, vocab_path=None)
+    # The vocabulary first: a VOCABULARY_PATH that names no usable CSV stops the service here.
+    vocab_path, models["vocabulary_info"] = _resolve_vocabulary(VOCABULARY_PATH)
+    if vocab_path is not None:
+        logger.info("Applying the vocabulary %s (%d terms)", vocab_path, models["vocabulary_info"]["terms"])
+    models["translator"] = get_backend(backend, vocab_path=str(vocab_path) if vocab_path else None)
+    # A backend with a model to load (ct2) loads it now: a configuration error stops the
+    # service here instead of failing the first request, and /ready below means "loaded".
+    warm = getattr(models["translator"], "warm", None)
+    if callable(warm):
+        logger.info("Loading the %s model", getattr(models["translator"], "name", backend))
+        warm()
     models["identifier"] = LanguageIdentifier()
     # Metadata-mode XPath targets, read once here rather than per request — the same
     # warm-cache treatment the backend and identifier get. Before this existed the
@@ -199,27 +403,41 @@ app = FastAPI(
     description="Automated pipeline for the translation and enrichment of archaeological archival collections.",
     version=read_tool_version(Path(__file__).resolve().parent),
     lifespan=lifespan,
+    # The typed contract (atrium-project#32 round 2): every route documents the §4.4 error
+    # body for 422 and 500 (and FastAPI's own 422 body, which is not what is sent, goes);
+    # operationIds are the handler names; the spec never depends on a root_path.
+    responses=error_responses(422, 500),
+    generate_unique_id_function=operation_id,
+    root_path_in_servers=False,
 )
 attach_inflight_middleware(app, _state)
 
+
+@app.middleware("http")
+async def _refuse_oversized_translate_request(request: Request, call_next):
+    """413 on a declared Content-Length past ``max_request_mb``, BEFORE the body is read.
+
+    FastAPI parses (and Starlette spools to disk) the whole multipart form before the
+    handler runs, so the check inside ``translate_document`` alone bounds what is
+    processed, not what is received. Here it runs first. A request without a declared
+    length is still bounded per part while its parts are read (``read_upload_bounded``).
+    """
+    if request.method == "POST" and request.url.path == "/translate":
+        try:
+            _reject_oversized_envelope(request)
+        except LimitExceeded as exc:
+            body = error_body(exc.http_status, exc.detail, "limit_exceeded", limit=jsonable_encoder(exc.to_dict()))
+            return JSONResponse(body, status_code=exc.http_status)
+    return await call_next(request)
+
+
+# §4.4 error body {status, reason, detail} for every error (atrium-project#32 item 2, #53).
+attach_error_handlers(app)
+# The published spec: reason registry, record schema, service id (atrium-project#32 item 3).
+attach_openapi_contract(app, SERVICE)
+
 # CORS — standard §4.5 configuration (ALLOWED_ORIGINS CSV, default "*").
 add_cors(app)
-
-# Demo frontend (§9) — served at /frontend when the directory is present.
-#
-# Guarded by `.exists()` on purpose, so this block is a no-op wherever
-# `service/frontend/` was not shipped. That is what makes it safe on every branch:
-# the page currently lives only on `agent-skill`, and this same code changes nothing
-# on a branch without it, so there is no fork to forward-merge later.
-#
-# Until 2026-09-09 the branch README advertised a frontend "mounted at `/frontend`"
-# while nothing mounted anything — the page shipped unreachable. The skill-validate
-# endpoint check could not catch it: step 2 skips `/`-rooted tokens, and step 4's
-# `GET /x` pattern deliberately ignores a bare backticked `/frontend` precisely
-# because that form also names slash-commands and static mounts.
-_frontend_dir = Path(__file__).resolve().parent / "frontend"
-if _frontend_dir.exists():
-    app.mount("/frontend", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
 
 
 def _deep_health() -> str | None:
@@ -264,23 +482,74 @@ def _refuse_if_draining() -> None:
         raise HTTPException(status_code=503, detail="Service is shutting down; retry against a live replica.")
 
 
+def _refuse_untranslatable_pair(source_lang: str, target_lang: str) -> None:
+    """422 for a language pair the warmed backend cannot translate (translator#4).
+
+    LINDAT used to translate such a request from Czech without a word. ``auto`` checks the
+    language a segment falls back to (``DEFAULT_SOURCE_LANG``). No registered reason exists
+    for it, so ``reason`` is null; ``cause`` names it and ``errors`` lists what is offered.
+    """
+    translator = models.get("translator")
+    if translator is None:
+        return
+    field = "source_lang"
+    pair_source = source_lang
+    if source_lang == "auto":
+        field, pair_source = "DEFAULT_SOURCE_LANG", SourceLanguagePolicy.from_env().default
+    problem = language_pair_problem(translator, pair_source, target_lang)
+    if problem:
+        offered = allowed_source_languages(translator, target_lang)
+        raise AtriumHTTPError(
+            422,
+            f"Cannot translate {pair_source} → {target_lang}: {problem}",
+            reason=None,
+            cause="unsupported_language_pair",
+            errors=[
+                {
+                    "field": field,
+                    "value": pair_source,
+                    "target_lang": target_lang,
+                    "supported_source_langs": sorted(offered) if offered else [],
+                }
+            ],
+        )
+
+
 # Opus 4.8 Hardening: Strict Content-Type Guards
 async def verify_content_type(request: Request):
     """Ensure incoming POST requests provide acceptable payload formats."""
     if request.method in ("POST", "PUT"):
         content_type = request.headers.get("Content-Type", "")
         if not content_type.startswith("application/json") and not content_type.startswith("multipart/form-data"):
-            raise HTTPException(
-                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail=f"Unsupported media type: {content_type}. Expected application/json or multipart/form-data.",
+            # §4.4: the registered reason and the accepted types (atrium-project#32 round 2).
+            raise AtriumHTTPError(
+                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                f"Unsupported media type: {content_type}. Expected application/json or multipart/form-data.",
+                reason="unsupported_media_type",
+                accepted=["application/json", "multipart/form-data"],
             )
 
 
-@app.post("/translate", dependencies=[Depends(verify_content_type)])
+@app.post(
+    "/translate",
+    dependencies=[Depends(verify_content_type)],
+    response_model=None,
+    responses={200: {"model": TranslateResponse, **_TRANSLATE_200}, **error_responses(413, 415, 503)},
+)
 async def translate_document(
     request: Request,
-    file: UploadFile = File(...),
-    document_json: UploadFile = File(None, description="Optional baseline ATRIUM Document JSON (accretion model)"),
+    file: UploadFile = File(..., description="The XML to translate: ALTO XML, or AMČR metadata XML (`is_alto=false`)."),
+    document_json: UploadFile = File(
+        None,
+        description=(
+            "Optional baseline ATRIUM Document JSON (accretion model), or an AMČR seed (`doc_id`, `source`). When "
+            "given, the record comes back with the translator's `translations` block added: as the second part of "
+            "the multipart/mixed response, or as `document_json` with `response_format=json`. A record that does "
+            "not validate against atrium_document.schema.json is still accepted (rule 6); one that cannot be "
+            "opened is refused (422 `invalid_record`). An empty part counts as none."
+        ),
+        json_schema_extra={"contentMediaType": "application/json"},
+    ),
     # Declared as Form(None) and resolved against the query string below, because
     # callers are genuinely split and both shapes must keep working.
     #
@@ -290,18 +559,49 @@ async def translate_document(
     # also the default. But other callers (test_translate_real_pipeline_keeps_the_
     # multi_dot_doc_id) pass `?source_lang=cs` in the query and rely on it being
     # read. Binding strictly to either source breaks the other half. (issue #46)
-    source_lang: str = Form(None),
-    target_lang: str = Form(None),
-    is_alto: bool = Form(None),
-    output_mode: str = Form(None, description="replace | append — see issue #46"),
+    source_lang: Optional[str] = Form(
+        None, description="The source language, or `auto` (the default) to detect it. Also read from the query."
+    ),
+    target_lang: Optional[str] = Form(
+        None, description="The target language; `en` by default. Also read from the query."
+    ),
+    is_alto: Optional[bool] = Form(
+        None, description="`true` (the default): ALTO XML; `false`: AMČR metadata XML. Also read from the query."
+    ),
+    # An open string, not an enum: any case is accepted, and an unknown value falls back to
+    # the default with a warning (utils.normalize_output_mode) — an enum would refuse input
+    # that works today (atrium-project#32 round 2, rule 2).
+    output_mode: Optional[str] = Form(
+        None,
+        description=(
+            "`replace` (the default, or the OUTPUT_MODE setting) or `append` — see issue #46. Also read from the query."
+        ),
+    ),
+    response_format: Optional[ResponseFormat] = Form(
+        None,
+        description=(
+            "`xml` (the default): the translated XML, or multipart/mixed when a record was sent. `json`: one "
+            "`TranslateResponse` object with the XML as text and the record as `document_json`. Also read from "
+            "the query."
+        ),
+    ),
 ):
     _refuse_if_draining()
 
     qp = request.query_params
     source_lang = source_lang or qp.get("source_lang") or "auto"
     target_lang = target_lang or qp.get("target_lang") or "en"
+    if source_lang.strip().lower() != "auto":
+        source_lang = normalise_lang_code(source_lang) or source_lang
+    target_lang = normalise_lang_code(target_lang) or target_lang
+    _refuse_untranslatable_pair(source_lang, target_lang)
     if is_alto is None:
         is_alto = _as_bool(qp.get("is_alto"), default=True)
+    # The form field is validated by its enum; the query value is checked here, so both
+    # sources refuse an unknown format alike (422) rather than falling back silently.
+    response_format = response_format or qp.get("response_format") or "xml"
+    if response_format not in ("xml", "json"):
+        raise HTTPException(status_code=422, detail="response_format must be 'xml' or 'json'.")
 
     # CLI precedence, mirrored: explicit request field wins, then OUTPUT_MODE, then
     # the shipped default. An unrecognised value degrades to the default with a
@@ -312,9 +612,20 @@ async def translate_document(
         source="output_mode",
     )
 
-    if not file.filename or not file.filename.endswith(".xml"):
-        # §4.4: unusable/invalid input is 422 (harmonized from 400).
-        raise HTTPException(status_code=422, detail="Only XML files are supported.")
+    upload_name = _safe_file_name(file.filename)
+    if not upload_name:
+        # §4.4: an unusable name (missing, a bare path, unprintable, over the length cap) is
+        # unusable input, 422 — it cannot become a file in the request's directory.
+        raise HTTPException(status_code=422, detail="The upload has no usable file name.")
+    if not upload_name.endswith(".xml"):
+        # §4.4: a file of a type this endpoint does not read is 415 `unsupported_media_type`
+        # (a bare 422 before atrium-project#32 round 2), with the accepted suffix in the body.
+        raise AtriumHTTPError(
+            415,
+            "Only XML files are supported.",
+            reason="unsupported_media_type",
+            accepted=ACCEPTED_SUFFIXES,
+        )
 
     # Metadata mode with no XPath targets cannot translate anything. It used to
     # return 200 and an unchanged document, which is the worst possible answer: the
@@ -331,18 +642,32 @@ async def translate_document(
             ),
         )
 
-    _reject_oversized_envelope(request)
-    content = await _read_bounded(file, MAX_UPLOAD_BYTES, "File")
+    _reject_oversized_envelope(request)  # also in the middleware above; kept for direct calls
+    upload_mb = MAX_UPLOAD.get()
+    content = await read_upload_bounded(file, upload_mb, "File")
+
+    # The record, read and opened before any translation, so one that cannot be opened is
+    # refused up front (422 `invalid_record`, atrium-project#32 round 2): it used to reach
+    # process_single_file, which logged a skip, and the endpoint answered a 500 "Translation
+    # processing failed." An empty part counts as none. The bytes go on as sent.
+    baseline_bytes = None
+    if document_json is not None:
+        raw = await read_upload_bounded(document_json, upload_mb, "Baseline document JSON")
+        if parse_record_part(raw, "document_json") is not None:
+            baseline_bytes = raw
 
     with tempfile.TemporaryDirectory() as tmpdir:
         work_dir = Path(tmpdir)
-        input_path = work_dir / file.filename
+        input_path = work_dir / upload_name
         input_path.write_bytes(content)
 
         doc_json_path = None
-        if document_json:
-            doc_json_path = work_dir / (document_json.filename or "baseline.json")
-            doc_json_path.write_bytes(await _read_bounded(document_json, MAX_UPLOAD_BYTES, "Baseline document JSON"))
+        if baseline_bytes is not None:
+            baseline_name = _safe_file_name(document_json.filename) or "baseline.json"
+            if baseline_name == upload_name:
+                baseline_name = "baseline.json"
+            doc_json_path = work_dir / baseline_name
+            doc_json_path.write_bytes(baseline_bytes)
 
         # D3/D11 (atrium-project#10): the same derivation process_single_file() uses, so the
         # filename this endpoint promises the client and the doc_id the record is keyed on
@@ -357,7 +682,12 @@ async def translate_document(
         # and for those the uploaded filename is not what the record is keyed on. Deriving
         # from `file.filename` alone would reintroduce exactly the divergence this comment
         # was written about, one level further out.
-        doc_json_out_path = work_dir / f"{record_doc_id(input_path, doc_json_path)}.document.json"
+        #
+        # The id can come from the client's baseline, so it is checked before it becomes a
+        # path; an id that is not a plain file name falls back to the upload's own id. The
+        # record inside keeps the baseline's doc_id either way.
+        record_name = _safe_file_name(f"{record_doc_id(input_path, doc_json_path)}.document.json")
+        doc_json_out_path = work_dir / (record_name or f"{canonical_doc_id(input_path)}.document.json")
 
         output_dir = work_dir / "output"
         output_dir.mkdir()
@@ -399,9 +729,17 @@ async def translate_document(
             "target_lang": target_lang,
             "mode": "alto" if is_alto else "metadata",
             "output_mode": effective_output_mode,
-            "chunk_limit": DEFAULT_CHUNK_SIZE,
+            "chunk_limit": TRANSLATION_CHUNK_CHARS.get(),
             "translation_backend": backend_name,
         }
+        # The source-language policy in force (processors/language.py) — the same keys
+        # the CLI records, so a /translate run and a batch run are comparable. The
+        # accepted-language set is derived from the backend that actually warmed up.
+        para_config.update(
+            SourceLanguagePolicy.from_env(
+                allowed=allowed_source_languages(models["translator"], target_lang)
+            ).describe()
+        )
         # Only record the translation endpoint when the active backend is
         # actually lindat — avoids misrepresenting LLM / CT2 runs (M1) — and
         # record the endpoint the warmed backend will ACTUALLY call rather than
@@ -420,12 +758,27 @@ async def translate_document(
             if not isinstance(effective_url, str) or not effective_url.strip():
                 effective_url = resolve_translation_url()
             para_config["translation_api"] = effective_url.rstrip("/") + "/"
+        else:
+            # Which model translated (ct2: CT2_*; openai_compatible: LLM_MODEL, provider, host).
+            describe = getattr(models["translator"], "describe", None)
+            details = describe() if callable(describe) else None
+            if isinstance(details, dict):
+                para_config.update(details)
+        vocabulary_info = models.get("vocabulary_info")
+        if vocabulary_info:
+            para_config["vocabulary"] = vocabulary_info["file"]
+            para_config["vocabulary_sha256"] = vocabulary_info["sha256"]
 
+        # The call's paradata (atrium-project#71). paradata_dir=None: a service writes no
+        # paradata file; the run goes back as the response's `paradata`, and its run_id /
+        # run_uuid stamp the record. config_dir: para_config.txt sits at the repo root, found
+        # from here rather than from whatever the working directory happens to be.
         with ParadataLogger(
             program="translator-api",
             config=para_config,
-            paradata_dir=str(output_dir / "paradata"),
+            paradata_dir=None,
             output_types=["xml", "csv", "json"],
+            config_dir=_PARA_CONFIG_DIR,
         ) as logger:
             # Off the event loop (issue #55): process_single_file() chunks the document
             # and issues one RETRIED, blocking HTTP call to LINDAT per chunk — a single
@@ -444,21 +797,16 @@ async def translate_document(
                 _logger=logger,
             )
 
-            # API-path paradata component logging (mirrors main.py logic, M1).
+            # API-path paradata component logging (the same helper as main.py, M1).
+            # process_single_file() already logged them before the returned record
+            # took its licence block; this keeps the run's own paradata complete.
             if success:
-                vocab_loaded = bool(getattr(models["translator"], "vocabulary", None))
-                components_fn = getattr(models["translator"], "license_components", None)
-                if callable(components_fn):
-                    for comp in components_fn(vocab_loaded):
-                        logger.log_component(comp)
-                else:
-                    logger.log_component("lindat_cubbitt")
-                    if vocab_loaded:
-                        for comp in ("udpipe2_engine", "udpipe2_models", "amcr_vocab", "teater_data"):
-                            logger.log_component(comp)
+                log_backend_components(models["translator"], logger, detected=source_lang == "auto")
 
-                if source_lang == "auto":
-                    logger.log_component("fasttext")
+        # The limits that shaped this translation without refusing it (atrium-project#53):
+        # recorded in the run's paradata by process_single_file, and echoed to the caller below
+        # on their own, since a bare XML answer carries no paradata.
+        limit_notes = LimitNotes(logger.limits_applied)
 
         if not success:
             raise HTTPException(status_code=500, detail="Translation processing failed.")
@@ -472,15 +820,48 @@ async def translate_document(
 
         json_bytes = None
         # Only attach the multipart JSON response if the client opted into the flow
-        if document_json and doc_json_out_path.exists():
+        if baseline_bytes is not None and doc_json_out_path.exists():
             with open(doc_json_out_path, "rb") as fh:
                 json_bytes = fh.read()
+
+    # The run as its CreateAction (atrium-project#71), in the two shapes that have a place for it.
+    action = None
+    if response_format == "json" or json_bytes:
+        action = _run_action(
+            logger, upload_name, content, baseline_bytes is not None, json_bytes, out_filename, xml_bytes
+        )
+
+    # The limits echo (atrium-project#53). The response is XML, so the notes travel as an
+    # ASCII header — `key=effect:count; …`, present only when a limit applied (header values
+    # are latin-1, and a note's detail may be Czech) — and, in the multipart form, in full
+    # as a third part, `limits_applied.json`, always present (`[]` when nothing applied).
+    limits_header = limit_notes.header_summary()
+    extra_headers = {LIMITS_HEADER: limits_header} if limits_header else {}
+
+    # response_format=json (atrium-project#32 round 2): the same result as one typed JSON
+    # object — the shape a client generated from the spec reads without a multipart parser.
+    # The XML is UTF-8 (utils writes it so); the record is the same bytes the multipart
+    # form carries.
+    if response_format == "json":
+        payload: Dict[str, Any] = {
+            "type": "alto" if is_alto else "metadata",
+            "filename": out_filename,
+            "media_type": "application/xml",
+            "content": xml_bytes.decode("utf-8"),
+            "limits_applied": limit_notes.as_list(),
+            "paradata": action,
+        }
+        if json_bytes:
+            payload["document_json"] = json.loads(json_bytes)
+        return JSONResponse(payload, headers=extra_headers)
 
     # Deliver multipart/mixed response if document_json is active and generated, allowing
     # clients to retrieve both the updated ATRIUM Document JSON and the resulting ALTO XML.
     if json_bytes:
         boundary = uuid.uuid4().hex
-        headers = {"Content-Type": f"multipart/mixed; boundary={boundary}"}
+        headers = {"Content-Type": f"multipart/mixed; boundary={boundary}", **extra_headers}
+        notes_bytes = json.dumps(limit_notes.as_list(), ensure_ascii=False).encode("utf-8")
+        action_bytes = json.dumps(action, ensure_ascii=False).encode("utf-8")
 
         def generate_multipart():
             yield f"--{boundary}\r\n".encode()
@@ -491,6 +872,14 @@ async def translate_document(
             yield b"Content-Type: application/json\r\n"
             yield f'Content-Disposition: attachment; filename="{doc_json_out_path.name}"\r\n\r\n'.encode()
             yield json_bytes + b"\r\n"
+            yield f"--{boundary}\r\n".encode()
+            yield b"Content-Type: application/json\r\n"
+            yield b'Content-Disposition: attachment; filename="limits_applied.json"\r\n\r\n'
+            yield notes_bytes + b"\r\n"
+            yield f"--{boundary}\r\n".encode()
+            yield b"Content-Type: application/ld+json\r\n"
+            yield b'Content-Disposition: attachment; filename="paradata.json"\r\n\r\n'
+            yield action_bytes + b"\r\n"
             yield f"--{boundary}--\r\n".encode()
 
         return StreamingResponse(generate_multipart(), headers=headers)
@@ -498,17 +887,46 @@ async def translate_document(
     return Response(
         content=xml_bytes,
         media_type="application/xml",
-        headers={"Content-Disposition": f'attachment; filename="{out_filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{out_filename}"', **extra_headers},
     )
 
 
-@app.get("/info")
+def _run_action(
+    run: ParadataLogger,
+    upload_name: str,
+    content: bytes,
+    baseline_sent: bool,
+    record_bytes: Optional[bytes],
+    out_filename: str,
+    xml_bytes: bytes,
+) -> Dict[str, Any]:
+    """The call's CreateAction (atrium-project#71): what it read and what it wrote.
+
+    `object` is the upload and, when one was sent, the record; `result` is the record's blocks
+    this call stamped and the translated XML.
+    """
+    inputs = [atrium_rocrate.file_entity(upload_name, content, media_type="application/xml")]
+    outputs: List[Dict[str, Any]] = []
+    if baseline_sent:
+        record = json.loads(record_bytes) if record_bytes else {}
+        inputs.append(atrium_rocrate.record_entity(str(record.get("doc_id") or canonical_doc_id(upload_name))))
+        outputs = atrium_rocrate.block_entities(atrium_rocrate.blocks_written(record, run.run_uuid))
+    outputs.append(atrium_rocrate.file_entity(out_filename, xml_bytes, media_type="application/xml"))
+    return atrium_rocrate.create_action(run.record, inputs=inputs, outputs=outputs)
+
+
+@app.get(
+    "/info",
+    response_model=None,
+    responses={200: {"model": TranslatorInfo, "description": "Identity, limits, capabilities."}},
+)
 async def get_info():
     return build_info(
         app,
-        service="atrium-translator",
-        limits={"max_upload_mb": MAX_UPLOAD_MB},
+        service=SERVICE,
+        limits=LIMITS,
         supported_formats=["ALTO XML", "AMCR Metadata XML"],
+        vocabulary=models.get("vocabulary_info"),
     )
 
 

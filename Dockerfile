@@ -48,13 +48,60 @@ COPY requirements.txt ./
 COPY service/requirements.txt ./service/requirements.txt
 RUN pip install -r requirements.txt -r service/requirements.txt
 
+# FastText language identification for `source_lang=auto`, baked in (atrium-project#77): the image
+# needs no egress for it and cannot start loading another model than its release did. The same file
+# and Hub commit as atrium-ocr-postprocess's image: facebook/fasttext-language-identification's
+# model.bin, 1,176,355,829 bytes, CC BY-NC 4.0. The build fails unless size and SHA-256 match.
+# To refresh: `curl -sI https://huggingface.co/facebook/fasttext-language-identification/resolve/main/model.bin`
+# gives x-repo-commit (the revision), x-linked-etag (the SHA-256) and x-linked-size; change
+# LANG_ID_REVISION in processors/identifier.py to the same commit.
+ARG FASTTEXT_REVISION=3af127d4124fc58b75666f3594bb5143b9757e78
+ARG FASTTEXT_SHA256=8ded5749a2ad79ae9ab7c9190c7c8b97ff20d54ad8b9527ffa50107238fc7f6a
+ARG FASTTEXT_SIZE=1176355829
+RUN mkdir -p /opt/models && python - <<'PY'
+import hashlib, os, time, urllib.request
+revision, sha256, size = os.environ["FASTTEXT_REVISION"], os.environ["FASTTEXT_SHA256"], int(os.environ["FASTTEXT_SIZE"])
+url = f"https://huggingface.co/facebook/fasttext-language-identification/resolve/{revision}/model.bin?download=true"
+target = "/opt/models/fasttext-lid.bin"
+request = urllib.request.Request(url, headers={"User-Agent": "atrium-translator-docker-build/1.0"})
+for attempt in range(1, 6):
+    try:
+        digest = hashlib.sha256()
+        with urllib.request.urlopen(request, timeout=60) as response, open(target, "wb") as out:
+            for block in iter(lambda: response.read(1 << 20), b""):
+                digest.update(block)
+                out.write(block)
+        break
+    except OSError as exc:
+        print(f"download attempt {attempt} failed: {exc}", flush=True)
+        if attempt == 5:
+            raise
+        time.sleep(10 * attempt)
+if os.path.getsize(target) != size:
+    raise SystemExit(f"{target} is {os.path.getsize(target)} bytes, expected {size}")
+if digest.hexdigest() != sha256:
+    raise SystemExit(f"{target} has SHA-256 {digest.hexdigest()}, expected {sha256}")
+PY
+# The file is written 0644 by root (umask 022), readable by the runtime user. No later chmod or
+# chown touches it: on overlayfs that would copy the 1.18 GB file into a second layer.
+ENV LANG_ID_MODEL_PATH=/opt/models/fasttext-lid.bin
+
 COPY . .
 
-# Non-root runtime user owning only the HF cache and data mountpoint.
+# Non-root runtime user owning only the HF cache, the data mountpoint and its home.
 # /app remains owned by root to enforce source immutability.
+#
+# Owned atrium:0 and group-writable (`g=u`): the arbitrary-UID convention (OpenShift's),
+# atrium-project#69 / roadmap B6. docker-compose.yml runs this image as
+# `user: "${ATRIUM_UID:-10001}:0"`, so on Linux the container can run as the uid that owns
+# the ./data bind mount, and a uid with no passwd entry still reaches /cache, /data and
+# $HOME through group 0. HOME is explicit because without a passwd entry it would be `/`.
+# The default runtime -- uid 10001 as the owner -- is unchanged.
 RUN useradd --create-home --uid 10001 atrium \
     && mkdir -p /cache/huggingface /data \
-    && chown -R atrium:atrium /cache /data
+    && chown -R atrium:0 /cache /data /home/atrium \
+    && chmod -R g=u /cache /data /home/atrium
+ENV HOME=/home/atrium
 USER atrium
 
 ENTRYPOINT ["python", "main.py"]

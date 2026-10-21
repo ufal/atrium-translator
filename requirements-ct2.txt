@@ -1,0 +1,36 @@
+# requirements-ct2.txt — optional dependency group for the CTranslate2 self-host
+# backend (processors/ct2_translator.py, issue #4 Phase 3).
+#
+# Not part of the default install: the `ct2` backend is registered in
+# processors/backend._ensure_registry, but these heavy libraries are imported only
+# on its first translate() call, so the default image never needs them. Install
+# only when self-hosting:
+#
+#     pip install -r requirements.txt -r requirements-ct2.txt
+#
+# Then convert a model (e.g. EuroLLM-1.7B or MADLAD-400-3B) to the CTranslate2
+# int8 format, set the CT2_* env vars, and select it with `--backend ct2`
+# (or TRANSLATION_BACKEND=ct2).
+#
+# On a GPU (CT2_DEVICE=cuda), CTranslate2 4.x runs on CUDA 12: it loads libcublas.so.12,
+# which a CUDA 13 torch in the same environment does not bring. Install it and put it on
+# the library path, or use a CUDA 12 runtime:
+#
+#     pip install nvidia-cublas-cu12
+#     export LD_LIBRARY_PATH="$(python -c 'import nvidia.cublas, os; print(os.path.join(nvidia.cublas.__path__[0], "lib"))'):$LD_LIBRARY_PATH"
+#
+# A Blackwell GPU (compute capability 12.x, e.g. RTX PRO 6000) needs cuBLAS 12.8 or newer: the
+# CUDA 12.3 runtime's cuBLAS answers CUBLAS_STATUS_NOT_SUPPORTED to every int8 prompt. The pip
+# package is current; an older CUDA module is not. Ampere and Hopper GPUs run with either.
+#
+# Without it the model loads and every generation fails; the backend's start-up probe
+# (warm()) reports that, with this fix, before any document is touched.
+ctranslate2>=4.8.2
+sentencepiece>=0.2.2
+# EuroLLM uses its Hugging Face tokenizer and chat template for CTranslate2
+# generation. Keep this on the current Transformers 5.x line: the repository's
+# huggingface-hub runtime pin is compatible with Transformers 5.x.
+transformers>=5.15,<6
+# apply_chat_template() renders EuroLLM's chat template with Jinja2, which transformers
+# only lists as an optional extra: without it every eurollm chunk fails.
+jinja2>=3.1.6

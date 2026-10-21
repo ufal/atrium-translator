@@ -5,6 +5,7 @@ main.py – Entry point for the ATRIUM LINDAT Translation Wrapper.
 import argparse
 import configparser
 import csv
+import logging
 import os
 import sys
 from pathlib import Path
@@ -28,11 +29,19 @@ except ImportError:
         print()
 
 
-from atrium_document import DocumentRecord, canonical_doc_id, load_document, validate_document
+from atrium_document import DocumentRecord, canonical_doc_id, load_document, validate_baseline, validate_document
+from atrium_limits import LimitExceeded
 from atrium_paradata import ParadataLogger
 from processors.backend import TranslationBackend, get_backend
-from processors.chunking import DEFAULT_CHUNK_SIZE
 from processors.identifier import LanguageIdentifier
+from processors.language import (
+    SourceLanguagePolicy,
+    allowed_source_languages,
+    language_pair_problem,
+    normalise_lang_code,
+)
+from processors.limit_notes import collecting
+from tool_limits import TRANSLATION_CHUNK_CHARS
 from utils import (
     DEFAULT_OUTPUT_MODE,
     OUTPUT_MODES,
@@ -66,7 +75,7 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         "xpaths_file": str(args.xpaths or ""),
         "xsd_url": str(args.xsd or ""),
         "vocabulary": str(args.vocabulary or ""),
-        "chunk_limit": DEFAULT_CHUNK_SIZE,
+        "chunk_limit": TRANSLATION_CHUNK_CHARS.get(),
         "lang_id_model": "facebook/fasttext-language-identification",
     }
 
@@ -88,8 +97,25 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         from processors.translator import resolve_translation_url
 
         cfg["translation_api"] = resolve_translation_url().rstrip("/") + "/"
+    elif backend_name == "ct2":
+        # Which model, device and quantisation translated: the same CT2_* the backend reads.
+        from processors.ct2_translator import CT2Translator
 
-    cfg["fasttext_confidence_threshold"] = 0.2
+        cfg.update(CT2Translator().describe())
+    elif backend_name == "openai_compatible":
+        # Which model, provider and endpoint host translated (LLM_*; never the key).
+        from processors.llm_translator import LLMTranslator
+
+        cfg.update(LLMTranslator().describe())
+
+    # The language-identification policy actually in force (processors/language.py),
+    # not the literal 0.2 this used to record — which the ALTO path never applied.
+    # Meaningful only with source_lang=auto; recorded either way so two runs can be
+    # compared. The backend-derived language set is resolved later, once the backend
+    # exists, and is reported in each document's log line.
+    cfg.update(SourceLanguagePolicy.from_env(default=getattr(args, "default_source_lang", None)).describe())
+    if cfg["lang_id_languages"] == "any":
+        cfg["lang_id_languages"] = "backend-supported"
     return cfg
 
 
@@ -141,6 +167,10 @@ def _baseline_is_invalid(baseline: Path | None) -> bool:
 
     A baseline that cannot be READ at all is not this function's problem —
     ``DocumentRecord.open()`` reports on it a few lines later, with the right message.
+
+    An AMČR seed (``doc_id`` and ``source`` only, atrium-project#71) is checked against the seed
+    profile (``validate_baseline``), not the full schema it could never pass: it used to be
+    reported here as an invalid baseline, which also demoted this stage's own output gate.
     """
     if not baseline or not Path(baseline).exists():
         return False
@@ -149,7 +179,7 @@ def _baseline_is_invalid(baseline: Path | None) -> bool:
     except Exception:
         return False
     try:
-        validate_document(record)
+        validate_baseline(record)
     except (RuntimeError, FileNotFoundError) as exc:
         # RuntimeError = jsonschema missing; FileNotFoundError = the schema itself was not
         # vendored next to the module. Neither means "the record is bad".
@@ -280,6 +310,16 @@ def parse_arguments():
         help="Source language code (e.g. cs, fr) or 'auto' for detection. Default: value from config.txt, or 'cs'.",
     )
     parser.add_argument(
+        "--default-source-lang",
+        type=str,
+        default=None,
+        help="With --source_lang auto: the language used when detection cannot be trusted — "
+        "text too short, low confidence, or a language the backend cannot translate — and "
+        "neither the element's own label nor the document's language settles it. "
+        "Precedence: this flag, then config.txt's 'default_source_lang', then the "
+        "DEFAULT_SOURCE_LANG env var, then 'cs'.",
+    )
+    parser.add_argument(
         "--target_lang",
         "-tgt",
         type=str,
@@ -296,6 +336,13 @@ def parse_arguments():
     parser.add_argument("--alto", action="store_true", help="Enable ALTO XML in-place translation mode.")
     parser.add_argument("--xpaths", type=Path, default=None, help="Path to a file listing AMCR XPath targets.")
     parser.add_argument("--xsd", type=str, default=None, help="URL or path to XSD schema for output validation.")
+    parser.add_argument(
+        "--xsd-strict",
+        action="store_true",
+        default=None,
+        help="With --xsd: a translated record that fails validation counts as a failed document "
+        "(exit 3; the XML is still written). Default: env XSD_STRICT, else off (a WARNING only).",
+    )
     parser.add_argument(
         "--vocabulary",
         type=Path,
@@ -329,8 +376,9 @@ def parse_arguments():
             "How the translation is written into the document (issue #46). "
             "'replace' (default) overwrites the source-language field. "
             "'append' keeps it and adds an xml:lang-marked sibling beside it, "
-            "following AMCR's own heslo/heslo_en convention. ALTO labels rather "
-            "than duplicates in append mode. Precedence: this flag, then "
+            "following AMCR's own heslo/heslo_en convention. For ALTO, append keeps "
+            "every String's CONTENT and adds the translation as "
+            '<ALTERNATIVE PURPOSE="translation:<lang>">. Precedence: this flag, then '
             "config.txt's 'output_mode', then the OUTPUT_MODE env var, then 'replace'."
         ),
     )
@@ -345,15 +393,19 @@ def parse_arguments():
         "--backend",
         type=str,
         default=None,
-        help="Translation backend to use: 'lindat' (default, LINDAT CUBBITT) or "
+        help="Translation backend to use: 'lindat' (default, LINDAT CUBBITT), "
         "'openai_compatible' (free/low-cost OpenAI-compatible LLM API, configured "
-        "via LLM_* env vars). Default: config 'translation_backend', then env "
-        "TRANSLATION_BACKEND, then 'lindat'. See docs/translation-backends.md.",
+        "via LLM_* env vars) or 'ct2' (self-hosted CTranslate2 model, needs "
+        "requirements-ct2.txt and the CT2_* env vars). Default: config "
+        "'translation_backend', then env TRANSLATION_BACKEND, then 'lindat'. "
+        "See docs/translation-backends.md.",
     )
 
     args = parser.parse_args()
     config = _read_config(args.config)
     defaults = config["DEFAULT"] if "DEFAULT" in config else {}
+    # Asked for on the command line, before config.txt fills the gaps (see `formats` below).
+    xpaths_on_cli = args.xpaths is not None
 
     if args.input_path is None and "input_path" in defaults:
         args.input_path = Path(defaults["input_path"])
@@ -361,14 +413,36 @@ def parse_arguments():
         args.output = Path(defaults["output"])
     if args.source_lang is None:
         args.source_lang = defaults.get("source_lang", "cs")
+    if getattr(args, "default_source_lang", None) is None:
+        # Same precedence chain as --output-mode: CLI, config.txt, environment, default.
+        args.default_source_lang = (
+            defaults.get("default_source_lang") or os.environ.get("DEFAULT_SOURCE_LANG") or "cs"
+        ).strip()
     if args.target_lang is None:
         args.target_lang = defaults.get("target_lang", "en")
+    # "CS", "cs-CZ" and "ces" name the same language as "cs": one code from here on, so the
+    # pair check, the file names and the record agree (translator#4).
+    if str(args.source_lang).strip().lower() != "auto":
+        args.source_lang = normalise_lang_code(args.source_lang) or args.source_lang
+    args.target_lang = normalise_lang_code(args.target_lang) or args.target_lang
     if args.formats is None:
         args.formats = defaults.get("formats", "xml")
+        # The shipped config.txt says `formats = alto.xml` (the ALTO sample), which turns
+        # ALTO mode on below. A command line that names --xpaths asks for a metadata run:
+        # left alone, it would scan for *.alto.xml, find none and exit 2, or translate only
+        # the ALTO file of a mixed directory (issue #46). --formats / --alto still decide.
+        if xpaths_on_cli and not args.alto and "alto.xml" in args.formats.lower():
+            print(
+                f"[INFO] --xpaths given: metadata mode with formats 'xml,txt' "
+                f"(config.txt formats = {args.formats!r} is the ALTO setting; pass --formats to choose)."
+            )
+            args.formats = "xml,txt"
     if args.backend is None:
         args.backend = defaults.get("translation_backend") or os.environ.get("TRANSLATION_BACKEND") or "lindat"
     if args.xpaths is None and "fields" in defaults:
         args.xpaths = Path(defaults["fields"])
+    if args.xsd_strict is None:
+        args.xsd_strict = os.environ.get("XSD_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
     if args.output_mode is None:
         # Same precedence chain as --backend: CLI wins, then config.txt, then the
         # environment, then the shipped default. OUTPUT_MODE is read here as well
@@ -407,6 +481,36 @@ def generate_output_path(input_file: Path, base_output: Path, args, is_batch: bo
     return input_file.with_name(new_filename)
 
 
+def log_backend_components(translator, paradata_logger, *, detected: bool = False) -> None:
+    """Record the licence components this run's translation uses, on *paradata_logger*.
+
+    FastText when the source language was detected (*detected*), then the selected
+    backend's own set: ``license_components(vocab_loaded)`` where the backend has
+    one (issue #4), else the historical LINDAT set. ``log_component`` is a dict
+    write, so calling this again is a no-op.
+
+    It must run BEFORE a document record takes the licence block
+    (``doc.add_license_detail``). It used to run only after the first file had
+    finished, and the HTTP service called it after ``process_single_file`` had
+    returned, so the first record of every run — and therefore every record of a
+    one-file pipeline stage or ``/translate`` call — was written with no backend
+    component: ``CC BY-NC 4.0`` ("no components recorded") where the run actually
+    resolves to CC BY-NC-SA 4.0 (LINDAT's models), losing the share-alike duty.
+    """
+    if detected:
+        paradata_logger.log_component("fasttext")
+    vocab_loaded = bool(getattr(translator, "vocabulary", None))
+    components_fn = getattr(translator, "license_components", None)
+    if callable(components_fn):
+        for comp in components_fn(vocab_loaded):
+            paradata_logger.log_component(comp)
+        return
+    paradata_logger.log_component("lindat_cubbitt")
+    if vocab_loaded:
+        for comp in ("udpipe2_engine", "udpipe2_models", "amcr_vocab", "teater_data"):
+            paradata_logger.log_component(comp)
+
+
 def process_single_file(
     file_path: Path,
     output_file: Path,
@@ -416,6 +520,8 @@ def process_single_file(
     xpaths_list: list[str],
     _logger: ParadataLogger,
     xsd_schema=None,
+    lang_policy: SourceLanguagePolicy | None = None,
+    xsd_verdicts: dict | None = None,
 ) -> tuple[bool, int]:
     """
     Process a single XML file (ALTO or metadata).
@@ -423,9 +529,20 @@ def process_single_file(
 
     *xsd_schema* is a precompiled ``etree.XMLSchema`` (or ``None``).
     It is compiled once in ``main()`` via ``load_xsd`` rather than
-    per-file to avoid redundant network round-trips (M2).
+    per-file to avoid redundant network round-trips (M2). With a schema, the
+    verdict of a metadata record is stored in *xsd_verdicts* (when given) as
+    ``{file name: (doc_id, valid)}``, for the run's summary and paradata.
+
+    *lang_policy* is the source-language policy for ``--source_lang auto``
+    (built once in ``main()``); ``None`` lets ``utils`` build it from the
+    environment and the backend.
     """
     translator.reset_protected_count()
+    # LindatTranslator also counts replies it rejected as degenerate and re-requested;
+    # other backends have no such counter, so this is duck-typed.
+    reset_degenerate = getattr(translator, "reset_degenerate_count", None)
+    if callable(reset_degenerate):
+        reset_degenerate()
 
     # D3 (atrium-project#10): one derivation for the whole run, through the shared module.
     # The old `file_path.name.split(".")[0]` agreed with canonical_doc_id() only by luck of
@@ -445,13 +562,34 @@ def process_single_file(
     file_key = canonical_doc_id(file_path)
     doc_id = record_doc_id(file_path, args.document_json)
     csv_log_path = output_file.with_name(f"{file_key}_log.csv")
-    paradata_ref = str(Path(_logger.paradata_dir) / f"{_logger.run_id}_{_logger.program}.json")
+    # The paradata file this run writes, or its run_uuid when it writes none (the service,
+    # atrium-project#71).
+    paradata_ref = _logger.paradata_ref
 
     doc_json_out = args.document_json_out or output_file.with_name(f"{doc_id}.document.json")
     success = False
 
-    with open(csv_log_path, "w", encoding="utf-8", newline="") as csv_file:
+    # The log is written to a sibling `.partial` file and swapped in only once the
+    # translated XML has been written. Opening the real `_log.csv` with "w" at the
+    # START (as this used to) truncated the previous log for the whole run — 10-20
+    # minutes on the ALTO sample, since utils.py emits the rows only when the
+    # document is finished (they come out in document order after the end-of-
+    # document re-run) — so a snapshot taken mid-run, or a run that was killed, left
+    # an EMPTY log next to the previous run's XML. os.replace() is atomic on the same
+    # filesystem: a reader sees the old complete log or the new one, never neither.
+    partial_log_path = csv_log_path.with_name(csv_log_path.name + ".partial")
+    xml_written = False
+
+    # Every limit that shapes this file's translation without refusing it (a sampled
+    # language window, a split segment, a segment left in the source language) is recorded
+    # here and lands in the paradata's `limits_applied` — and, from the service, in the
+    # response (atrium-project#53). See processors/limit_notes.py for why one collector per
+    # call is sound.
+    with collecting() as limit_notes, open(partial_log_path, "w", encoding="utf-8", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
+        # `status` (last column): ok | rerun | approx_alignment | untranslated | unsupported_lang — how the
+        # line's translation was obtained, so a reviewer can go straight to the lines
+        # that were flagged during processing (see utils.STATUS_*).
         csv_writer.writerow(
             [
                 "file",
@@ -459,6 +597,7 @@ def process_single_file(
                 "line_num",
                 f"text_{args.source_lang}",
                 f"text_{args.target_lang}",
+                "status",
             ]
         )
 
@@ -472,6 +611,7 @@ def process_single_file(
                 program="translator",
                 baseline=args.document_json,
                 run_id=_logger.run_id,
+                run_uuid=_logger.run_uuid,
                 paradata_ref=paradata_ref,
             ) as doc:
                 if args.alto:
@@ -488,9 +628,11 @@ def process_single_file(
                         backend=args.backend,
                         doc_id=doc_id,
                         output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
+                        lang_policy=lang_policy,
                     )
+                    xml_written = True
                 else:
-                    process_metadata_xml(
+                    xsd_valid = process_metadata_xml(
                         file_path,
                         output_file,
                         xpaths_list,
@@ -504,7 +646,16 @@ def process_single_file(
                         backend=args.backend,
                         doc_id=doc_id,
                         output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
+                        lang_policy=lang_policy,
                     )
+                    xml_written = True
+                    if xsd_verdicts is not None and xsd_valid is not None:
+                        xsd_verdicts[file_path.name] = (doc_id, bool(xsd_valid))
+
+                # The translation is done, so the components it used are known: record
+                # them BEFORE the record takes the licence block, or the first record
+                # of a run carries no backend component (see log_backend_components).
+                log_backend_components(translator, _logger, detected=identifier is not None)
 
                 # Append derived step outputs and licenses to the accretion model
                 doc.add_derived_from("translated_xml", output_file.name)
@@ -524,9 +675,26 @@ def process_single_file(
                 _logger.log_success("json")
             success = True
 
+        except LimitExceeded:
+            # A limit refusal is the caller's answer (413/422/504 `limit_exceeded`), not a
+            # per-file failure to log and skip (atrium-project#53).
+            _logger.note_limits(limit_notes)
+            raise
         except Exception as e:
             print(f"[ERROR] Failed processing '{file_path.name}': {e}")
             _logger.log_skip(str(file_path), str(e))
+
+        _logger.note_limits(limit_notes)
+
+    # The log describes the translated XML, so it is published whenever that XML was
+    # (re)written — even if a later step such as the document-record gate failed. If
+    # translation itself failed, an existing log stays beside the previous XML it
+    # describes; with no previous log, the (header-only) log is still published, so a
+    # failed document is visible in the output folder as before.
+    if xml_written or not csv_log_path.exists():
+        os.replace(partial_log_path, csv_log_path)
+    else:
+        partial_log_path.unlink(missing_ok=True)
 
     protected = translator.protected_count if translator.vocabulary else 0
     return success, protected
@@ -576,14 +744,65 @@ def main() -> int:
             print("[ERROR] Specify either the --alto flag or provide --xpaths / 'fields' in config.")
             return EXIT_USAGE
 
-        translator = get_backend(args.backend, vocab_path=args.vocabulary)
+        if args.vocabulary and not Path(args.vocabulary).is_file():
+            print(
+                f"[ERROR] The vocabulary {args.vocabulary} does not exist. Pass --vocabulary with an existing CSV, "
+                "or clear `vocabulary =` in config.txt to translate without one."
+            )
+            return EXIT_USAGE
+        # Imported here, like the paradata config's backend imports: the module is the LINDAT client.
+        from processors.translator import TranslationError
+
+        try:
+            translator = get_backend(args.backend, vocab_path=args.vocabulary)
+        except (TranslationError, ValueError) as exc:
+            print(f"[ERROR] The {args.backend or 'lindat'} backend cannot start: {exc}")
+            return EXIT_USAGE
+        # An explicit pair the backend cannot translate is refused before any file is touched
+        # (translator#4); in auto mode, the language a segment falls back to is checked the same way.
+        if args.source_lang == "auto":
+            pair_source = args.default_source_lang
+            pair_hint = "the fallback source language (--default-source-lang, config.txt or DEFAULT_SOURCE_LANG)"
+        else:
+            pair_source = args.source_lang
+            pair_hint = "--source_lang / --target_lang (or source_lang / target_lang in config.txt)"
+        pair_problem = language_pair_problem(translator, pair_source, args.target_lang)
+        if pair_problem:
+            print(
+                f"[ERROR] Cannot translate {pair_source} → {args.target_lang}: {pair_problem} "
+                f"Change {pair_hint}, or choose another --backend."
+            )
+            return EXIT_USAGE
+        # A backend with a model (ct2) loads it and runs one short generation now, as the
+        # service does at startup: a model that cannot run stops the run here, with the fix,
+        # instead of failing every segment of every file (translator#4).
+        warm = getattr(translator, "warm", None)
+        if callable(warm):
+            try:
+                warm()
+            except TranslationError as exc:
+                print(f"[ERROR] The {args.backend or 'lindat'} backend cannot start: {exc}")
+                return EXIT_USAGE
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
+        # One policy for the whole run: which detections are trusted, and what an
+        # untrusted one falls back to. The accepted languages are those the backend
+        # can actually translate into the target (processors/language.py).
+        lang_policy = (
+            SourceLanguagePolicy.from_env(
+                default=args.default_source_lang,
+                allowed=allowed_source_languages(translator, args.target_lang),
+            )
+            if args.source_lang == "auto"
+            else None
+        )
 
         if identifier is not None:
             _logger.log_component("fasttext")
 
         _components_logged = False
         protected_by_doc: dict[str, int] = {}
+        degenerate_by_doc: dict[str, int] = {}
+        xsd_verdicts: dict[str, tuple[str, bool]] = {}
 
         xpaths_list: list[str] = []
         if args.xpaths and args.xpaths.exists():
@@ -627,6 +846,21 @@ def main() -> int:
                 files_to_process.extend(f for f in input_path.rglob(pattern) if f.is_file())
             files_to_process = list(dict.fromkeys(files_to_process))
 
+            # `formats = xml` also matches `*.alto.xml`. In metadata mode an ALTO file
+            # matches none of the XPath targets, so it used to be "translated" into an
+            # unchanged copy with an empty log and counted as a success — which is how
+            # both data_samples/*/xml/ folders came to hold an MTX…_en.alto.xml. ALTO
+            # files are translated by ALTO mode; a directory scan in metadata mode
+            # leaves them out and says so. (An explicitly named file is still processed.)
+            if not args.alto:
+                alto_files = [f for f in files_to_process if f.name.lower().endswith(".alto.xml")]
+                if alto_files:
+                    files_to_process = [f for f in files_to_process if f not in alto_files]
+                    print(
+                        f"[INFO] Skipping {len(alto_files)} ALTO file(s) (*.alto.xml) in metadata mode; "
+                        "translate them with --alto (or formats = alto.xml)."
+                    )
+
         else:
             if any(input_path.name.endswith(fmt) for fmt in allowed_formats):
                 files_to_process = [input_path]
@@ -655,6 +889,8 @@ def main() -> int:
                 xpaths_list=xpaths_list,
                 _logger=_logger,
                 xsd_schema=xsd_schema,
+                lang_policy=lang_policy,
+                xsd_verdicts=xsd_verdicts,
             )
 
             if not success:
@@ -662,25 +898,10 @@ def main() -> int:
 
             if success and not _components_logged:
                 # Record the components the *selected* backend actually exercised
-                # (issue #4). Backends expose license_components(vocab_loaded);
-                # fall back to the historical LINDAT set for any backend that
-                # predates the method, so paradata licensing stays correct after
-                # a backend swap instead of hard-coding lindat_cubbitt.
-                vocab_loaded = bool(getattr(translator, "vocabulary", None))
-                components_fn = getattr(translator, "license_components", None)
-                if callable(components_fn):
-                    for comp in components_fn(vocab_loaded):
-                        _logger.log_component(comp)
-                else:
-                    _logger.log_component("lindat_cubbitt")
-                    if vocab_loaded:
-                        for comp in (
-                            "udpipe2_engine",
-                            "udpipe2_models",
-                            "amcr_vocab",
-                            "teater_data",
-                        ):
-                            _logger.log_component(comp)
+                # (issue #4). process_single_file() has already done so before the
+                # document record took its licence block; this covers a run with no
+                # record path and keeps the run-level paradata independent of it.
+                log_backend_components(translator, _logger, detected=identifier is not None)
                 _components_logged = True
 
             if translator.vocabulary:
@@ -695,12 +916,60 @@ def main() -> int:
                 else:
                     print(f"[INFO] Tag-and-Protect: {protected} term(s) protected in {file_path.name}")
 
+            # One line per document instead of one warning per rejected reply: how
+            # often the endpoint answered with degenerate output that had to be
+            # re-requested. A steady nonzero count on a sequential run is the
+            # signature of a broken replica — see eval/lindat_probe.py.
+            degenerate = getattr(translator, "degenerate_replies", None)
+            if isinstance(degenerate, int) and not isinstance(degenerate, bool):
+                degenerate_by_doc[record_doc_id(file_path, args.document_json)] = degenerate
+                if degenerate:
+                    print(
+                        f"[WARN] LINDAT: {degenerate} degenerate reply(ies) re-requested in {file_path.name} "
+                        "(recovered unless the CSV log says 'rerun'/'untranslated'; "
+                        "check the endpoint with `python -m eval.lindat_probe`)."
+                    )
+
         if protected_by_doc:
             self_cfg = getattr(_logger, "config", None)
             if isinstance(self_cfg, dict):
                 self_cfg["vocabulary_protected_terms"] = dict(protected_by_doc)
                 self_cfg["vocabulary_protected_terms_total"] = sum(protected_by_doc.values())
 
+        if degenerate_by_doc:
+            self_cfg = getattr(_logger, "config", None)
+            if isinstance(self_cfg, dict):
+                self_cfg["lindat_degenerate_replies"] = dict(degenerate_by_doc)
+                self_cfg["lindat_degenerate_replies_total"] = sum(degenerate_by_doc.values())
+
+        # The XSD verdict of every record, in one place: the per-file WARNING scrolls away in
+        # a long run, and the paradata could not say whether a run's output validated.
+        if xsd_schema is not None and xsd_verdicts:
+            invalid = [(name, doc) for name, (doc, ok) in xsd_verdicts.items() if not ok]
+            valid = len(xsd_verdicts) - len(invalid)
+            self_cfg = getattr(_logger, "config", None)
+            if isinstance(self_cfg, dict):
+                self_cfg["xsd_validation"] = {
+                    "valid": valid,
+                    "invalid": sorted(doc for _, doc in invalid),
+                    "strict": bool(args.xsd_strict),
+                }
+            if invalid:
+                print(
+                    f"[WARN] XSD: {valid}/{len(xsd_verdicts)} record(s) valid; invalid: "
+                    f"{', '.join(sorted(doc for _, doc in invalid))}"
+                    + (" — counted as failed (--xsd-strict)." if args.xsd_strict else ".")
+                )
+                if args.xsd_strict:
+                    failed_files.extend(name for name, _ in invalid if name not in failed_files)
+            else:
+                print(f"[INFO] XSD: {valid}/{len(xsd_verdicts)} record(s) valid.")
+
+        # The paradata folder is created when the run STARTS; a long run can outlive
+        # it — e.g. git removing the folder once its last tracked record was deleted.
+        # Re-create it so the record of a finished run is always written. (Belongs in
+        # the vendored atrium_paradata.finalize too; that file is hub-owned.)
+        os.makedirs(_logger.paradata_dir, exist_ok=True)
         _logger.finalize(input_total=total_inputs)
 
     print(f"\n{'=' * 60}")
@@ -718,4 +987,12 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # The batch CLI's handler, as service/api.py configures the service's: without
+    # one, the INFO records of utils.process_metadata_xml — the per-file XSD verdict and the
+    # "saved" line — are dropped, and LOG_LEVEL does nothing (factor XI, atrium-project#61).
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        stream=sys.stdout,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",  # the services' shape (issue #61)
+    )
     sys.exit(main())

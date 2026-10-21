@@ -14,9 +14,18 @@ env/
 .cache/
 # Docker / secrets
 .env
-# Stale sample OUTPUTS only — keep my_documents + vocabulary.csv so the bundled
-# smoke test and the default config.txt vocab path keep working.
-data_samples/translated_files/
+# Sample OUTPUTS only — keep my_documents + vocabulary.csv so the bundled smoke test
+# and the default config.txt vocab path keep working. (The two output trees are ~4 MB of
+# committed results that nothing in the image reads; config.txt's default `output` points
+# into one, but the image's CMD passes `-o /data/output`.) atrium-project#69, H5.
+data_samples/appended_translated_files/
+data_samples/in-place_translated_files/
+data_samples/ct2_translated_files/
+# Not runtime (H5): the test suite and the evaluation scripts run from a checkout, never
+# from the image, and the dev logs are documentation.
+tests/
+eval/
+agent_dev_logs/
 # Models / large binaries (none tracked today; defensive)
 model/
 models/

@@ -4,11 +4,15 @@
 ./.idea/
 .venv
 .env
-data/
-data_samples/translated_files/*.xml
-data_samples/translated_files/*.csv
-data_samples/translated_files/paradata/*.json
+# ./data is the compose bind mount; the directory is committed (data/.gitkeep) so a
+# clone owns it, and everything a run writes into it stays untracked. (atrium-project#69)
+/data/*
+!/data/.gitkeep
 downloaded_inputs/
+
+# A document's CSV log while it is being written (main.py swaps it into
+# <doc>_log.csv when the document is done); left behind only by a killed run.
+*.partial
 
 # Python bytecode. Recursive (not root-anchored): running the suite otherwise
 # litters every package dir and a `git add -A` silently commits it.

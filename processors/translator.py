@@ -33,6 +33,24 @@ This module now:
     per-file handler in ``main.py`` logs a skip and the broken file is never
     written.
 
+Degenerate-output guard (issue #46 follow-up)
+---------------------------------------------
+An HTTP 200 is not a translation. On 2026-09-26 the public endpoint answered about a
+third of all requests with one Czech word repeated up to ~150 times, for headings and
+full sentences alike. Later sequential runs showed the pattern behind it: the garbage
+is deterministic for a given input and the identical re-request succeeds, every other
+request — one broken replica behind a round-robin balancer (``eval/lindat_probe.py``
+checks this against the live endpoint). Every reply is therefore checked with
+``processors.quality.degeneration_reason`` (line by line when the reply keeps the
+request's line count, as a whole otherwise). A degenerate reply is **re-requested** up
+to ``LINDAT_GUARD_RETRIES`` times (default 2) — the first time immediately, then with
+back-off — and counted per document (:attr:`LindatTranslator.degenerate_replies`); if
+it is still degenerate the call raises :class:`DegenerateTranslationError`. That is a ``TranslationError``
+subclass on purpose: callers that only know the base class still fail loudly, while
+``utils.py`` catches the subclass per segment, flags it, re-runs it at the end of the
+document, and keeps the source text if it never recovers — so one bad reply costs one
+segment, never the file and never the alignment of its neighbours.
+
 Rate limiting (fix for review finding #4)
 -----------------------------------------
 An optional minimum inter-request interval throttles the shared public LINDAT
@@ -60,14 +78,29 @@ is handled by the in-process Tag-and-Protect pipeline below) and
 ``supported_languages()`` so the pipeline can select a backend and check
 language coverage at runtime.  See ``docs/translation-backends.md``.
 
+Multi-word phrase matching
+--------------------------
+Pass 1 protects **every** whole-word occurrence of a phrase, not only the first:
+each occurrence gets its own sentinel, so ``protected_map`` stays one entry per
+occurrence and ``protected_count`` counts occurrences, exactly as pass 2 does.
+"Whole-word" is enforced with ``(?<!\\w)…(?!\\w)`` lookarounds rather than
+``\\b``, because ``\\b`` cannot sit after a phrase that ends in punctuation
+(``sv. jan`` would never match before a space) and would let a phrase fire inside
+a longer word.  One compiled pattern per phrase is cached for the process.
+
 KNOWN LIMITATIONS:
   - Single-word term replacement uses a regex search (re.sub with count=1)
     after extracting lemmas from UDPipe.  If a sentence contains homonyms
     (the same surface word appearing multiple times but with different lemmas),
     the regex blindly replaces the *first* textual occurrence of that surface
     word.  This may result in misaligned tags in rare edge cases.
+  - Multi-word phrases are matched on their surface form as stored in the
+    vocabulary (case-insensitive), not by lemma: an inflected phrase
+    (``fotografií události``) is not protected.
 """
 
+import functools
+import logging
 import os
 import re
 import time
@@ -84,10 +117,15 @@ except ImportError:
             yield item
 
 
-from .chunking import chunk_text
+from tool_limits import LINDAT_GUARD_RETRIES, LINDAT_MAX_RETRIES, LINDAT_TIMEOUT_S
+
+from .chunking import chunk_for_translation, chunk_text
 from .http_retry import request_with_retry
 from .lemmatizer import LindatLemmatizer
+from .quality import degeneration_reason
 from .vocab import load_vocabulary
+
+logger = logging.getLogger(__name__)
 
 # ── failure / retry / throttle configuration ──────────────────────────────────
 
@@ -101,16 +139,30 @@ class TranslationError(RuntimeError):
     """
 
 
+class DegenerateTranslationError(TranslationError):
+    """The backend answered, but the answer is not a translation of the input.
+
+    Raised when a reply is still degenerate (repetition loop, empty, runaway or
+    truncated — see ``processors.quality.degeneration_reason``) after the
+    backend's own re-requests. Unlike its base class this is a *per-segment*
+    failure: ``utils.py`` catches it, flags the segment for the end-of-document
+    re-run, and keeps the source text if the re-run fails too. Code that only
+    knows ``TranslationError`` still treats it as fatal, which is the safe default.
+    """
+
+
+class UnsupportedLanguagePairError(TranslationError):
+    """The backend has no model for the requested language pair (translator#4).
+
+    A ``TranslationError``, never a ``DegenerateTranslationError``: the whole file fails
+    and nothing is written, because every segment of it would fail the same way. The CLI
+    and the service refuse such a pair before translating; this is the backstop.
+    """
+
+
 def _env_float(name: str, default: float) -> float:
     try:
         return float(os.environ.get(name, "") or default)
-    except (TypeError, ValueError):
-        return default
-
-
-def _env_int(name: str, default: int) -> int:
-    try:
-        return int(os.environ.get(name, "") or default)
     except (TypeError, ValueError):
         return default
 
@@ -126,12 +178,33 @@ def _env_str(*names: str, default: str) -> str:
 
 # Minimum seconds between outbound LINDAT requests (0 = disabled).
 _MIN_INTERVAL_S = _env_float("LINDAT_MIN_INTERVAL_S", 0.0)
-# Retries on transient failure (network error, HTTP 429/5xx).
-_MAX_RETRIES = _env_int("LINDAT_MAX_RETRIES", 4)
+# Retries on transient failure (network error, HTTP 429/5xx). A limit (atrium-project#53):
+# declared in tool_limits.py and read per call; this name is its value at import, kept for
+# the callers and tests that read it.
+_MAX_RETRIES = LINDAT_MAX_RETRIES.get()
 # Base for exponential back-off (seconds): sleep = base * 2**attempt + jitter.
 _BACKOFF_BASE_S = _env_float("LINDAT_BACKOFF_BASE_S", 1.0)
 # HTTP status codes worth retrying.
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+# Re-requests of a reply that came back HTTP 200 but degenerate (see
+# _translate_chunk_guarded). Separate from _MAX_RETRIES: that one is about the
+# transport, this one about the content. A limit, like _MAX_RETRIES above.
+_GUARD_RETRIES = LINDAT_GUARD_RETRIES.get()
+
+
+@functools.lru_cache(maxsize=None)
+def _phrase_pattern(phrase: str) -> re.Pattern:
+    """Whole-word, case-insensitive pattern for a multi-word vocabulary phrase.
+
+    Lookarounds instead of ``\\b`` so a phrase ending (or starting) in
+    punctuation still matches, while a phrase never fires inside a longer word.
+    Cached: pass 1 runs once per translated block over the whole phrase list,
+    and ``re``'s own 512-entry cache thrashes on a vocabulary of this size.
+    Bounded by the number of distinct phrases, since only phrases that pass the
+    substring pre-filter are ever compiled.
+    """
+    return re.compile(rf"(?<!\w){re.escape(phrase)}(?!\w)", re.IGNORECASE)
+
 
 #: LINDAT's public CUBBITT translation API — the default, not a hard requirement.
 DEFAULT_TRANSLATION_URL = "https://lindat.mff.cuni.cz/services/translation/api/v2"
@@ -178,10 +251,12 @@ class LindatTranslator:
     _TAG_RE = re.compile(rf"{_TAG_PREFIX}\d+{_TAG_SUFFIX}", re.IGNORECASE)
 
     # Tolerant matcher for restoration: allows stray spaces the NMT model may
-    # inject between the letters/digits of the sentinel.
+    # inject between the letters/digits of the sentinel. Spaces and tabs only,
+    # never newlines: a batched ALTO request is newline-delimited, and a match
+    # that swallowed a "\n" would merge two items and break the line mapping.
     @classmethod
     def _tag_fuzzy_re(cls, index: int) -> re.Pattern:
-        body = r"\s*".join(list(f"{cls._TAG_PREFIX}{index}{cls._TAG_SUFFIX}"))
+        body = r"[ \t]*".join(list(f"{cls._TAG_PREFIX}{index}{cls._TAG_SUFFIX}"))
         return re.compile(body, re.IGNORECASE)
 
     # Catches any *leftover* sentinel debris (a fragment that could not be
@@ -240,6 +315,7 @@ class LindatTranslator:
         # the process to the default host regardless of the configuration.
         self.base_url = resolve_translation_url(base_url).rstrip("/")
 
+        self.models_fallback = False
         self.supported_models = self._fetch_models()
         self.vocabulary: dict = {}
         self._multiword_terms: list = []
@@ -249,6 +325,12 @@ class LindatTranslator:
         # main.py resets this per input file (reset_protected_count) and reads
         # it afterwards (protected_count) to record per-document statistics.
         self._protected_count: int = 0
+
+        # Running tally of HTTP-200 replies rejected as degenerate and re-requested
+        # (see _translate_chunk_guarded). Reset per input file like the one above;
+        # main.py reports it per document so a misbehaving endpoint is visible in
+        # one line and in paradata instead of in hundreds of per-request warnings.
+        self._degenerate_replies: int = 0
 
         # Monotonic timestamp of the last outbound request (for throttling).
         self._last_call_ts: float = 0.0
@@ -297,13 +379,23 @@ class LindatTranslator:
         protected_text = text
         protected_map: dict = {}
 
-        # Pass 1: multi-word phrases (longest-first, case-insensitive)
+        # Pass 1: multi-word phrases (longest-first, whole-word, case-insensitive).
+        # Every occurrence gets its own sentinel so protected_map stays one entry
+        # per occurrence, like pass 2; a single shared tag for all occurrences
+        # would undercount protected_count.
+        lowered = text.lower()
         for phrase, translation in self._multiword_terms:
-            pattern = re.compile(re.escape(phrase), re.IGNORECASE)
-            if pattern.search(protected_text):
+            # Cheap pre-filter: the vocabulary keys are lower-cased, and most
+            # phrases never occur in a given block, so skip the regex for them.
+            if phrase not in lowered:
+                continue
+
+            def _protect(_match: re.Match, _translation: str = translation) -> str:
                 tag = self._make_tag(len(protected_map))
-                protected_map[tag] = translation
-                protected_text = pattern.sub(tag, protected_text, count=1)
+                protected_map[tag] = _translation
+                return tag
+
+            protected_text = _phrase_pattern(phrase).sub(_protect, protected_text)
 
         # Pass 2: single-word lemma matching via UDPipe.
         #
@@ -373,6 +465,17 @@ class LindatTranslator:
         """Number of vocabulary terms protected since the last reset."""
         return self._protected_count
 
+    # ── degenerate-reply statistics ───────────────────────────────────────────
+
+    def reset_degenerate_count(self) -> None:
+        """Zero the degenerate-reply tally (call before each input document)."""
+        self._degenerate_replies = 0
+
+    @property
+    def degenerate_replies(self) -> int:
+        """Replies rejected as degenerate (and re-requested) since the last reset."""
+        return self._degenerate_replies
+
     @classmethod
     def _restore_tags(cls, translated: str, protected_map: dict) -> str:
         """
@@ -420,9 +523,11 @@ class LindatTranslator:
         cleaned = cls._TAG_FRAGMENT_RE.sub("", text)
         cleaned = cls._GUARD_DEBRIS_RE.sub("", cleaned)
         # Collapse whitespace left behind by removed fragments and tidy spacing
-        # before punctuation.
+        # before punctuation. `[ \t]`, not `\s`: a batched ALTO request is one item
+        # per line, and eating the "\n" before a line that starts with ")" or ","
+        # would merge two items and break the batch's line mapping.
         cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
-        cleaned = re.sub(r"\s+([)\].,;:!?])", r"\1", cleaned)
+        cleaned = re.sub(r"[ \t]+([)\].,;:!?])", r"\1", cleaned)
         cleaned = re.sub(r"\(\s+", "(", cleaned)
         return cleaned.strip(" ") if cleaned.strip() else text
 
@@ -449,9 +554,10 @@ class LindatTranslator:
         exhausted, so the caller fails loudly instead of embedding an error
         string in the document.
         """
+        timeout_s = LINDAT_TIMEOUT_S.get()
         response = request_with_retry(
-            lambda: requests.post(url, data=data, timeout=60),
-            max_retries=_MAX_RETRIES,
+            lambda: requests.post(url, data=data, timeout=timeout_s),
+            max_retries=LINDAT_MAX_RETRIES.get(),
             backoff_base_s=_BACKOFF_BASE_S,
             retryable_status=_RETRYABLE_STATUS,
             throttle=self._throttle,
@@ -467,9 +573,17 @@ class LindatTranslator:
         model_name = f"{src_lang}-{tgt_lang}"
 
         if self.supported_models and model_name not in self.supported_models:
-            model_name, src_lang, tgt_lang = "cs-en", "cs", "en"
+            # This used to reroute any pair LINDAT lacks to cs-en without a word, so a run
+            # asked for cs→it wrote English into `_it.xml`. The CLI and the service refuse an
+            # untranslatable explicit pair before translating (language_pair_problem); this
+            # is the backstop, and it is never swallowed per segment.
+            raise UnsupportedLanguagePairError(
+                f"LINDAT has no '{model_name}' model; nothing was translated from '{src_lang}' to '{tgt_lang}'."
+            )
 
-        chunks = self._chunk_text(text)
+        # chunk_for_translation, not _chunk_text: a segment that is split is recorded
+        # (limits_applied, atrium-project#53).
+        chunks = chunk_for_translation(text)
         translated_chunks = []
         chunk_iter = tqdm(chunks, desc="Translating chunks", leave=False) if len(chunks) > 1 else chunks
 
@@ -478,9 +592,74 @@ class LindatTranslator:
             # _post_with_retry raises TranslationError on unrecoverable failure;
             # we deliberately do NOT catch it here so the per-file handler in
             # main.py can skip the file instead of writing corrupt content.
-            translated_chunks.append(self._post_with_retry(url, {"input_text": chunk}))
+            # _translate_chunk_guarded adds the content check on top and raises
+            # the per-segment DegenerateTranslationError instead.
+            translated_chunks.append(self._translate_chunk_guarded(url, chunk))
 
         return "\n".join(translated_chunks)
+
+    def _translate_chunk_guarded(self, url: str, chunk: str) -> str:
+        """POST one chunk and re-request it while the reply is degenerate.
+
+        What this runs into (2026-09-26 runs against the public endpoint): the
+        garbage is DETERMINISTIC for a given input and the byte-identical
+        re-request succeeds — every batch's first attempt failed and its retry
+        succeeded, two runs agreeing reply for reply. That is the signature of
+        one broken replica behind a round-robin balancer (``eval/lindat_probe.py``
+        confirms it), so the cure is reaching another replica, not waiting: the
+        FIRST re-request goes out immediately, and back-off
+        (``LINDAT_BACKOFF_BASE_S``) applies only from the second one on.
+
+        A degenerate reply that the next attempt recovers is logged at INFO — it
+        is expected while the endpoint misbehaves, and the per-document total
+        (:attr:`degenerate_replies`, reported by ``main.py``) is what an operator
+        reads. A second failure on the same chunk is a WARNING. After
+        ``LINDAT_GUARD_RETRIES`` re-requests the chunk is given up on with
+        :class:`DegenerateTranslationError`, and the caller decides what the
+        segment becomes (``utils.py`` re-runs it at the end of the document and
+        otherwise keeps the source).
+        """
+        reason = None
+        guard_retries = LINDAT_GUARD_RETRIES.get()
+        for attempt in range(guard_retries + 1):
+            if attempt >= 2:
+                time.sleep(_BACKOFF_BASE_S * (2 ** (attempt - 2)))
+            translated = self._post_with_retry(url, {"input_text": chunk})
+            reason = self._reply_degeneration(chunk, translated)
+            if reason is None:
+                return translated
+            self._degenerate_replies += 1
+            logger.log(
+                logging.INFO if attempt == 0 else logging.WARNING,
+                "LINDAT reply looks degenerate (%s); attempt %d/%d for a %d-character chunk.",
+                reason,
+                attempt + 1,
+                guard_retries + 1,
+                len(chunk),
+            )
+        raise DegenerateTranslationError(
+            f"LINDAT returned degenerate output after {guard_retries + 1} attempt(s): {reason}"
+        )
+
+    @staticmethod
+    def _reply_degeneration(chunk: str, translated: str) -> str | None:
+        """Why *translated* is unusable as a translation of *chunk*, or ``None``.
+
+        A batched ALTO request carries one item per line and LINDAT keeps the
+        line structure, so when the line counts agree each line is judged against
+        its own source line — one looping line among forty is still caught. When
+        they disagree the reply is judged as a whole; the caller's line-count
+        check deals with the mismatch itself.
+        """
+        src_lines = chunk.split("\n")
+        out_lines = translated.split("\n")
+        if len(src_lines) == len(out_lines):
+            for src_line, out_line in zip(src_lines, out_lines):
+                reason = degeneration_reason(src_line, out_line)
+                if reason:
+                    return reason
+            return None
+        return degeneration_reason(chunk, translated)
 
     def _fetch_models(self) -> list:
         try:
@@ -493,6 +672,8 @@ class LindatTranslator:
                 return data
             return []
         except Exception:
+            # The list a refusal names comes from here: say so (language_pair_problem).
+            self.models_fallback = True
             return ["fr-en", "cs-en", "de-en", "uk-en", "ru-en", "pl-en"]
 
     @staticmethod

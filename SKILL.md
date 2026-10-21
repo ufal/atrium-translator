@@ -53,7 +53,7 @@ bash scripts/server.sh          # Docker Compose api service (or local fallback)
 bash scripts/server.sh --local  # force local uvicorn (no Docker)
 ```
 
-Idempotent: exits immediately if GET /info already answers; waits for
+Idempotent: exits immediately if GET /ready already answers 200; waits for
 first-run warmup.
 
 ### 2. Translate
@@ -112,7 +112,9 @@ detection is per-TextBlock and handles mixed-language pages.
 running server (Swagger UI at /docs).
 4. Exit code 2 (unreachable): start the server (bash scripts/server.sh)
 and retry once. Exit code 3 (server error): the client already retried
-502/503/504 three times - check GET /health?deep=true (verifies LINDAT
+a 503 or 504, and a 502 that is not final (`upstream_unavailable`: LINDAT
+did not answer), three times; a 502 with `reason: null` is final and is
+reported at once - check GET /health?deep=true (verifies LINDAT
 reachability) and server logs; do not loop.
 5. Size limits: files over 50 MB are rejected - split multi-page exports
 first, and tell the user you did so.

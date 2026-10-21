@@ -17,6 +17,13 @@ services:
   # ── Batch CLI ───────────────────────────────────────────────────────────────
   translator:
     image: ghcr.io/ufal/atrium-translator:${ATRIUM_VERSION:-dev}
+    # The host uid, group 0 (atrium-project#69, roadmap B6). ./data is in the clone
+    # (data/.gitkeep), owned by whoever cloned it, and the image runs as uid 10001 by
+    # default -- so without this the batch CMD's write to /data/output fails with EACCES.
+    # Every path the image writes is group-0 writable, so any uid with group 0 works. On
+    # Linux set ATRIUM_UID in .env (`echo "ATRIUM_UID=$(id -u)" >> .env`); Docker Desktop
+    # needs nothing. Unset, this is the image's own uid 10001.
+    user: "${ATRIUM_UID:-10001}:0"
     build:
       context: .
       args:
@@ -50,17 +57,16 @@ services:
       - ./data:/data
       - hf-cache:/cache/huggingface
       - ./config.txt:/app/config.txt:ro
-    # ⚠️ ./data is created by Docker on first run, owned by root, while the image
-    # runs as uid 10001 (`atrium`) — so the batch CMD's write to /data/output fails
-    # with EACCES until you create it yourself:  mkdir -p data && chown 10001 data
-    # See the README's Docker section.
 
   # ── HTTP API ────────────────────────────────────────────────────────────────
   api:
     build:
       context: .
       target: api
-    image: ghcr.io/ufal/atrium-translator:${ATRIUM_VERSION:-dev}-api
+    # The published name: `-api` is part of the image NAME (ghcr.io/ufal/atrium-translator-api:1.2.0-beta),
+    # so `ATRIUM_VERSION=1.2.0-beta docker compose --profile api pull` fetches the released image.
+    image: ghcr.io/ufal/atrium-translator-api:${ATRIUM_VERSION:-dev}
+    user: "${ATRIUM_UID:-10001}:0"   # see the translator service above (roadmap B6)
     env_file:
       - path: .env
         required: false

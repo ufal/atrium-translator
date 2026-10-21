@@ -62,6 +62,35 @@ class Throttle:
         self._last_call_ts = time.monotonic()
 
 
+#: The longest stretch of a provider's error text an error message quotes.
+_PROVIDER_TEXT_CHARS = 300
+
+
+def provider_message(response) -> str:
+    """What the server said about its refusal, on one line: ``error.message``, ``error``,
+    ``detail`` or ``message`` of a JSON body, else the start of the body; "" when it says nothing.
+
+    "HTTP 400." alone named no cause in translator#4's bake-off; vLLM's body said which part of
+    the request it refused.
+    """
+    text = ""
+    try:
+        body = response.json()
+    except Exception:  # noqa: BLE001 - not JSON, or no body at all
+        body = None
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict):
+            text = str(error.get("message") or "")
+        elif error:
+            text = str(error)
+        text = text or str(body.get("detail") or body.get("message") or "")
+    if not text:
+        text = str(getattr(response, "text", "") or "")
+    text = " ".join(text.split())
+    return text if len(text) <= _PROVIDER_TEXT_CHARS else text[: _PROVIDER_TEXT_CHARS - 1] + "…"
+
+
 def request_with_retry(
     perform: Callable[[], requests.Response],
     *,
@@ -95,10 +124,12 @@ def request_with_retry(
         else:
             if response.status_code == 200:
                 return response
+            said = provider_message(response)
+            status = f"HTTP {response.status_code}" + (f": {said}" if said else "")
             if response.status_code in retryable:
-                last_reason = f"HTTP {response.status_code}"
+                last_reason = status
             else:
-                raise error_cls(f"{label} failed: HTTP {response.status_code}.")
+                raise error_cls(f"{label} failed: {status}" + ("" if said else "."))
 
         if attempt < max_retries:
             sleep_s = backoff_base_s * (2**attempt) + random.uniform(0, 0.25)
