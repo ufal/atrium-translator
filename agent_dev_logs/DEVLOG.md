@@ -1,11 +1,11 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
 > _XML in-place translation (AMČR metadata records, ALTO). 2 open issues: #4 (the bake-off; finish, pilot
-> atrium-project#67) and #46 (closes after AMČR's production run); #52 closed 2026-10-13. Open pull request: #54
-> (Dependabot, into `test`). `test` = `54d81cf` (2026-10-18) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
+> atrium-project#67) and #46 (closes after AMČR's production run); #52 closed 2026-10-13 (its pair removed 2026-10-21). Open pull request: #54
+> (Dependabot, into `test`). `test` = `c6f844d` (2026-10-21) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
 > release is not immutable, atrium-project#72). Latest entry: 2026-10-19 (job T1b read: the glossary request and
 > the Blackwell cuBLAS fixed; T1c; files delivered in chat). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
-> _Per-issue detail: `digests/{4,46,52}.digest.md` · `plans/{4,46,52}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
+> _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
 
 ## 2026-06-20
@@ -614,3 +614,9 @@ cell-merging stub: only page 76 changes, every number on its own row.
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the
 `CONTRIBUTING.md` changelog table and open-issue state via the GitHub API. Nothing removed from the issue itself
 (per hub #29); this file is a derived reading aid in `agent_dev_logs/`.*
+## 2026-10-21 (round 3) — The skill branch carries the vocabulary; #52's pair removed
+* **The agent-skill branch carries what the image carries** (atrium-project#77): `data_samples/vocabulary.csv`
+  (the runbook's "bundled" vocabulary) and `data_samples/my_documents/` with the README and LICENSE, 19 files; the
+  sample outputs stay off, as in the image. The hub's `skill_ify.py` now follows `.dockerignore`.
+* `plans/46.plan.md`: the four stale paradata files were removed on 10-21 (`c6f844d`). The closed #52's pair is
+  removed.
