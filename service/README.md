@@ -7,6 +7,18 @@ rewritten XML with its markup intact. The service version is read from
 
 ## Quick start
 
+The published image, with one of the AMČR metadata samples of this repository (LINDAT is called, so
+the container needs egress to `lindat.mff.cuni.cz`):
+
+```bash
+docker run --rm -p 8000:8000 ghcr.io/ufal/atrium-translator-api:<version>     # the release without its v
+curl --fail-with-body -sS -F "file=@data_samples/my_documents/C-9100725A.xml" \
+     "localhost:8000/translate?is_alto=false&source_lang=cs&target_lang=en&response_format=json" -o out.json
+```
+
+Expected: HTTP 200 and `out.json` with `"type": "metadata"`, the translated XML in `content`,
+`limits_applied` (usually `[]`) and `paradata`. From a checkout instead:
+
 ```bash
 pip install -r requirements.txt -r service/requirements.txt
 python -m service.api                          # honours PORT/HOST; default 0.0.0.0:8000
@@ -15,6 +27,19 @@ uvicorn service.api:app --host 0.0.0.0 --port 8000
 # or:
 docker compose --profile api up -d
 ```
+
+## Models and caches
+
+| What                                                                                                                                                  | Where it comes from                                                                                                                                                                               | Without egress                                                                                                                                                                                                                    |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| FastText language identification (`facebook/fasttext-language-identification`, `model.bin`, 1.18 GB, CC BY-NC 4.0), used only with `source_lang=auto` | in the image at `/opt/models/fasttext-lid.bin` (`LANG_ID_MODEL_PATH`), Hub revision `3af127d…`, checked by SHA-256 at build; from a checkout, downloaded once at the same revision into `HF_HOME` | the image needs nothing. A checkout without the file starts degraded: `GET /health?deep=true` says so, and `auto` falls back to the element's label, the document language, `DEFAULT_SOURCE_LANG`. Pass `source_lang` to avoid it |
+| LINDAT translation (the default backend, `TRANSLATION_URL`)                                                                                           | a remote service                                                                                                                                                                                  | every request fails (500 after `LINDAT_MAX_RETRIES`); use `TRANSLATION_BACKEND=openai_compatible` with a self-hosted server                                                                                                       |
+| LINDAT UDPipe (`UDPIPE_URL`), only with `VOCABULARY_PATH` and the `lindat` backend                                                                    | a remote service                                                                                                                                                                                  | the terms of a chunk go unprotected                                                                                                                                                                                               |
+| The vocabulary CSV                                                                                                                                    | bundled: `data_samples/vocabulary.csv`, built from atrium-keyword-extract `v1.3.0-beta`                                                                                                           | —                                                                                                                                                                                                                                 |
+| `openai_compatible` and `ct2` models                                                                                                                  | your LLM server (`LLM_BASE_URL`); a converted model directory (`CT2_MODEL_DIR`)                                                                                                                   | —                                                                                                                                                                                                                                 |
+
+The image's language-ID model arrived with the first release after `v1.5.0-beta`; earlier images
+download it at start.
 
 ## Endpoints
 
@@ -106,20 +131,20 @@ place for it, and an error response carries none. The service writes no paradata
 [`docs/rocrate_export.md`](https://github.com/ufal/atrium-project/blob/main/docs/rocrate_export.md) §5
 describes it.
 
-### Errors
+## Errors
 
-Harmonised across all five ATRIUM services (`agent_skill_strategy.md` §4.4), so a
+Harmonised across all six ATRIUM services (`agent_skill_strategy.md` §4.4), so a
 client can treat them uniformly:
 
-| Status | `reason`                 | Meaning                 | When                                                                                                                                                                                                                                                                                                   |
-|--------|--------------------------|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `413`  | `limit_exceeded`         | Payload too large       | A part exceeds `MAX_UPLOAD_MB`, or the declared request exceeds `max_request_mb` (2 × `MAX_UPLOAD_MB` + 1 MB). The declared request size is checked by middleware before the body is read; a request without a declared size is bounded part by part while it is read.                                 |
-| `415`  | `unsupported_media_type` | Unsupported media type  | A filename not ending in `.xml` (a 422 before atrium-project#32 round 2; `accepted: [".xml"]`), or a `Content-Type` that is neither `multipart/form-data` nor `application/json` (`accepted` lists both).                                                                                              |
-| `422`  | `invalid_record`         | Record cannot be opened | The `document_json` part is not UTF-8 JSON, not a JSON object, or has a newer `schema_version` major than this tool reads. It used to fail the translation as a 500.                                                                                                                                   |
-| `422`  | `null`                   | Unusable input          | A missing or unusable filename, metadata mode with no XPath targets, an unknown `response_format`, or request validation.                                                                                                                                                                              |
-| `422`  | `null`                   | Pair not offered        | `cause: "unsupported_language_pair"`: the backend cannot translate `source_lang` → `target_lang` (with `auto`, the fallback language is checked). Nothing is translated, never rerouted (translator#4). `errors` lists `supported_source_langs`; choose one of them, or another `TRANSLATION_BACKEND`. |
-| `500`  | `null`                   | Translation failed      | The pipeline raised — malformed XML, or the backend failed after retries.                                                                                                                                                                                                                              |
-| `503`  | `null`                   | Shutting down           | After `SIGTERM`. **Retryable** against another replica.                                                                                                                                                                                                                                                |
+| Status | `reason`                 | When                                                                                                                                                                                                                                 | What to do                                                                                                                                                    |
+|--------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `413`  | `limit_exceeded`         | A part exceeds `MAX_UPLOAD_MB`, or the declared request exceeds `max_request_mb` (2 × `MAX_UPLOAD_MB` + 1 MB). The declared size is checked before the body is read; a request without one is bounded part by part while it is read. | split the document, or raise `MAX_UPLOAD_MB`                                                                                                                  |
+| `415`  | `unsupported_media_type` | A filename not ending in `.xml` (`accepted: [".xml"]`), or a `Content-Type` that is neither `multipart/form-data` nor `application/json` (`accepted` lists both).                                                                    | send an `.xml` file as `multipart/form-data`                                                                                                                  |
+| `422`  | `invalid_record`         | The `document_json` part is not UTF-8 JSON, not a JSON object, or has a newer `schema_version` major than this tool reads.                                                                                                           | send the record the previous stage returned, or none; update this service if the record is newer                                                              |
+| `422`  | `null`                   | A missing or unusable filename, metadata mode with no XPath targets, an unknown `response_format`, or request validation (`errors` names the field).                                                                                 | fix the field `errors` or `detail` names; for metadata mode, point `AMCR_FIELDS_PATH` at the XPath list                                                       |
+| `422`  | `null`                   | `cause: "unsupported_language_pair"`: the backend cannot translate `source_lang` → `target_lang` (with `auto`, the fallback language is checked). Nothing is translated, never rerouted (translator#4).                              | set `source_lang` to one of `errors[].supported_source_langs`, or use another `TRANSLATION_BACKEND`                                                           |
+| `500`  | `null`                   | The pipeline raised: malformed XML, or the backend failed after its retries.                                                                                                                                                         | read the service log: for a backend failure check that LINDAT (or your server) answers and retry later once; for malformed XML fix the input; report a repeat |
+| `503`  | `null`                   | Warming up, or shutting down after `SIGTERM`.                                                                                                                                                                                        | retry with backoff, against another replica                                                                                                                   |
 
 Every error has one JSON body (hub `docs/agent_skill_strategy.md` §4.4, atrium-project#32
 item 2): `{"status": <int>, "reason": <code or null>, "detail": "<text>"}`. `detail` is
@@ -186,6 +211,7 @@ The XML and multipart answers of `/translate` are declared as their media types;
 | `DEFAULT_SOURCE_LANG`       | `cs`              | with `source_lang=auto` (the `/translate` default): the language used when detection cannot be trusted and neither the element's label nor the document's language settles it                                                                                                                                                                                                                                                         |
 | `LANG_ID_MIN_CONFIDENCE`    | `0.5`             | FastText score a detected language needs before it is used (`auto` only)                                                                                                                                                                                                                                                                                                                                                              |
 | `LANG_ID_MIN_LETTERS`       | `20`              | texts with fewer letters are not sent to FastText; they inherit their label / the document language (`auto` only)                                                                                                                                                                                                                                                                                                                     |
+| `LANG_ID_MODEL_PATH`        |                   | the FastText language-ID model file (`auto` only). The published images set it to `/opt/models/fasttext-lid.bin`; unset (a checkout), the pinned Hub revision is downloaded into `HF_HOME`. A path that is not a file: the service starts, `/health?deep=true` reports the identifier unavailable, and `auto` falls back (see Models and caches)                                                                                      |
 | `TRANSLATION_RERUN_DELAY_S` | `10.0`            | cool-down before each re-run round — **added to the request's duration** whenever a document has a flagged segment                                                                                                                                                                                                                                                                                                                    |
 | `AMCR_FIELDS_PATH`          | `amcr-fields.txt` | file of AMCR XPath targets for metadata mode, one per line; relative paths resolve against the repo root. Absent ⇒ metadata requests are refused 422, ALTO unaffected (issue #46)                                                                                                                                                                                                                                                     |
 | `VOCABULARY_PATH`           |                   | vocabulary CSV `/translate` applies (issue #4): the LLM and `ct2` backends put the matching terms into the prompt, `lindat` protects them (Tag-and-Protect, which calls `UDPIPE_URL`). Relative paths resolve against the repo root. Empty: no vocabulary. Set to a missing file or one with no term pair: the service **refuses to start**, naming the file. `/info` reports the file, its term count and SHA-256 under `vocabulary` |
@@ -261,6 +287,21 @@ checks this table against `tool_limits.py` and `.env.example`.
 Platform limits (not settings): libxml2's default limits (parsed without `huge_tree`: nesting
 depth, a 10 MB text node) — a document over them fails as malformed XML (500); Starlette's
 multipart defaults.
+
+## Partial results
+
+A 200 can still be a result a limit or a backend shaped. Two places say so:
+
+- **`limits_applied`** (JSON and multipart answers) and the `X-Atrium-Limits-Applied` header:
+  `split` (a long segment translated in pieces), `sampled` (the language decided on the first
+  characters), `trimmed` (a glossary cut to its limit) and `skipped` (segments the guard kept in the
+  source language after the re-run rounds, with their count). The table above says which limit
+  produces which note.
+- **`translations.unsupported_source_langs`** in the returned record: segments identified as a language
+  the backend cannot translate, translated from the fallback language instead, counted per language.
+
+The service has no `partial` status of its own; a caller that needs every segment translated checks
+for a `skipped` note.
 
 ## Known limits
 

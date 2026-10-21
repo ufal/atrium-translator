@@ -590,6 +590,18 @@ cell-merging stub: only page 76 changes, every number on its own row.
   (`v1.5.0-beta`); the sentence still said it never does.
 * Docs only, no release. **Checks:** 1,177 passed, 3 skipped.
 
+## 2026-10-21 — FastText in the image at a pinned revision; the vocabulary pin; #46's stale paradata
+* **atrium-project#77 A.3:** `processors/identifier.py` reads `LANG_ID_MODEL_PATH`; without it, it downloads
+  `facebook/fasttext-language-identification` at revision `3af127d…`, not at `main`. The `Dockerfile` downloads that
+  file at build time into `/opt/models/fasttext-lid.bin`, checks its size and sha256, and sets
+  `LANG_ID_MODEL_PATH`. `.env.example` and `service/README.md` (the runbook sections) say so. 3 tests in
+  `tests/test_identifier.py`.
+* **atrium-project#82 C.3:** `tests/test_vocabulary_pin.py` pins the bundled vocabulary to keyword-extract's
+  `v1.3.0-beta` asset (owner, release, asset and CSV sha256) and checks the README cites it. keyword-extract has
+  `v1.4.0-beta` since: newer upstream is advice, not a defect.
+* **#46:** the four paradata files of earlier sample runs are removed from `data_samples/`.
+* **Checks:** 1,175 passed on Python 3.11. The image was not built (no Docker in this session).
+
 ---
 
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the

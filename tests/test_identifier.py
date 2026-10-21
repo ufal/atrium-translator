@@ -88,3 +88,35 @@ def test_nllb_specific_codes_are_mapped():
     assert LanguageIdentifier.to_iso1("__label__lvs_Latn") == "lv"
     assert LanguageIdentifier.to_iso1("ekk_Latn") == "et"
     assert LanguageIdentifier.to_iso1("__label__krc_Cyrl") == "krc", "unmapped codes stay ISO 639-3"
+
+
+def test_the_hub_download_is_pinned_to_a_revision(monkeypatch):
+    """atrium-project#77: a download without a revision would follow `main`."""
+    calls = []
+    monkeypatch.delenv("LANG_ID_MODEL_PATH", raising=False)
+    monkeypatch.setattr(identifier, "hf_hub_download", lambda **kw: calls.append(kw) or "dummy-model.bin")
+    monkeypatch.setattr(identifier.fasttext, "load_model", lambda *a, **k: MagicMock())
+    LanguageIdentifier()
+    assert calls == [
+        {"repo_id": identifier.LANG_ID_REPO, "filename": "model.bin", "revision": identifier.LANG_ID_REVISION}
+    ]
+    assert len(identifier.LANG_ID_REVISION) == 40
+
+
+def test_a_configured_model_path_is_loaded_without_a_download(monkeypatch, tmp_path):
+    model = tmp_path / "fasttext-lid.bin"
+    model.write_bytes(b"weights")
+    loaded = []
+    monkeypatch.setenv("LANG_ID_MODEL_PATH", str(model))
+    monkeypatch.setattr(identifier, "hf_hub_download", lambda **kw: pytest.fail("downloaded although a path is set"))
+    monkeypatch.setattr(identifier.fasttext, "load_model", lambda path: loaded.append(path) or MagicMock())
+    ident = LanguageIdentifier()
+    assert loaded == [str(model)] and ident.load_error is None
+
+
+def test_a_configured_path_that_is_not_a_file_starts_degraded(monkeypatch, tmp_path):
+    monkeypatch.setenv("LANG_ID_MODEL_PATH", str(tmp_path / "missing.bin"))
+    monkeypatch.setattr(identifier, "hf_hub_download", lambda **kw: pytest.fail("downloaded although a path is set"))
+    ident = LanguageIdentifier()
+    assert ident.model is None
+    assert "LANG_ID_MODEL_PATH" in ident.load_error

@@ -15,6 +15,7 @@ default source language. See that module for why.
 from __future__ import annotations
 
 import logging
+import os
 
 import fasttext
 from huggingface_hub import hf_hub_download
@@ -27,6 +28,28 @@ from .language import DEFAULT_TOP_K, ISO3_TO_ISO1, normalise_for_detection
 # logger is configured in service/api.py's __main__ block. (issue #61)
 logger = logging.getLogger(__name__)
 
+#: The model and the Hub revision the translator loads (atrium-project#77): the same commit and
+#: file atrium-ocr-postprocess bakes into its image. A download without a revision follows `main`,
+#: so a release could start loading a different model the day the repository changed.
+LANG_ID_REPO = "facebook/fasttext-language-identification"
+LANG_ID_REVISION = "3af127d4124fc58b75666f3594bb5143b9757e78"
+LANG_ID_FILENAME = "model.bin"
+
+
+def lang_id_model_path() -> str:
+    """The local model file: ``LANG_ID_MODEL_PATH`` (set in the published images), else the Hub.
+
+    With the variable set, nothing is downloaded; a path that is not a file raises, and the
+    identifier then starts degraded (see ``LanguageIdentifier.__init__``). Without it, the file
+    is fetched once at the pinned revision into the Hugging Face cache (``HF_HOME``).
+    """
+    configured = os.getenv("LANG_ID_MODEL_PATH", "").strip()
+    if configured:
+        if not os.path.isfile(configured):
+            raise FileNotFoundError(f"LANG_ID_MODEL_PATH={configured!r} is not a file")
+        return configured
+    return hf_hub_download(repo_id=LANG_ID_REPO, filename=LANG_ID_FILENAME, revision=LANG_ID_REVISION)
+
 
 class LanguageIdentifier:
     # ISO 639-3 (FastText / NLLB LID labels) → ISO 639-1. Unlisted codes pass
@@ -36,8 +59,8 @@ class LanguageIdentifier:
 
     def __init__(self):
         """
-        Initializes the LanguageIdentifier by downloading and loading
-        the FastText language identification model from Hugging Face Hub.
+        Loads the FastText language-identification model: the file ``LANG_ID_MODEL_PATH``
+        names (the published images carry it), or the pinned Hub revision.
         """
         # `load_error` is the declared half of a degraded start. Without it the
         # failure below was swallowed: self.model became None, detect() then
@@ -46,10 +69,12 @@ class LanguageIdentifier:
         # restricted cluster hf_hub_download is exactly what fails, so the
         # service came up "healthy" and quietly mislabelled every source
         # language it was given. service/api.py's _deep_health() reads this.
+        # The published images set LANG_ID_MODEL_PATH to the file they carry,
+        # so they need no egress for it (atrium-project#77).
         self.load_error: str | None = None
         self._warned_unavailable = False
         try:
-            model_path = hf_hub_download(repo_id="facebook/fasttext-language-identification", filename="model.bin")
+            model_path = lang_id_model_path()
             self.model = fasttext.load_model(model_path)
         except Exception as e:
             self.load_error = f"{type(e).__name__}: {e}"
