@@ -604,6 +604,13 @@ cell-merging stub: only page 76 changes, every number on its own row.
 
 ---
 
+## 2026-10-21 (round 2) — #46's paradata again; the agent-skill branch (atrium-project#77 C)
+* The four stale paradata files of the previous entry are still on `test`; deleted again (listed in chat).
+* **The agent-skill branch:** the client retries a 502 only when it is not final and exits 1 on a usage error;
+  `scripts/server.sh` waits for `/ready`; `SKILL.md` says which 502 is retried; `service/README.md` is this repo's
+  runbook (the tests pointed at `test`, hub paths as links). **Checks:** skill-validate steps 1–4a; drift check
+  aligned. Delivered as `atrium-translator-agent-skill.zip`, not pushed.
+
 *Timeline index refreshed 2026-09-28 (2026-09-27/28 entries, header); 2026-09-26 (AMČR baseline entry and header); earlier 2026-09-13 against live `test` HEAD. Entries through 2026-09-07 were verified against the
 `CONTRIBUTING.md` changelog table and open-issue state via the GitHub API. Nothing removed from the issue itself
 (per hub #29); this file is a derived reading aid in `agent_dev_logs/`.*
