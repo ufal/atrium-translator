@@ -620,3 +620,18 @@ cell-merging stub: only page 76 changes, every number on its own row.
   sample outputs stay off, as in the image. The hub's `skill_ify.py` now follows `.dockerignore`.
 * `plans/46.plan.md`: the four stale paradata files were removed on 10-21 (`c6f844d`). The closed #52's pair is
   removed.
+
+## 2026-10-22 (round 4) — The daily LINDAT check (atrium-project#78); #46 to close
+* **`lindat-daily.yml`** (new, its own concurrency group): every day `eval/lindat_probe.py` sends one Czech sentence
+  24 times (12 fresh connections, 12 over one session) and fails on any bad reply; a scheduled failure opens or
+  updates the lane's issue through the hub's `lane-failure-issue` action. It installs only `requests`.
+* **`eval/lindat_probe.py`:** `--max-bad N` gives a failing exit (without it the probe only reports, as before);
+  `content_reason()` adds what the guard cannot check without the languages: every number kept, not the source
+  repeated, no Czech-only letter left in the reply; `--text daily` is `DAILY_TEXT` ("Výzkum v roce 1932 odkryl 3 hroby
+  a 120 střepů."). 8 new tests (19 in the file). LINDAT is unreachable from the sandbox, so a first live run is the
+  user's.
+* **#46:** motyc agrees to close once atrium-project#77 records AMČR's metadata acceptance test; the hub's acceptance
+  runbook has it now. Dev logs `{46}` updated.
+* **Also:** `scheduled-smoke.yml` uses the lane notifier (atrium-project#81); `atrium_vocab.py` and its tests re-vendored
+  (atrium-project#51).
+* **Checks:** 1,197 passed, 3 skipped (Python 3.11); `workflow_lint.py` and actionlint clean.
