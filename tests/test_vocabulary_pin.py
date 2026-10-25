@@ -11,7 +11,7 @@ copy, so it is pinned by release and checksums rather than by byte parity with t
 * `csv_sha256`: the digest of the bundled CSV (line endings normalised to ``\\n``).
 
 A newer keyword-extract release is not a defect here: the translator adopts it deliberately, by
-rebuilding the CSV and updating all three values and the README in one change.
+rebuilding the CSV and updating all three values and docs/usage.md in one change.
 """
 
 import hashlib
@@ -37,7 +37,7 @@ def _digest(path: Path) -> str:
 def test_the_bundled_csv_is_the_pinned_build():
     assert _digest(REPO_ROOT / VOCABULARY_PIN["csv"]) == VOCABULARY_PIN["csv_sha256"], (
         "data_samples/vocabulary.csv changed without its pin: rebuild it with "
-        "`load_vocab.py --from-release <release>` and update VOCABULARY_PIN and the README together"
+        "`load_vocab.py --from-release <release>` and update VOCABULARY_PIN and docs/usage.md together"
     )
 
 
@@ -47,8 +47,8 @@ def test_the_pin_names_an_immutable_release_asset():
     assert re.fullmatch(r"[0-9a-f]{64}", VOCABULARY_PIN["asset_sha256"])
 
 
-def test_the_readme_names_the_pinned_release():
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    assert f"The committed `vocabulary.csv` is built from `{VOCABULARY_PIN['release']}`" in readme, (
-        "README.md names another vocabulary release than VOCABULARY_PIN"
+def test_the_usage_guide_names_the_pinned_release():
+    usage = (REPO_ROOT / "docs" / "usage.md").read_text(encoding="utf-8")
+    assert f"The committed `vocabulary.csv` is built from `{VOCABULARY_PIN['release']}`" in usage, (
+        "docs/usage.md names another vocabulary release than VOCABULARY_PIN"
     )

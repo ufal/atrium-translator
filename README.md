@@ -1,1230 +1,164 @@
-<p align="center">
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11-blue.svg" title="Python Version"></a>
-  <a href="https://lindat.mff.cuni.cz/services/translation/"><img src="https://img.shields.io/badge/API-LINDAT%20Translation-0055A4.svg" title="LINDAT Translation API"></a>
-  <a href="https://lindat.mff.cuni.cz/services/udpipe/"><img src="https://img.shields.io/badge/API-UDPipe2-0055A4.svg" title="UDPipe2"></a>
-  <a href="https://huggingface.co/facebook/fasttext-language-identification"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20HF-fasttext--langID-yellow.svg" title="FastText Language Identification"></a>
-  <a href="https://opensource.org/license/mit/"><img src="https://img.shields.io/github/license/ufal/atrium-translator" title="MIT License"></a>
-  <a href="https://atrium-research.eu/"><img src="https://img.shields.io/badge/funded%20by-ATRIUM-8A2BE2.svg" title="ATRIUM Project"></a>
-</p>
+# ATRIUM translator: XML documents translated in place, ALTO pages and AMČR metadata
 
----
+The translator translates the text inside XML documents and writes it back into the same document. Every tag,
+namespace and attribute stays; in an ALTO page every word box keeps its coordinates. ALTO mode translates the
+full text of OCR pages. Metadata mode translates the fields that a list of XPaths names, in AMČR records (bare or
+inside OAI-PMH envelopes) or in any other XML. The pilot use is Czech to English: the free-text fields of AMČR
+metadata records, translated in `replace` mode and checked against the AMČR 2.2 schema. The target language is
+English by default; any other language the backend offers can be chosen.
 
+The default backend is the [LINDAT translation service](https://lindat.mff.cuni.cz/services/translation/)
+(CUBBITT). Two alternatives can be selected: a language model behind an OpenAI-compatible API (the recommended
+self-hosted one is Qwen3.8-27B), and a self-hosted CTranslate2 model (`ct2`). Use the translator when the result
+must stay the same document in another language. It reads XML only, not plain text or PDF.
 
-# 🏛️ ATRIUM - LINDAT Translation Wrapper 🌍
+[Releases](https://github.com/ufal/atrium-translator/releases) · [MIT licence](LICENSE) ·
+[ATRIUM documentation](https://ufal.github.io/atrium-project/workflows/translator/) ·
+[SSH Open Marketplace](https://marketplace.sshopencloud.eu/tool-or-service/CizIUW) ("Translator of XML files - ATRIUM")
 
-A modular Python wrapper originally designed for the **LINDAT Translation API** [^1], now featuring a pluggable
-architecture supporting local LLMs and CTranslate2 self-hosted models. Following project scope requirements,
-this tool is strictly focused on processing **XML and its direct derivatives**.  It supports two input modes:
+**Start here.** 🚀 Run the [quick start](#quick-start) below. 📘 To translate your own ALTO pages or records, read
+[docs/usage.md](docs/usage.md). 🛠️ To deploy the service, read [service/README.md](service/README.md). ⚠️ Before
+relying on the output, read [Limits and maturity](#limits-and-maturity). Everything else is in the
+[documentation map](#documentation).
 
-| Mode             | Input                                                      | Key flag   |
-|------------------|------------------------------------------------------------|------------|
-| **ALTO XML**     | Scanned-document ALTO XML                                  | `--alto`   |
-| **XML Metadata** | Any structured XML (AMCR [^7], OAI-PMH, or custom schemas) | `--xpaths` |
+## Inputs and outputs
 
-The wrapper identifies the source language using **FastText** [^5], translates the
-content to English (or any other target language supported by the LINDAT API),
-optionally overrides domain-specific terms using a **Tag-and-Protect vocabulary**
-strategy backed by **UDPipe lemmatisation** [^6], and safely reconstructs the original
-XML structure without altering tags, namespaces, or OAI-PMH envelopes.
+| Input                                                                                        | Output                                                                                                  |
+|----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| ALTO XML pages (`--alto`)                                                                    | the same pages, each word box's text translated, or given an `<ALTERNATIVE>` with the translation       |
+| any well-formed XML with a list of XPaths (`--xpaths`): AMČR records, OAI-PMH responses, TEI | the same documents, the named fields translated, or followed by an `xml:lang`-marked translated sibling |
+| a file, a folder, or a `.txt` list of URLs (such as OAI-PMH `GetRecord` requests)            | per document, `<name>_log.csv`: the source and the translation side by side, with a `status` each       |
+| optionally, an ATRIUM document record to add to, and a vocabulary of Czech–English terms     | per document, the record with its `translations` block; per run, the paradata                           |
 
-For ALTO documents the reconstruction is non-trivial: the spatial `String`
-coordinates must be preserved while their `CONTENT` is replaced with fluent
-translated text whose word count rarely matches the source. The wrapper solves
-this with a **dual-pass block/line translation** followed by a **similarity-based
-token-alignment** step (see [🧠 Logic Overview](#-logic-overview)).
+Two output modes: `replace`, the default, overwrites the source text; `append` keeps it and adds the translation
+beside it. The record follows the hub's
+[document contract](https://ufal.github.io/atrium-project/ecosystem/document-contract/). Every file a run writes:
+[docs/reference/outputs.md](docs/reference/outputs.md).
 
-## 📚 Table of Contents
+## Quick start
 
-- [Project Structure & Architecture](#project-structure--architecture)
-- [✨ Features](#-features)
-- [🛠️ Prerequisites](#-prerequisites)
-- [🐳 Docker & Compose](#-docker--compose)
-- [📂 Project Structure](#-project-structure)
-- [💻 Usage](#-usage)
-  - [📖 ALTO XML Mode](#-alto-xml-mode)
-  - [📄 XML Metadata Mode](#-xml-metadata-mode)
-  - [📘 Vocabulary / Tag-and-Protect](#-vocabulary--tag-and-protect)
-  - [🗂️ Harvesting the Vocabulary](#-harvesting-the-vocabulary)
-  - [⚙️ Configuration File Support](#-configuration-file-support)
-  - [⚙️ Supported Arguments](#-supported-arguments)
-- [🌐 API Service](#-api-service)
-- [⚙️ Environment Variables](#-environment-variables)
-- [☸️ Deployment](#-deployment)
-- [🧠 Logic Overview](#-logic-overview)
-  - [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction)
-- [📊 Translation CSV Logs](#-translation-csv-logs)
-- [🗄️ Paradata JSON Logs](#-paradata-json-logs)
-- [📄 License & Citation](#-license--citation)
-- [🙏 Acknowledgements](#-acknowledgements)
-
----
-
-## Project Structure & Architecture ![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
-
-The `atrium-translator` operates as both a batch CLI tool and an exposed REST API service, bringing it into
-architectural parity with the ATRIUM Layout and Enrichment pipelines.
-
-* **Batch CLI (`main.py`)**: Designed for massive document directories. Generates per-file translation and execution CSV logs.
-* **API Service (`service/api.py`)**: A FastAPI wrapper exposing a `/translate` endpoint. It leverages the exact same
-core translation functions without duplicating application logic or model registries. Features full DoS guards
-and file-size constraints.
-
-
-## ✨ Features
-
-* 🎯 **Dedicated XML Processing**: Narrowly defined and optimised exclusively for ALTO XML and structured metadata
-records, ensuring safe, universal usage without tag or namespace corruption.
-* 📖 **ALTO Translation Mode (Dual-Pass)**: Translates only the `CONTENT` attributes natively. Tied to a simple flag (`--alto`).
-Each `TextBlock` is translated **twice** — once as a whole block (for semantic quality) and once line-by-line (as structural
-anchors) — and the block translation is then realigned to the physical line/`String` layout (see [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction)).
-* 📄 **XML Metadata Mode**: Translates specific elements based on a user-provided list of XPaths (e.g.,
-[amcr-fields.txt](amcr-fields.txt) 📎), safely reconstructs the document tree, and handles deep recursive
-namespace extraction for OAI-PMH envelopes.  Works with **any conformant XML**, not only AMCR [^7] records.
-* ✅ **XSD Validation**: Optionally validates metadata outputs against an XSD schema (e.g.,
-`https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd`) to guarantee structural integrity after translation.
-* 📊 **Per-document Translation CSV Logs**: Automatically produces a supplementary QA CSV file with columns
-`file, page_num, line_num, text_<source_lang>, text_<target_lang>, status` for easy manual review — `status` flags
-lines that were re-run, placed by word count, or left untranslated.
-* 🗄️ **Run-level Paradata JSON Logs**: Each pipeline run appends a structured provenance record (timing, counts,
-configuration snapshot) to the [paradata](data_samples/in-place_translated_files/alto/paradata) 📁 directory for auditing and performance reporting.
-* 🕵️ **Language Detection with Intelligent Fallback**: With `--source_lang auto` the source language is identified
-with **FastText** (Facebook) [^5] — once per ALTO `TextBlock` / metadata field, plus once for the whole document — and a
-guess is used only if it is **trustworthy**: enough letters, enough confidence, and a language the translation backend
-can actually translate. Otherwise the block's own label (ALTO `LANG`, `xml:lang`) is used, then the document's language,
-then the **default source language** (`cs`). See [Source-language identification](#source-language-identification).
-* ✂️ **Sentence-Aware Chunking**: Long texts are split at the highest-priority boundary found in each window, tried in
-strict order — newline (`\n`) → sentence-terminal punctuation (`. `, `! `, `? `) → clause-level punctuation (`; `, `, `) →
-word boundary — before being sent to the translation API. Keeping whole sentences together preserves NMT context and
-improves quality; the word boundary is a fallback and a hard cut is the last resort for oversized single tokens.
-* 🔤 **Tag-and-Protect Vocabulary Overriding**: When a vocabulary CSV is supplied, domain-specific terms are protected
-before translation using NMT-safe placeholder sentinels. Single-word terms are matched by lemma via the **LINDAT UDPipe API** [^6];
-multi-word phrases are matched case-insensitively as whole words, longest phrase first, and every occurrence is protected.
-Vocabulary translations are restored after the NMT call, ensuring controlled terminology is never garbled.
-* 🗂️ **Automated Vocabulary Harvesting**: The bundled [load_vocab.py](load_vocab.py)📎 script downloads Czech→English term pairs from
-both the **AMCR OAI-PMH API** [^7] and the **TEATER GraphQL API** [^8] and merges them into a single ready-to-use CSV.
-* 🔗 **LINDAT API Integration**: Seamlessly connects to the LINDAT Translation API (v2) [^1].
-* 🔌 **Pluggable Translation Backends**: Switch seamlessly between the LINDAT Translation API, OpenAI-compatible LLM
-endpoints, and low-resource self-hosted CTranslate2 models (e.g., EuroLLM, MADLAD-400) using the `--backend` flag.
-
-
-### Performance: Page-Level Batching
-To minimize network latency and reduce overhead on translation backends (such as the LINDAT API or local LLMs),
-`atrium-translator` implements dynamic **Page-Level Batching**.
-
-Instead of translating each ALTO XML `TextBlock` and `TextLine` sequentially, the pipeline gathers all text elements on
-a single page, groups them by their detected language, and consolidates them into unified payloads separated by newline (`\n`) delimiters.
-
-* **API Efficiency:** This architecture reduces API calls from $1 + N$ (where $N$ is the number of text lines in a block)
-down to as few as 2 requests per language group per page.
-* **Zero-Regression Fallback:** A batched reply is accepted only if it keeps the request's line count **and** every
-line is a plausible translation of its own item (see *Degenerate-output guard* below). If an NMT model merges or drops
-line boundaries, or answers any item with a repetition loop, an empty line or a runaway/truncated one, the line
-mapping of that reply is not trusted and the whole batch falls back to a 1-by-1 safe loop.
-* **Anchors only where they matter:** the line-anchor pass is sent only for translated blocks that have at least two
-text lines — a single-line block takes its block translation as it is, so its anchor was never used.
-
-### Degenerate-output guard, flagging and re-run
-
-A backend can answer HTTP 200 with something that is not a translation. On the 2026-09-26 sample refresh, roughly a
-third of all LINDAT replies came back as one Czech word repeated up to ~150 times (`"pravidla pravidla …"`) — for
-one-word headings and for whole sentences, on the ALTO and on the metadata path, and **nondeterministically** (the
-same field was garbage in one run and correct in the next). Nothing looked at reply content, so the garbage went into
-the XML and the QA log, and — through the ALTO line anchors, which are never logged — into the word-to-box alignment
-of every block on the page (2489 blanked `String`s instead of 224).
-
-Every translated segment is now checked by `processors/quality.py::degeneration_reason` against its own source
-(empty output, runaway length, truncation, repetition loops, and a single word that mixes Latin and Cyrillic letters
-such as `Ostrůв` — each rule compares with the source, so dot leaders, number tables and names kept verbatim pass;
-calibrated at 0 false flags on all 1193 June blocks and 37 metadata fields, 100 % of the looping ones caught; the
-mixed-script rule on the 4,264 logged rows of `data_samples/`, where its one hit is the `Ostrůв` that the self-hosted
-run logged as `ok`):
-
-1. **Backend re-request.** `LindatTranslator` re-requests a degenerate reply up to `LINDAT_GUARD_RETRIES` times
-   (default 2) — the first time **immediately**, then with back-off; the LLM and CT2 backends reject it in their
-   output guards.
-2. **Flag.** A block, line anchor or metadata field that is still unusable is **flagged** and left untouched for now.
-3. **Re-run during the same document.** After the whole document has been processed, the flagged segments are
-   re-requested one by one after a cool-down (`TRANSLATION_RERUN_ROUNDS`, default 1; `TRANSLATION_RERUN_DELAY_S`,
-   default 10 s). The self-hosted `ct2` backend decodes deterministically, so the same request would get the same
-   reply; in a re-run round it searches a wider beam instead (NMT families 4, 6, 8, … up to 12; EuroLLM leaves greedy
-   decoding for a beam of 4, 6, …). That is still deterministic, so a run can be reproduced. Whether it recovers more
-   segments on real EuroLLM output has not been measured.
-4. **Keep the source.** A segment that never recovers keeps its source text (ALTO `String`s keep their `CONTENT` and
-   geometry; a metadata field is not overwritten and gets no appended sibling) and is logged as `untranslated` in the
-   `status` column of the `_log.csv`. The file is still written; one bad reply costs one segment, never the document.
-
-A per-document summary line (WARNING when anything was flagged or fell back) reports batches accepted, fallbacks by
-cause, segments flagged / recovered / left untranslated, and lines placed by word count. `main.py` adds one line per
-document with the number of LINDAT replies that were rejected and re-requested (`[WARN] LINDAT: N degenerate
-reply(ies) re-requested …`, also recorded in paradata as `lindat_degenerate_replies`); the individual rejections are
-logged at INFO unless the retry fails too.
-
-**What was found behind the failures.** Sequential runs made the pattern visible: the first request of every batch came
-back degenerate, its byte-identical re-request succeeded, and two runs agreed reply for reply (the same inputs failed
-with the same token counts). Garbage that is deterministic for a given input, yet cured by repeating the identical
-request, is the signature of **one broken replica behind a round-robin load balancer** — every other request lands on
-it. That is also why the concurrent sample runs of 2026-09-26 looked randomly ~30 % broken. The output is correct
-either way (the guard recovers each reply, at the cost of a second request), but the fix belongs to the service. To
-check the live endpoint and get a report you can hand to its operators:
+The production shape of AMČR's run, on the 15 AMČR records in `data_samples/my_documents`, from a checkout with
+Python 3.11:
 
 ```bash
-python -m eval.lindat_probe            # e.g. "fresh: ✗✓✗✓✗✓… → alternating — one of two replicas broken"
-```
-
-**Confirmed on 2026-09-26 (11:51 UTC)** against `…/api/v2/models/cs-en`: 12 requests with a fresh connection each
-and 12 over one keep-alive session both came back `✗✓✗✓✗✓✗✓✗✓✗✓`. The bad replies are 109 tokens of `pravidla` for a
-3-word input in ~1.6 s (the decoder runs to its length cap); the good ones take ~0.3 s; the only server header is
-`nginx/1.30.1`. The balancer rotates **per request, even inside one connection**, so nothing on the client side can
-avoid the broken replica — and the next request always lands on the healthy one, which is why the guard's first
-re-request is immediate and, in every run so far, sufficient.
-
-
----
-
-## 🛠️ Prerequisites
-
-1. Clone the project files:
-```bash
-git clone https://github.com/ufal/atrium-translator.git
-```
-2. Create a virtual environment and activate it (optional but recommended):
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-3. Install the required Python packages:
-```bash
-cd atrium-translator
+git clone https://github.com/ufal/atrium-translator.git && cd atrium-translator
 pip install -r requirements.txt
+python main.py data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
+    --source_lang cs --target_lang en --output-mode replace \
+    --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o out
 ```
 
-> **Note on `fasttext`:** The upstream package requires a C++ compiler at build time.
-> If your environment lacks build tools, install the pre-built wheel instead:
-> ```bash
-> pip install fasttext-wheel
-> ```
-
----
-
-## 🐳 Docker & Compose
-
-Published images, one per entry point. Both are built from the same `Dockerfile`
-and run as a non-root user (`atrium`, uid 10001) by default:
-
-| Image                                          | Stage  | Entry point             | Purpose      |
-|------------------------------------------------|--------|-------------------------|--------------|
-| `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python main.py`        | batch CLI    |
-| `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api` | HTTP service |
-
-`<version>` is the release without its leading `v` (`1.2.0-beta` for release `v1.2.0-beta`), or `latest`. The `-api`
-suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.2.0-beta`. (A tag such as
-`atrium-translator:1.2.0-beta-api` is never published.)
-
-### Batch translation
+The same run with the published batch image, which carries the records:
 
 ```bash
-# ./data/input holds the ALTO XML; results land in ./data/output
-mkdir -p data/input data/output
-
-docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
-  ghcr.io/ufal/atrium-translator:latest \
-  /data/input --alto --formats alto.xml --target_lang en -o /data/output
-
-# AMCR metadata records (./data/input holds the *.xml records), the issue #46 production shape:
-# replace mode, validated against AMCR 2.2. --xsd exists only in this batch image, not in /translate.
-docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
-  ghcr.io/ufal/atrium-translator:latest \
-  /data/input --xpaths amcr-fields.txt --formats xml --source_lang cs --target_lang en \
-  --output-mode replace --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o /data/output
+mkdir -p out
+docker run --rm --user "$(id -u):0" -v "$PWD/out:/data/output" ghcr.io/ufal/atrium-translator:<version> \
+    data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
+    --source_lang cs --target_lang en --output-mode replace \
+    --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o /data/output    # <version>: the release without its v
 ```
 
-> ⚠️ **Run as yourself, so the container can write `./data`.** The image runs as uid 10001 by
-> default, and `./data` belongs to you. `--user "$(id -u):0"` runs the container as your uid with
-> group 0; every path the image writes (`/data`, `/cache`, `$HOME`) is group-0 writable for exactly
-> this. Docker Desktop (macOS, Windows) needs neither. Under compose, `./data` is in the clone
-> (`data/.gitkeep`) and the services run as `user: "${ATRIUM_UID:-10001}:0"`: on Linux, put your
-> uid in `.env` once — `echo "ATRIUM_UID=$(id -u)" >> .env`. (atrium-project#69, roadmap B6; this
-> replaces the old `sudo chown -R 10001 data` step.)
-
-The batch entry point exits **non-zero** on failure (`1` usage · `2` nothing
-matched the formats · `3` one or more documents failed), so it can be wrapped in
-a cron job or a Kubernetes `Job` and actually be monitored.
-
-### API service
-
-```bash
-docker compose --profile api up -d      # http://localhost:8000
-curl -sf localhost:8000/health
-curl -sf localhost:8000/ready
-```
-
-`docker-compose.yml` defines two services — `translator` (batch) and `api` — and
-both read the repo-root `.env` (see [Environment Variables](#-environment-variables)).
-`PORT` moves the listener, the published port and the container's own
-`HEALTHCHECK` together:
-
-```bash
-PORT=9000 docker compose --profile api up -d
-```
-
----
-
-## 📂 Project Structure
+Expected: exit code 0, and the log ends with `XSD: 15/15 record(s) valid.` For each record, `out/` holds
+`<doc>_en.xml` with the free-text fields in English, `<doc>.document.json`, and `<doc>_log.csv`, one row per
+translated field. A row looks like this (an invented record, for illustration):
 
 ```text
-atrium-translator/
-├── main.py                    # 🚀 Batch CLI entry point – ALTO vs. XML Metadata routing
-├── utils.py                   # 🔧 ALTO & XML parsing, dual-pass alignment, CSV logs, XSD validation
-├── load_vocab.py              # 🗂️ Vocabulary harvester (AMCR OAI-PMH + TEATER GraphQL → CSV)
-├── config.txt                 # ⚙️ Per-run configuration (paths, languages, formats, backend)
-├── para_config.txt            # 🏷️ Tool version (single source of truth) + component→license table
-├── amcr-fields.txt            # 📄 Example XPath list for AMCR metadata translation
-├── amcr-inputs.txt            # 📄 List of AMCR metadata input URLs to be processed
-├── .env.example               # 🔑 The environment contract — copy to .env
-├── Dockerfile                 # 🐳 Two stages: `base` (batch CLI) and `api` (HTTP service)
-├── docker-compose.yml         # 🐳 Local deployment: `translator` + `api` (profile)
-│
-│   # ── Shared canonical files (vendored from ufal/atrium-project, never edited here) ──
-├── atrium_paradata.py         # 🗄️ Run-level provenance/paradata logger
-├── atrium_document.py         # 📑 Cross-tool ATRIUM Document record (+ .schema.json)
-├── atrium_vocab.py            # 🏷️ SKOS controlled-label registry (+ .schema.json)
-├── atrium_rocrate.py          # 📦 RO-Crate (JSON-LD) export of document records
-├── para_licenses.py           # ⚖️ Effective-license resolution from exercised components
-├── check_version.py           # 🚦 Release gate: tag == CITATION.cff == para_config.txt
-├── atrium_limits.py           # 📏 Limits contract: declaration, parsing, /info report (atrium-project#53)
-│
-├── tool_limits.py             # 📏 This tool's limits (TRANSLATION_CHUNK_CHARS, LINDAT_*, LLM_*, CT2_*)
-│
-├── processors/                # (namespace package — no __init__.py)
-│   ├── backend.py             # 🔌 TranslationBackend protocol + get_backend() registry
-│   ├── translator.py          # 🔄 LINDAT CUBBITT client + Tag-and-Protect vocabulary
-│   ├── llm_translator.py      # 🤖 OpenAI-compatible LLM backend (prompt glossary, guards)
-│   ├── ct2_translator.py      # 🧪 CTranslate2 self-hosted backend (`--backend ct2`)
-│   ├── lemmatizer.py          # 🔤 UDPipe-based lemmatizer for vocabulary term matching
-│   ├── identifier.py          # 🌍 FastText language identification (ISO 639-3 → 639-1)
-│   ├── language.py            # 🧭 Source-language policy: detected → label → document → default
-│   ├── chunking.py            # ✂️ Shared sentence-aware text chunker (priority-ordered)
-│   ├── http_retry.py          # 🔁 Shared throttle + bounded exponential back-off
-│   ├── quality.py             # 🛡️ Degenerate-output detector (loops, empty, runaway, truncation, mixed script)
-│   ├── limit_notes.py         # 📝 Collects the `limits_applied` notes of a run / request
-│   └── vocab.py               # 📘 Vocabulary CSV loader
-├── service/                   # 🌐 The HTTP surface — see service/README.md
-│   ├── api.py                 # FastAPI app: /translate, /info, /health, /ready
-│   ├── atrium_service.py      # (canonical) shared meta-contract helpers
-│   ├── healthcheck.py         # (canonical) stdlib-only Docker HEALTHCHECK probe
-│   └── requirements.txt       # Service-only dependencies (fastapi, uvicorn)
-├── tests/                     # 🧪 pytest suite; tests/integration/ is the live-backend lane
-├── eval/                      # 📊 bakeoff.py (backend comparison, #4) · langid_report.py (language-ID tuning)
-│                              #    · lindat_probe.py (is one LINDAT replica broken?)
-├── docs/                      # 📚 translation-backends.md — backend evaluation & design
-├── agent_dev_logs/            # 📓 Derived timeline, per-issue digests and plans
-└── data_samples/
-    ├── vocabulary.csv         # 📘 Czech→English domain vocabulary (AMCR/TEATER terms)
-    ├── my_documents/          # 📂 Sample inputs (ALTO XML, downloaded AMCR metadata)
-    ├── in-place_translated_files/   # 📂 replace-mode outputs: alto/ and xml/, each with CSV logs,
-    │                                #    document records and paradata/
-    └── appended_translated_files/   # 📂 append-mode outputs, same layout (see data_samples/README.md)
+file,page_num,line_num,text_cs,text_en,status
+C-TX-000000000,,//amcr:amcr/amcr:dokument/amcr:popis,"Záchranný výzkum při stavbě rodinného domu.","Rescue excavation during the construction of a family house.",ok
 ```
 
----
-
-## 💻 Usage
-
-Run the wrapper from the command line. The default target language is English (`en`).
-
-### 📖 ALTO XML Mode
-
-Use the `--alto` flag together with `--formats alto.xml` (or set `formats = alto.xml` in
-[config.txt](config.txt)📎). This processes ALTO files by strictly targeting their `String` `CONTENT` attributes.
-
-```bash
-python main.py ./data_samples/my_documents --alto --formats alto.xml --target_lang en
-```
-
-> **Tip:** Specifying `alto.xml` in `formats` (CLI or config) now **auto-enables** ALTO
-> mode even without the explicit `--alto` flag.
-
-Example of ALTO XML processing:
-- **Input**: [MTX201501307_anon.alto.xml](data_samples/my_documents/MTX201501307_anon.alto.xml) 📎
-- **Output** (replace): [MTX201501307_anon_en.alto.xml](data_samples/in-place_translated_files/alto/MTX201501307_anon_en.alto.xml) 📎
-- **Output** (append): [MTX201501307_anon_en.alto.xml](data_samples/appended_translated_files/alto/MTX201501307_anon_en.alto.xml) 📎
-
-Translation is driven at the `TextBlock` level for semantic quality, but the resulting
-words are **realigned and redistributed back into the individual `CONTENT` attributes**
-of each `String` within each `TextLine`, so the original spatial layout is preserved.
-See [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction) for the full algorithm.
-
----
-
-### 📄 XML Metadata Mode
-
-This mode translates specific text fields inside **any well-formed XML document**. You supply
-a plain-text file listing XPaths — one per line — that identify the elements whose `.text`
-content should be translated. The mode was originally designed for AMCR/OAI-PMH [^7] records
-but is not tied to that schema; it works with any XML and any namespace.
-
-#### AMCR example
-
-```bash
-python main.py amcr-inputs.txt --xpaths amcr-fields.txt --formats xml,txt \
-    --source_lang cs --output-mode replace \
-    --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd \
-    --target_lang en
-```
-
-> The shipped [config.txt](config.txt) sets `formats = alto.xml` (the ALTO sample), and that value turns ALTO mode
-> on. From v1.2.2-beta a command line with `--xpaths` and no `--formats` is a metadata run (`xml,txt`); **with
-> v1.2.1-beta and earlier, pass `--formats xml` (or `xml,txt` for a URL list) yourself** — without it the run finds
-> no input and exits `2`, or translates only the ALTO file of a mixed folder. `--source_lang cs` skips language
-> detection (and the CC BY-NC FastText model) on a Czech-only corpus.
-
-[amcr-fields.txt](amcr-fields.txt)📎 contains XPaths such as:
-
-```
-//amcr:amcr/amcr:dokument/amcr:popis
-//amcr:amcr/amcr:dokument/amcr:poznamka
-//amcr:amcr/amcr:archeologicky_zaznam/amcr:lokalita/amcr:chranene_udaje/amcr:popis
-```
-
-The namespace prefix (`amcr:`) is resolved automatically from the document.
-
-#### Custom XML example
-
-For any other XML schema, create your own XPath list and pass it with `--xpaths`:
-
-```bash
-# my-fields.txt
-//tei:TEI/tei:teiHeader/tei:fileDesc/tei:titleStmt/tei:title
-//tei:TEI/tei:text/tei:body//tei:p[@type='abstract']
-```
-
-```bash
-python main.py ./my_xml_files --xpaths my-fields.txt --target_lang en
-```
-
-Namespace prefixes that appear in the document are extracted automatically; you only
-need to use the same prefix in your XPath expressions as appears in the XML.
-
-**Output** files are saved in the configured output directory and include:
-- A translated `.xml` file with all targeted fields replaced
-- A companion `_log.csv` translation log (see [Translation CSV Logs](#-translation-csv-logs))
-
----
-
-### 📘 Vocabulary / Tag-and-Protect
-
-Provide a two-column CSV (`source_lemma,target_translation`) to activate the
-**Tag-and-Protect** strategy.  When enabled, domain-specific terms are shielded
-from the NMT model and replaced with guaranteed vocabulary translations instead.
-
-```bash
-python main.py amcr-inputs.txt --xpaths amcr-fields.txt \
-    --vocabulary data_samples/vocabulary.csv --target_lang en
-```
-
-Or set the path in [config.txt](config.txt)📎:
-
-```ini
-vocabulary = data_samples/vocabulary.csv
-```
-
-#### How it works
-
-1. **Multi-word phrase pass** – phrases containing spaces (e.g. `fotografie události`)
-   are matched case-insensitively as whole words (never inside a longer word), longest
-   phrase first. **Every** occurrence is replaced with its own NMT-safe placeholder
-   sentinel and counted in the protected-term statistics. Phrases match on the surface
-   form stored in the CSV, not by lemma.
-2. **Single-word lemma pass** – the remaining text is lemmatised via the LINDAT UDPipe
-   API [^6].  Tokens whose base form appears in the vocabulary are similarly tagged.
-   Only source languages with a UDPipe model (table below) are lemmatised; for any
-   other language this pass is skipped, with one warning per language.
-   A **number-agreement guard** protects only singular / number-neutral occurrences;
-   plural source tokens are left for the NMT to inflect, preventing broken English
-   agreement (e.g. "several feature").
-3. **Translation** – the tagged text is sent to the LINDAT Translation API.  NMT models
-   leave the alphabetic sentinels untouched.
-4. **Restoration** – every sentinel in the translated output is replaced with the
-   corresponding vocabulary translation. Restoration is tolerant of stray spaces the
-   NMT may inject, and any unrecoverable sentinel debris is scrubbed before output.
-
-If no vocabulary file is provided, the translator behaves exactly as before (no UDPipe
-calls are made, no lemmatization is performed - just the basic translation preserving input file structure).
-
-> **Note on placeholders:** Earlier versions wrapped terms in `__TERM_N__`. Because NMT
-> models frequently mangled the underscores/digits, the protected sentinel is now a
-> purely alphabetic marker of the form `Xtermzzz<N>z`, which NMT models pass through intact.
-
-#### Vocabulary CSV format
-
-The vocabulary file must be a UTF-8 encoded CSV whose first two columns are the term pair:
-
-```
-source_lemma,target_translation
-kostel,church
-pohřebiště,burial ground
-fotografie události,photograph of event
-```
-
-Columns 3–5 are **optional provenance** and are ignored by the translator; column 6, `description`, is read only
-when a header names it, and only the `openai_compatible` backend uses it. The shipped
-[vocabulary.csv](data_samples/vocabulary.csv)📎 carries them so every term can be traced
-to its thesaurus concept:
-
-```
-source_lemma,target_translation,source,source_id,uri,description
-archeolog,archaeologist,teater,4,https://teater.aiscr.cz/id/4,
-```
-
-
-| Column                 | Content                                                                                                                                                                                                                          |
-|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `source_lemma`         | The **lemmatised (dictionary) form** of the source term. For single-word terms this must match what UDPipe returns for the source language (see table below).  For multi-word phrases, any surface form is accepted.             |
-| `target_translation`   | The canonical translation — typically the preferred English term from a controlled vocabulary or thesaurus.                                                                                                                      |
-| `source` *(opt.)*      | Which thesaurus the pair came from: `amcr` or `teater`.                                                                                                                                                                          |
-| `source_id` *(opt.)*   | The concept's id in that thesaurus: the AMCR `heslo` id (`HES-…`) or the TEATER concept id.                                                                                                                                      |
-| `uri` *(opt.)*         | The dereferenceable concept URI built from `source_id` (`https://api.aiscr.cz/id/…` or `https://teater.aiscr.cz/id/…`).                                                                                                          |
-| `description` *(opt.)* | The concept's scope note (`note_en`, else `note_cs`), cut to 500 characters. Read **by header name only**. Given to the LLM backend as context when `LLM_GLOSSARY_DESCRIPTION_CHARS` > 0 (issue #4); LINDAT and `ct2` ignore it. |
-
-
-> [!IMPORTANT]
-> Single-word vocabulary entries should be provided as lemmas (singular/infinitive);
-> matching is lemma-based and number-neutral.
-
-
-**How to determine the correct lemma form by language**
-
-The `source_lemma` column must match the form that UDPipe assigns as the base form
-for the given language.  A quick way to check is to run any word through the
-[online UDPipe demo](https://lindat.mff.cuni.cz/services/udpipe/) and read the
-`LEMMA` column of the CoNLL-U output.
-
-| Source Language (`--source_lang`) | UDPipe model used           | Lemma convention                                    | Example                                         |
-|-----------------------------------|-----------------------------|-----------------------------------------------------|-------------------------------------------------|
-| Czech `cs`                        | `czech-pdt-ud-2.15`         | Nominative singular for nouns; infinitive for verbs | `kostel` (not `kostela`), `kopat` (not `kopal`) |
-| Slovak `sk`                       | `slovak-snk-ud-2.15`        | Nominative singular; infinitive                     | `kostol`, `kopať`                               |
-| Polish `pl`                       | `polish-pdb-ud-2.15`        | Nominative singular; infinitive                     | `kościół`, `kopać`                              |
-| German `de`                       | `german-gsd-ud-2.15`        | Nominative singular; infinitive                     | `Kirche`, `graben`                              |
-| French `fr`                       | `french-gsd-ud-2.15`        | Nominative singular; infinitive                     | `église`, `fouiller`                            |
-| Russian `ru`                      | `russian-syntagrus-ud-2.15` | Nominative singular; infinitive                     | `церковь`, `копать`                             |
-| Ukrainian `uk`                    | `ukrainian-iu-ud-2.15`      | Nominative singular; infinitive                     | `церква`, `копати`                              |
-| English `en`                      | `english-ewt-ud-2.15`       | Base form                                           | `church`, `dig`                                 |
-
-Any other `--source_lang` has **no UDPipe model**: the single-word lemma pass is skipped for it
-(one `[WARN]` per language) instead of running the text through the Czech model, whose lemmas
-would be noise that can still collide with a Czech vocabulary key. Multi-word phrases are still
-protected.
-
-> **Tip for non-Czech archives:** If your source XML is in a language other than Czech 🇨🇿,
-> pass the corresponding `--source_lang` code and supply a matching vocabulary CSV whose
-> `source_lemma` column uses that language's lemma conventions. The vocabulary harvesting
-> script ([load_vocab.py](load_vocab.py)📎) currently targets Czech (**AMCR**[^7]/**TEATER**[^8]); for other languages
-> you will need to compile the vocabulary manually or from your own thesaurus.
-
----
-
-### 🗂️ Harvesting the Vocabulary
-
-The [load_vocab.py](load_vocab.py)📎 script downloads term pairs automatically from two sources and
-merges them into a single CSV:
-
-| Source           | Endpoint                                                                          | Method                                                                                                     |
-|------------------|-----------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| **AMCR** [^7]    | `https://api.aiscr.cz/2.2/oai?verb=ListRecords&metadataPrefix=oai_amcr&set=heslo` | OAI-PMH `ListRecords` with resumption token paging; one pair per `heslo` with a Czech and an English label |
-| **TEATER**  [^8] | `https://teater.aiscr.cz/api/graphql`                                             | GraphQL `exportAll` → JSON export, one pair per concept with `cs` and `en` names; `search`-based fallback  |
-
-```bash
-# Full harvest (both sources):
-python load_vocab.py
-
-# Skip one source:
-python load_vocab.py --skip-teater
-python load_vocab.py --skip-amcr
-
-# Custom output path and request delay:
-python load_vocab.py --out my_vocab.csv --delay 0.5
-```
-
-The merged vocabulary is written to [vocabulary.csv](data_samples/vocabulary.csv)📎 by default (AMCR [^7] entries
-take precedence over TEATER [^8] on key collision). `--delay` paces both sources: the pause between AMCR pages and the
-minimum gap between TEATER requests.
-
-**From a release instead of a harvest (atrium-project#72).** atrium-keyword-extract owns the project's one vocabulary
-and attaches it, CC0, to each of its releases as `atrium-vocabulary-<version>.zip` with a `.sha256` beside it. The same
-CSV can be built from that asset, so the translator's vocabulary is a pinned release rather than what the live APIs
-answered on the day of a harvest:
-
-```bash
-python load_vocab.py --from-release v1.3.0-beta                     # download, verify the .sha256, write the CSV
-python load_vocab.py --from-release v1.3.0-beta --sha256 <digest>   # pin the digest yourself
-python load_vocab.py --from-release v1.3.0-beta --asset ./atrium-vocabulary-v1.3.0-beta.zip   # a local copy
-python load_vocab.py --from-release v1.3.0-beta --description-chars 0   # no descriptions
-```
-
-The pairs are the asset's curated `vocabulary.csv`, keyword-extract's list with its exclusions applied, so the project
-curates one list rather than two (agreed with AMČR on
-[atrium-project#72](https://github.com/ufal/atrium-project/issues/72), 13 October). Each pair takes the identity of the
-concept that won it in the asset's `union_nested.json` (its URI from `amcr_flat.csv` / `teater_flat.csv`) and that
-concept's description from `amcr_flat.json` / `teater_flat.json`. An asset that does not match its checksum, or lacks
-the curated list or either flat CSV, is refused (exit 3) and the output is left untouched; a curated pair found in no
-harvest is kept without provenance and reported. The committed `vocabulary.csv` is built from `v1.3.0-beta`: 4,715
-pairs (the September harvest had 5,087), 1,961 of them with a description.
-
-> [!NOTE]
-> As of 2026-09, `teater.aiscr.cz` serves its TLS certificate without the *RapidSSL TLS RSA CA G1* intermediate, so
-> `requests` cannot verify it and the TEATER harvest logs an SSL error and yields nothing. Do not disable
-> verification: point `REQUESTS_CA_BUNDLE` at a CA bundle that also contains that intermediate. `api.aiscr.cz`
-> serves the same intermediate in its full chain (`openssl s_client -showcerts -connect api.aiscr.cz:443`).
-
----
-
-### ⚙️ Configuration File Support
-
-Instead of passing all arguments via the command line, you can use a configuration
-file [config.txt](config.txt)📎 to define default paths and parameters.  **command-line arguments always take
-precedence over config file values** — the config file supplies defaults only for
-arguments that are not explicitly passed on the command line.
-
-Example [config.txt](config.txt)📎:
-
-```ini
-[DEFAULT]
-input_path = ./data_samples/my_documents
-source_lang = auto
-target_lang = en
-formats = alto.xml
-fields = amcr-fields.txt
-output = ./data_samples/in-place_translated_files/alto
-
-# Optional: path to a vocabulary CSV file (source_lemma,target_translation).
-# Leave blank or comment out to disable.
-vocabulary = data_samples/vocabulary.csv
-```
-
-> **Note:** Setting `formats = alto.xml` (or including `alto.xml` in a comma-separated
-> `formats` list) automatically enables ALTO mode, so the `--alto` flag becomes optional.
-
----
-
-### ⚙️ Supported Arguments
-
-* `input_path`: Path to a single source file, a directory containing XML files, or a `.txt` file listing URLs.
-* `--output`, `-o`: Output file path (single-file mode) or output directory (batch mode).
-* `--source_lang`, `-src`: Source language code (e.g., `cs`, `fr`). Use `auto` to auto-detect. Default: `source_lang` in `config.txt` (the shipped file sets `auto`), else `cs`.
-* `--default-source-lang`: With `--source_lang auto`, the language used when detection cannot be trusted and neither the
-element's label nor the document's language settles it. Resolution order: this flag → `default_source_lang` in
-`config.txt` → `DEFAULT_SOURCE_LANG` → `cs`.
-* `--target_lang`, `-tgt`: Target language code (e.g., `en`, `cs`). Default: `en`.
-
-  A pair the backend cannot translate is **refused before any file is touched** (exit `1`), with the pairs the backend
-  offers: LINDAT has, for instance, no `cs-it` or `hu-en` model. With `auto`, the `--default-source-lang` is checked the
-  same way. (Before 2026-10-18 LINDAT translated such a run from Czech into English without a word.) Codes such as `CS`,
-  `cs-CZ` or `ces` are read as `cs`.
-* `--formats`: Comma-separated list of file extensions to process (e.g., `alto.xml,txt` or `xml,txt`). Default: `formats` in config.txt — the shipped file says `alto.xml`, which turns ALTO mode on — except that a command line with `--xpaths` gets `xml,txt`; `xml` without a config value.
-* `--config`, `-c`: Path to the configuration file (default: `config.txt`).
-* `--alto`: Flag to enable ALTO XML in-place translation mode (auto-enabled when `formats` contains `alto.xml`).
-* `--xpaths`: Path to a `.txt` file containing XPaths for XML metadata translation (works with any XML schema).
-* `--xsd`: Optional URL or local path to an XSD file for output validation (metadata mode). A record inside an OAI-PMH envelope is validated, not the envelope. Each record's verdict is logged, the run ends with one `XSD: N/M record(s) valid` line, and the paradata records `xsd_validation` (`valid`, `invalid` doc ids, `strict`). AMCR 2.2 accepts `replace` output and rejects `append` output — see [Output mode](#output-mode-replace-vs-append).
-* `--xsd-strict`: With `--xsd`, a record that fails validation counts as a failed document — exit `3`, the XML is still written. Default: env `XSD_STRICT`, else off (a warning only).
-* `--vocabulary`: Path to a CSV vocabulary file (`source_lemma,target_translation`) to activate Tag-and-Protect term overriding (LINDAT) or the prompt glossary (`openai_compatible`, `ct2`). A path that does not exist stops the run (exit `1`); clear `vocabulary =` in config.txt to translate without one.
-* `--backend`: Translation backend — `lindat` (default, LINDAT CUBBITT), `openai_compatible` (any OpenAI-compatible LLM API, configured via the `LLM_*` variables) or `ct2` (a self-hosted CTranslate2 model; install `requirements-ct2.txt` and set the `CT2_*` variables). Resolution order: this flag → `translation_backend` in `config.txt` → `TRANSLATION_BACKEND` → `lindat`. See [docs/translation-backends.md](docs/translation-backends.md) 📎.
-* `--fast-align`: ALTO only. Distribute block tokens by source word count instead of translating each line as an anchor — far fewer API calls, slightly coarser line splits.
-* `--output-mode`: `replace` (default) or `append` — how the translation is written into the document. See [Output mode](#output-mode-replace-vs-append) below. Resolution order: this flag → `output_mode` in `config.txt` → `OUTPUT_MODE` → `replace`.
-
-### Output mode: replace vs. append
-
-The tool can write a translation into a document two ways. This is
-[issue #46](https://github.com/ufal/atrium-translator/issues/46)'s central question, and it is a
-switch rather than a decision baked into the code, so a real corpus can settle it.
-
-| Mode                  | What the output contains                                                                                                                                                                                                     |
-|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `replace` *(default)* | The source-language field is **overwritten**. The output is a monolingual mirror of the input; the original text survives only in the sidecar `*_log.csv`. This is what the tool has always done — the default is unchanged. |
-| `append`              | The source field is **kept**, and a sibling element carrying `xml:lang="<target>"` is inserted directly after it. The source element is stamped with its own `xml:lang` too, so both halves of the pair are labelled.        |
-
-Append follows AMCR's own multilingual convention rather than inventing one: an AMCR thesaurus
-record stores a concept as `<amcr:heslo xml:lang="cs">` beside `<amcr:heslo_en>` under one `@id`, and
-`load_vocab.py` reads exactly that pair on every glossary build.
-
-```bash
-python main.py ./data_samples/my_documents \
-    --xpaths amcr-fields.txt --source_lang cs \
-    --output-mode append \
-    --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd
-```
-
-**AMCR 2.2 does not accept append output.** Validated against the published schema
-(`--xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd`), the 15 shipped records are valid as source
-and as `replace` output, and **none** is valid as `append` output, for both halves of the pair:
-
-| Samples (`data_samples/`)        | Valid against AMCR 2.2 | Why not                                                                                                                       |
-|----------------------------------|------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| `my_documents/` (source)         | 15 / 15                |                                                                                                                               |
-| `in-place_translated_files/xml/` | 15 / 15                |                                                                                                                               |
-| `appended_translated_files/xml/` | **0 / 15**             | `xml:lang` is not declared on `nazev` / `popis` / `poznamka` / `lokalizace_okolnosti`; the repeated element is "not expected" |
-
-Leaving `xml:lang` off the pair would not help — the repeated element alone is invalid. So where the
-output must be a valid AMCR record, use `replace`; `append` stays available for consumers that read
-the pair without validating, and a run that appends to AMCR records logs one WARNING saying so.
-ALTO append (below) **is** schema-valid: the source, replace and append ALTO samples all validate
-against ALTO 3.1, which declares `ALTERNATIVE` with a `PURPOSE`.
-
-`--xsd` validates the record inside an OAI-PMH envelope (each `oai:metadata` payload), not the
-envelope itself, and resolves the schema's own imports — AMCR 2.2 imports W3C's `xml.xsd` for
-`xml:lang`, which is served locally, since lxml's libxml2 fetches nothing over HTTP. Validation is
-warn-only and applies to metadata output only.
-
-**ALTO in append mode keeps the source and adds the translation as an `ALTERNATIVE`.** Every
-`String` keeps its `CONTENT` (the scanned text and its geometry are untouched) and gains ALTO's own
-element for "an alternative for the word", carrying the same English that replace mode would have
-written into that box:
-
-```xml
-<TextBlock ID="B1" LANG="cs">
-  <TextLine ID="L1">
-    <String CONTENT="Záchranný" HPOS="…" …><ALTERNATIVE PURPOSE="translation:en">Rescue</ALTERNATIVE></String>
-    <String CONTENT="výzkum" HPOS="…" …><ALTERNATIVE PURPOSE="translation:en">archaeological research</ALTERNATIVE></String>
-  </TextLine>
-</TextBlock>
-```
-
-The block keeps (or, when missing, gains) its **source** `LANG`, because its `CONTENT` is still in the
-source language; the translation half is labelled by the `PURPOSE`. The `String` inventory stays 1:1
-with the source. The per-`String` split is still one block translation distributed over the scanned
-boxes (see [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction)), not a word-by-word
-translation. `PURPOSE` exists on `ALTERNATIVE` from ALTO 2.1 on.
-
-**ALTO in replace mode** writes the English into `CONTENT` and moves any language label the block
-already carries (ABBYY writes `LANG="cs"` / `"sk"`) to the target language, so the output no longer
-claims Czech for English text. An unlabelled input stays unlabelled.
-
-Append mode is also **idempotent**: because its output is self-describing, a second pass over an
-already-translated document skips those fields (and ALTO blocks that already carry a translation
-`ALTERNATIVE`) instead of translating English into English.
-
-The effective mode is recorded in the paradata record and in the document record's `translations`
-block, so an artifact always says which contract produced it.
-
-### Metadata mode through the HTTP API
-
-`POST /translate` needs XPath targets for metadata mode, the same list the CLI reads from
-`config.txt`'s `fields =` key. The service reads it from `AMCR_FIELDS_PATH` (default
-`amcr-fields.txt`, already present in the image). With no readable file, ALTO requests are
-unaffected and metadata requests are refused with `422` naming the variable — never a `200`
-carrying an untranslated document.
-
-```bash
-curl -s -X POST localhost:8000/translate \
-     -F "file=@C-N1000019.xml" -F "is_alto=false" \
-     -F "source_lang=cs" -F "output_mode=replace"
-```
-
-`output_mode=append` works the same way, but its AMCR output does not validate against AMCR 2.2 (see above).
-The service does not validate against an XSD — run the batch image with `--xsd` for that. It applies a
-vocabulary only when the deployment sets `VOCABULARY_PATH` (see `service/README.md`); the CLI applies one
-when it is given with `--vocabulary` or named in config.txt.
-
-`is_alto`, `source_lang`, `target_lang` and `output_mode` are accepted **either** as multipart form
-fields or as query-string parameters.
-
-* `--document-json`: Optional baseline ATRIUM Document JSON to accrete onto (the cross-tool record passed along the pipeline).
-* `--document-json-out`: Destination path for the updated ATRIUM Document JSON.
-* `--download-dir`: Directory for URL-ingested inputs (default: `<output>/downloaded_inputs`).
-
-**Exit codes** — `0` success · `1` usage or configuration error · `2` no input matched
-the allowed formats · `3` one or more documents failed. Per-document failures are
-logged and the batch continues, but the process still exits `3`, so a `Job` or cron
-wrapper sees them.
-
----
-
-## 🌐 API Service
-
-The same pipeline behind an HTTP endpoint. Full operator documentation —
-request/response schemas, the error table, shutdown behaviour — is in
-**[service/README.md](service/README.md)** 📎; this is the overview.
-
-```bash
-docker compose --profile api up -d        # or: python -m service.api
-curl -sf -F "file=@page.alto.xml" \
-     "localhost:8000/translate?source_lang=cs&target_lang=en&is_alto=true" \
-     -o page_en.alto.xml
-```
-
-| Method | Path         | Purpose                                                                       |
-|--------|--------------|-------------------------------------------------------------------------------|
-| `POST` | `/translate` | Translate one XML document (multipart upload; returns the rewritten XML)      |
-| `GET`  | `/info`      | Service identity, version, endpoints, every limit (`limits`, `limits_meta`)   |
-| `GET`  | `/health`    | Liveness — 200 even mid-shutdown. `?deep=true` also checks the backing models |
-| `GET`  | `/ready`     | Readiness — 503 until warm, and 503 the instant `SIGTERM` arrives             |
-| `GET`  | `/docs`      | Swagger UI; machine-readable schema at `/openapi.json`                        |
-
-The service is **stateless**: per-request scratch lives in a `TemporaryDirectory`
-and dies with the request, so replicas scale horizontally with no shared state.
-
-> ⚠️ **There is no authentication or rate limiting.** `/translate` performs
-> unbounded outbound work against a translation backend on behalf of any caller.
-> Deploy it behind your own gateway, or on a trusted network — do not expose it
-> directly to the public internet.
-
----
-
-## ⚙️ Environment Variables
-
-**[.env.example](.env.example)** 📎 is the contract: every deployment-varying
-variable, with its default and a one-line explanation. Copy it to `.env` and edit.
-Configuration that varies per *run* rather than per *deployment* — input paths,
-formats, vocabulary, XPath targets — lives in [config.txt](config.txt) 📎 instead.
-
-The most commonly changed values:
-
-| Variable                    | Default            | Effect                                                         |
-|-----------------------------|--------------------|----------------------------------------------------------------|
-| `TRANSLATION_URL`           | LINDAT             | Translation endpoint — point it at a self-hosted service       |
-| `UDPIPE_URL`                | LINDAT             | UDPipe 2 endpoint used for vocabulary lemma matching           |
-| `TRANSLATION_BACKEND`       | `lindat`           | `lindat` or `openai_compatible` (then set the `LLM_*` values)  |
-| `PORT` / `HOST`             | `8000` / `0.0.0.0` | What the service binds, and what `healthcheck.py` probes       |
-| `LOG_LEVEL`                 | `INFO`             | Root logger level; logs go to stdout as an event stream        |
-| `MAX_UPLOAD_MB`             | `50`               | Upload limit, enforced while reading rather than after         |
-| `ALLOWED_ORIGINS`           | `*`                | CORS origins (CSV). Narrow this for a deployment               |
-| `GRACEFUL_SHUTDOWN_S`       | `20`               | How long uvicorn waits for in-flight requests on `SIGTERM`     |
-| `LINDAT_GUARD_RETRIES`      | `2`                | Re-requests of a degenerate (looping / empty / runaway) reply  |
-| `TRANSLATION_RERUN_ROUNDS`  | `1`                | End-of-document re-run rounds for flagged segments (`0` = off) |
-| `TRANSLATION_RERUN_DELAY_S` | `10.0`             | Cool-down before each re-run round                             |
-| `DEFAULT_SOURCE_LANG`       | `cs`               | `auto` runs: language an untrustworthy detection falls back to |
-| `LANG_ID_MIN_CONFIDENCE`    | `0.5`              | `auto` runs: FastText score a candidate needs                  |
-| `LANG_ID_MIN_LETTERS`       | `20`               | `auto` runs: shorter texts inherit label / document language   |
-
-**How `.env` reaches the process** — the distinction matters: `docker compose`
-injects it (both services declare `env_file`), but `python -m service.api` and
-`python main.py` do **not** (nothing here calls `load_dotenv`), and neither does
-Kubernetes. Outside a container, export them yourself:
-
-```bash
-set -a; . ./.env; set +a
-```
-
----
-
-## ☸️ Deployment
-
-The reference Kubernetes manifest and its acceptance runbook live in the hub
-repository, and are shared by all six ATRIUM services:
-
-* **[ufal/atrium-project → docs/k8s_deployment.md](https://github.com/ufal/atrium-project/blob/main/docs/k8s_deployment.md)**
-  — the manifest, the three probes, the port/bind configuration, and a *Known
-  limits* section worth reading before promising anything from it.
-* **[docs/templates/k8s/atrium-service.deployment.yaml](https://github.com/ufal/atrium-project/blob/main/docs/templates/k8s/atrium-service.deployment.yaml)**
-  — the manifest itself. Substitute the image and size `resources.limits.memory`;
-  everything else is identical across the six services by design.
-
-What this image gives an orchestrator:
-
-* `GET /ready` for `readinessProbe` and `startupProbe`, `GET /health` for
-  `livenessProbe` — both declared, and the Dockerfile carries a `HEALTHCHECK`.
-* `STOPSIGNAL SIGTERM`, after which `/ready` flips to 503 at once, new work is
-  refused with 503, and in-flight translation is allowed to finish before the
-  backend is torn down. A clean stop exits **143** (128 + SIGTERM), not 0.
-* One uvicorn process per container and no shared state, so scale out by
-  replica count.
-
-> ⚠️ A single `/translate` call issues one retried backend request per chunk and
-> can legitimately run for minutes. Raise `GRACEFUL_SHUTDOWN_S` **and** the
-> deployment's `terminationGracePeriodSeconds` together for large documents —
-> a request that outlives both is still cut short by `SIGKILL`.
-
----
-
-## 🧠 Logic Overview
-
-1. **Routing**: The script determines if it is running in ALTO mode (`--alto`, or `formats`
-   containing `alto.xml`) or XML Metadata mode (`--xpaths`).
-2. **Extraction & Translation**:
-   * **ALTO**: Iterates `Page` → `TextBlock` → `TextLine` → `String`, and reconstructs each
-     line's text from its `String` `CONTENT` attributes. Each block is translated with a
-     **dual-pass** strategy and the result is **realigned** to the physical line/`String`
-     layout — see [🧩 ALTO Dual-Pass Reconstruction](#-alto-dual-pass-reconstruction).
-   * **XML Metadata**: Uses deep recursive namespace extraction (essential for OAI-PMH envelopes and custom schema
-   wrappers). Finds elements matching the user-provided XPaths, translates their text content, and replaces it in the tree.
-   Compatible with any well-formed XML.
-3. **Language Identification** *(only with `--source_lang auto`)*: the document's language is resolved first, then
-   each ALTO `TextBlock` (applied to every line in it) or metadata field — see
-   [Source-language identification](#source-language-identification) below.
-4. **Vocabulary Overriding** *(optional)*: When a vocabulary CSV is loaded, the **Tag-and-Protect** strategy
-   is applied before each NMT call.  Multi-word phrases are matched first (longest-first substring), then single-word
-   terms are matched via **UDPipe lemmatisation** [^6] (with a singular/plural number-agreement guard).  Matched terms
-   are replaced with NMT-safe sentinels, translated, and then restored with the controlled vocabulary translations.
-5. **Sentence-Aware Chunking**: Texts longer than 4,000 characters are split at the highest-priority boundary available
-   in each window, in strict order: newline (`\n`) → sentence-terminal punctuation (`. `, `! `, `? `) → clause-level
-   punctuation (`; `, `, `) → word boundary, with a hard cut as the last resort. The priority is now actually enforced
-   (the highest tier with a match wins), so whole sentences are kept together for the NMT model, improving translation
-   quality compared to raw word-boundary splitting.
-6. **Output**: Generates the translated `.xml` file preserving all original tags and namespaces,
-   alongside a per-document `_log.csv` file for manual QA review.  Optionally validates against an XSD schema.
-
----
-
-### Source-language identification
-
-With `--source_lang auto` the pipeline never uses a raw FastText guess. On a real run over the Czech ALTO sample FastText
-answered `krc`, `yue`, `bod`, `epo` and `swh` for short OCR blocks — names, numbers, "Objednatel:" — and every such guess
-used to become the block's source language (UDPipe had no model for it, page batches split per bogus language, append mode
-would have written it into the output as `LANG`). Whenever detection could not run at all, the answer was `en` — the
-*target* — so the block was returned untranslated.
-
-`processors/language.py::resolve_source_language` decides instead, in this order:
-
-| # | Basis      | Used when                                                                                                                                                                                       |
-|---|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1 | `detected` | the text has at least `LANG_ID_MIN_LETTERS` (20) letters, and one of FastText's top-5 candidates scores at least `LANG_ID_MIN_CONFIDENCE` (0.5) **and** is a language the backend can translate |
-| 2 | `hint`     | the element's own label — ALTO `LANG`/`language` (ABBYY writes one per block), metadata `xml:lang` — names a language the backend can translate                                                 |
-| 3 | `context`  | the language of the whole document, resolved once, up front, by rule 1 over its first `LANG_ID_DOCUMENT_CHARS` (default 20 000) characters                                                      |
-| 4 | `default`  | the default source language: `--default-source-lang` → `default_source_lang` (config) → `DEFAULT_SOURCE_LANG` → `cs`                                                                            |
-
-"Can translate" is derived from the backend: for LINDAT, the source side of every model pair that ends in the target
-language (`cs, de, fr, pl, ru, uk` for English), plus the target itself (a block already in English is left as it is).
-`LANG_ID_LANGUAGES` narrows that set further. The text given to FastText is reduced to letters — digits and punctuation
-are most of an OCR fragment and none of its language.
-
-Each document logs one line of what happened, as a WARNING when FastText guesses were overridden:
-
-```
-MTX201501307_anon: source language — document cs (detected, FastText top guess cs 0.97);
-  blocks: cs 1193 (hint 988, context 158, detected 47); FastText guesses not used: eo×11, bod×6, swh×6, krc×5, yue×3.
-```
-
-**A language the backend cannot translate (translator#52).** When FastText is confident (at least
-`LANG_ID_MIN_CONFIDENCE`, on a text of at least `LANG_ID_MIN_LETTERS` letters) that a segment is a real language the
-backend cannot translate — Latin taxa, a Hungarian passage on LINDAT — and no translatable candidate scored as well, the
-segment still falls back through rules 2–4 and is translated from that language, but it is reported: its `_log.csv` rows
-say `unsupported_lang`, the Document JSON counts it in `translations.unsupported_source_langs` (`{"hu": 1, "la": 2}`), and
-the document's log line ends with `identified as a language the backend cannot translate, translated from the fallback:
-la×2, hu×1`. An untrustworthy guess (below the threshold, an exotic FastText label such as `yue`, a text too short to
-judge) is not reported. A backend that does translate the language (EuroLLM, MADLAD: `ct2`) simply uses the detection.
-
-The resolved document language is recorded in the Document JSON (`translations.detected_source_lang`) and the policy in
-paradata. To tune the two thresholds on real data, `python -m eval.langid_report <file.alto.xml> > langid.csv` lists, per
-block, FastText's top-3 guesses next to the resolved language and its basis (it honours the same environment variables).
-
-> **On a single-language corpus, pass `--source_lang cs`.** No detection runs, and the CC BY-NC FastText model is not
-> loaded (see the licensing note below).
-
-### 🧩 ALTO Dual-Pass Reconstruction
-
-ALTO stores text spatially: each `TextLine` holds a sequence of `String` elements, and each
-`String` carries one token in its `CONTENT` attribute (plus its position). Translating naively
-line-by-line loses cross-line context and produces poor NMT output; translating only the whole
-block produces fluent text but discards the line/`String` structure that must be preserved.
-
-The wrapper resolves this tension per `TextBlock` in six stages (implemented in
-`process_alto_xml` and `_align_tokens_to_lines` in `utils.py`):
-
-1. **Gather** — for every `TextLine` in the block, collect its `String` elements and
-   reconstruct the original line text by joining their `CONTENT` values.
-2. **Aggregate** — concatenate all line texts into a single block-level string.
-3. **Resolve the language** — (when `--source_lang auto`) **once for the whole block**, so every line in the
-   block is translated with a consistent source language; a block FastText cannot judge reliably takes its
-   `LANG` label or the document's language (see
-   [Source-language identification](#source-language-identification)).
-4. **Pass 1 — block translation** — translate the full block text (all blocks of a page in one
-   batched request, see [Page-Level Batching](#performance-page-level-batching)).
-   This is the **high-quality semantic translation** whose tokens are written back to the document.
-5. **Pass 2 — line translations** — translate each non-empty line of every translated block that has
-   at least two text lines (batched per page). These per-line translations are *not* written to the
-   output; they serve only as **structural anchors** that tell the aligner roughly how many words
-   each physical line should receive.
-6. **Validation, flagging, re-run** — every block translation and every anchor is checked against
-   its own source (see [Degenerate-output guard](#degenerate-output-guard-flagging-and-re-run)). A block
-   or anchor that is still unusable is **flagged**, and all flagged segments are re-run after the last
-   page. A block that never recovers keeps its source text and is not redistributed at all.
-7. **Alignment + redistribution**:
-   * `_align_block` partitions the Pass-1 block tokens into one bucket per line. An anchor is used
-     only if it is a plausible translation **of its own source line**; then the original rule
-     applies — a sliding window of ±50 % around the anchor's word count, choosing the split point
-     that maximises `difflib.SequenceMatcher` similarity against the anchor. A line whose anchor is
-     empty, looping, runaway or truncated instead gets a **proportional share of the remaining
-     tokens by the remaining source word counts** (logged `approx_alignment`), so one bad anchor can
-     neither starve nor flood its neighbours. No line with source text is left empty while tokens
-     remain, and the **last line with source text** receives the remainder.
-   * A block whose translation has **fewer words than it has lines of text** cannot be split at all:
-     a split only cuts the translation, never inserts into it, so every line after a missing word
-     would show its neighbour's text and the last lines none. That is a table column whose repeated
-     cells the model merged (page 76 of the sample: 42 numbers came back as 39). Each line then takes
-     **its own line translation** — the anchor, `76` → `76`; a line without a usable one keeps its
-     source text and is logged `untranslated`. The per-document summary names such blocks.
-   * Within each line, the bucket's tokens are distributed across that line's `String`
-     elements with a **greedy 1-to-1 mapping**: each `String` except the last gets one token
-     (empty string if the bucket is exhausted), and the **last `String` of the line absorbs
-     all remaining tokens**.
-   * The values go into `CONTENT` in `replace` mode, or into a
-     `<ALTERNATIVE PURPOSE="translation:<lang>">` child of the untouched `String` in `append` mode.
-
-This guarantees that translated words never cross line boundaries, that every `String`
-element retains its original position, and that no token from the block translation is lost.
-
-> **Why the anchors are validated:** the 2026-09-26 refresh showed what an unvalidated anchor does.
-> With page-level batching the anchors are one request per page; a degenerate reply filled some anchor
-> slots with 50+ words and left the others empty, and the anchor-trusting aligner turned that into
-> lines holding 71 words next to lines holding none — invisibly, since anchors are never logged.
-
-> **Per-page API cost:** normally **2** batched calls per language group (blocks + anchors). A
-> fallback costs one call per block or line on that page; a flagged segment costs up to
-> `LINDAT_GUARD_RETRIES` re-requests plus `TRANSLATION_RERUN_ROUNDS` re-runs. With a vocabulary loaded,
-> each call also runs the Tag-and-Protect pipeline.
-
-> **Edge cases:**
-> * A block with a **single text line** skips the alignment search — all block tokens go to that line.
-> * Lines whose original text is empty receive an empty bucket (and no anchor translation).
-> * If Pass 1 yields **fewer** tokens than there are `String` elements in a line, the trailing
->   `String` elements are set to empty `CONTENT` (append: no `ALTERNATIVE`); if it yields **more**,
->   the surplus is crammed into the line's last `String`.
-> * `--fast-align` skips Pass 2 and places every line by source word count. It has no line translations to
->   fall back on, so every line of a block with fewer words than lines is logged `approx_alignment`, and so is
->   any line with source text that the word-count split leaves empty.
-
----
-
-## 📊 Translation CSV Logs
-
-The wrapper generates a **per-document** CSV log for every processed XML file, named
-`<original_filename>_log.csv` (e.g., [MTX201501307_anon_log.csv](data_samples/in-place_translated_files/alto/MTX201501307_anon_log.csv)📎). These logs are written to the same output directory
-as the translated XML files and are intended for **line-by-line manual QA review**.
-
-| Column               | ALTO value                                        | XML Metadata value     |
-|----------------------|---------------------------------------------------|------------------------|
-| `file`               | source filename (stem)                            | source filename (stem) |
-| `page_num`           | page index (1-based)                              | *(empty)*              |
-| `line_num`           | `TextLine` element ID                             | full XPath expression  |
-| `text_<source_lang>` | original `CONTENT` text of the line               | original element text  |
-| `text_<target_lang>` | translated text **as redistributed to that line** | translated text        |
-| `status`             | how the line's translation was obtained (below)   | same                   |
-
-| `status`           | Meaning                                                                                                                                                                                                                      |
-|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ok`               | Translated and aligned normally.                                                                                                                                                                                             |
-| `rerun`            | Flagged during processing (degenerate reply) and recovered by the end-of-document re-run.                                                                                                                                    |
-| `approx_alignment` | ALTO only: the line's anchor was unusable, so its words were placed by source word count (`--fast-align`: its block came back with fewer words than lines).                                                                  |
-| `untranslated`     | Still degenerate after the re-run: the **source text was kept** in the output and the target cell is empty (ALTO: also a line that needed its own line translation and had no usable one).                                   |
-| `unsupported_lang` | `--source_lang auto` only: the segment was identified as a language the backend cannot translate and was translated from the fallback language (translator#52); review it. `untranslated` outranks it, it outranks the rest. |
-
-> **Note (ALTO):** Because the target column reflects the tokens *aligned and redistributed*
-> to each physical line (not a standalone re-translation), it shows exactly what was written
-> into that line's `String` elements (or their `ALTERNATIVE`s in append mode) — making the CSV a
-> faithful audit of the reconstruction. Rows are written once per document, in document order: the log is written to
-> `<doc>_log.csv.partial` and swapped into place when the document is done, so the previous log stays readable (and
-> consistent with the previous XML) for the whole run, and a failed or interrupted run never leaves an empty log.
-
-The column names for the source and target text are dynamic: they reflect the actual
-language codes in use (e.g., `text_auto` / `text_en` when running with
-`--source_lang auto --target_lang en`).
-
-**Example** ([C-TX-202500252.xml](data_samples/my_documents/C-TX-202500252.xml)📎):
-
-```
-file,page_num,line_num,text_auto,text_en,status
-C-TX-202500252,,//amcr:amcr/amcr:dokument/amcr:popis,"Stará Boleslav - odvodnění ohradní kamenné zdi …","Old Boleslav - drainage of enclosure stone wall …",ok
-```
-
----
-
-## 🗄️ Paradata JSON Logs
-
-The wrapper generates a **run-level** JSON provenance record after every execution, named
-`YYMMDD-HHmmss_translator.json`. It is written to the run's **output directory** alongside the
-translated files (the in-repo [paradata](data_samples/in-place_translated_files/alto/paradata) 📁 directories
-under `data_samples/` hold only example logs for development). The `/translate` service writes no
-such file: it returns each call's run as a Process Run Crate `CreateAction`, the response's
-`paradata` (atrium-project#71, [service/README.md](service/README.md)).
-
-They are separate from the per-document translation CSV logs above: CSV logs capture what was
-translated line by line; paradata JSONs capture *how the run was configured and what it produced in
-aggregate*.
-
-For single-file workflows, where one input passes through several tools or repositories, the
-per-tool logs can be fused into one record per input file via `merge_paradata_files()`; the merged
-record re-derives the end-to-end license from the union of all components used.
-
-<details>
-<summary>Paradata fields and Example paradata JSON structure 👀</summary>
-
-### Fields of the paradata JSON
-
-| Key                                 | Description                                                                                                                                                                                                                   |
-|-------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `schema_version`                    | Paradata schema version (currently `"2.0"`)                                                                                                                                                                                   |
-| `program`                           | Always `"translator"`                                                                                                                                                                                                         |
-| `tool_version`                      | Tool version tag, from `para_config.txt` (e.g. `v1.2.0-beta`)                                                                                                                                                                 |
-| `repository`                        | Runner repository; resolved dynamically (`ATRIUM_RUNNER_REPO` env if set)                                                                                                                                                     |
-| `runner_ref`                        | Git ref/SHA the running container was built from (`ATRIUM_RUNNER_REF`)                                                                                                                                                        |
-| `docker_image`                      | Running container image (`ATRIUM_RUNNER_IMAGE`); empty placeholder if unset                                                                                                                                                   |
-| `run_id`                            | Timestamp-based unique run identifier                                                                                                                                                                                         |
-| `license`                           | Effective output license, **computed** from the components actually used                                                                                                                                                      |
-| `license_url`                       | Canonical URL for the effective license                                                                                                                                                                                       |
-| `license_detail`                    | Resolution breakdown: per-component licenses, `is_non_commercial`, `is_share_alike`, `determined_by`, notes                                                                                                                   |
-| `start_time` / `end_time`           | ISO 8601 UTC timestamps                                                                                                                                                                                                       |
-| `duration_seconds`                  | Wall-clock runtime                                                                                                                                                                                                            |
-| `config`                            | Snapshot of all CLI / config-file parameters used (incl. `vocabulary_protected_terms` when a vocab is used)                                                                                                                   |
-| `statistics.input_files_total`      | Number of input files submitted                                                                                                                                                                                               |
-| `statistics.successfully_processed` | Number of files that produced output                                                                                                                                                                                          |
-| `statistics.skipped_files`          | Number of files skipped due to errors                                                                                                                                                                                         |
-| `statistics.output_counts_by_type`  | Per-type file counts (`xml`, `csv`)                                                                                                                                                                                           |
-| `statistics.performance_per_minute` | Files produced per minute per output type                                                                                                                                                                                     |
-| `skipped_files_detail`              | List of `{file, reason, timestamp}` objects for every skip                                                                                                                                                                    |
-| `limits_applied`                    | Every limit that shaped a result without refusing it (`limit`, `effect`, `value`, count, detail) — e.g. a segment split at `TRANSLATION_CHUNK_CHARS`, fields kept in the source language after the re-run (atrium-project#53) |
-
-> **Note on licensing:** the license is no longer a fixed value. It is the most restrictive license
-> among the components used in the run. A run that exercises the LINDAT translation models and the
-> UDPipe linguistic models resolves to **CC BY-NC-SA 4.0** (non-commercial, share-alike); the
-> component→license mapping lives in this repository's [para_config.txt](para_config.txt) 📎. The
-> document record of every translated file carries the same resolution — the backend's components
-> are recorded before the record takes its licence block, so a one-file run (one pipeline stage, one
-> `/translate` call) states the same licence as a batch.
-
-### Example paradata JSON structure
-
-```json
-{
-  "schema_version": "2.0",
-  "program": "translator",
-  "tool_version": "v1.2.0-beta",
-  "repository": "https://github.com/ufal/atrium-translator",
-  "runner_ref": "",
-  "docker_image": "",
-  "run_id": "260926-140045",
-  "license": "CC BY-NC-SA 4.0",
-  "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
-  "license_detail": {
-    "effective_license": "CC BY-NC-SA 4.0",
-    "is_non_commercial": true,
-    "is_share_alike": true,
-    "determined_by": ["lindat_cubbitt", "udpipe2_models"],
-    "components": [
-      { "name": "fasttext",       "license": "CC BY-NC 4.0" },
-      { "name": "lindat_cubbitt", "license": "CC BY-NC-SA 4.0" },
-      { "name": "udpipe2_engine", "license": "MPL 2.0" },
-      { "name": "udpipe2_models", "license": "CC BY-NC-SA 4.0" },
-      { "name": "amcr_vocab",     "license": "CC0" },
-      { "name": "teater_data",    "license": "CC0" }
-    ]
-  },
-  "duration_seconds": 138.85,
-  "config": {
-    "source_lang": "auto",
-    "target_lang": "en",
-    "mode": "metadata",
-    "output_mode": "replace",
-    "translation_backend": "lindat",
-    "vocabulary": "data_samples/vocabulary.csv",
-    "default_source_lang": "cs",
-    "fasttext_confidence_threshold": 0.5,
-    "lang_id_min_letters": 20,
-    "lang_id_languages": "backend-supported",
-    "vocabulary_protected_terms_total": 113,
-    "lindat_degenerate_replies_total": 37
-  },
-  "statistics": {
-    "input_files_total": 15,
-    "successfully_processed": 15,
-    "skipped_files": 0,
-    "output_counts_by_type": { "xml": 15, "csv": 15, "json": 0 },
-    "performance_per_minute": { "xml": 6.48, "csv": 6.48, "json": 0.0 }
-  },
-  "skipped_files_detail": []
-}
-```
-</details>
-
-The logger is written by [atrium_paradata.py](atrium_paradata.py) 📎 (shared across all ATRIUM
-pipeline repositories), which reads this repository's [para_config.txt](para_config.txt) 📎 for the
-tool version and the component→license table, and resolves the effective license via
-[para_licenses.py](para_licenses.py) 📎.
-
-### Document record schema 📑
-
-The per-document record this tool reads and writes — `<doc_id>.document.json`, the pair of the
-paradata above — follows [atrium_document.schema.json](atrium_document.schema.json) 📎, schema
-version **`1.0`**. That version is frozen as the hub tag
-[`doc-schema-v1`](https://github.com/ufal/atrium-project/releases/tag/doc-schema-v1)
-(ufal/atrium-project@`544298b`), and it is the baseline this tool implements:
-
-* [tests/test_schema_freeze.py](tests/test_schema_freeze.py) 📎 checks this repository's schema
-  against the frozen copy beside it,
-  [atrium_document.schema.doc-schema-v1.json](atrium_document.schema.doc-schema-v1.json) 📎: the
-  copy is exactly the tagged file, nothing declared at the freeze has been removed or renamed, and
-  every change made since is registered;
-* all three files, like `atrium_document.py`, are vendored from the hub and kept byte-identical to
-  its `v1` tag by the `para-drift` CI check, so they are never edited in this repository. The hub
-  additionally checks that every record shape the tools write validates under both the frozen and
-  the current schema.
-
-What this tool writes into the record: the `translations` block (`source_lang`, `target_lang`, `backend`,
-`output_mode`, `detected_source_lang` and, when an `auto` run met a language it cannot translate,
-`unsupported_source_langs`), `derived_from.translated_xml` and the licence block.
-**`entities[].translation_en` is reserved:** the schema assigns it to the translator, but `entities[]` is written by
-nlp-enrich, which runs after the translator, so no code path here writes it. It stays reserved
-([atrium-project#70](https://github.com/ufal/atrium-project/issues/70), decided 2026-09-30): the AMČR pilot
-produces English only for free-text metadata, so nothing asks for English entity names.
-
-What may change after the freeze, and what a new major version takes, is in the hub's
-[Freeze & conformance](https://github.com/ufal/atrium-project/blob/main/docs/document_schema.md#freeze--conformance).
-[CITATION.cff](CITATION.cff) 📎 carries the same reference under `references`.
-
----
-
-## 📄 License & Citation
-
-The **code** is MIT licensed — see [LICENSE](LICENSE) 📎.
-
-The **licence of what it produces is computed per run**, not fixed, because it
-depends on which components a run actually exercised. `lindat_cubbitt` is
-CC BY-NC-SA 4.0 and the FastText language-ID weights are CC BY-NC 4.0, so a
-default run using CUBBITT yields **non-commercial** output. The component→licence
-table is [para_config.txt](para_config.txt) 📎, the resolution lives in
-[para_licenses.py](para_licenses.py) 📎, and the effective result is written into
-every paradata record as `license`, `license_url` and `license_detail`.
-
-> **If you need commercially usable output**:
->
-> * select a permissively licensed backend: `--backend ct2` with
->   `CT2_MODEL_FAMILY=eurollm`, `madlad` or `opus` (**not** `nllb`, whose weights are
->   CC BY-NC 4.0), or `--backend openai_compatible` once the provider's actual terms
->   are recorded for `llm_api` in [para_config.txt](para_config.txt) 📎 — until then
->   that component is an unrecognised licence, which resolves as non-commercial and
->   share-alike;
-> * pass an explicit `--source_lang`, so the CC BY-NC FastText model is never loaded;
-> * the AMCR/TEATER vocabulary may stay: both are **CC0**, as their rights holder AMČR stated in
->   [atrium-project#6](https://github.com/ufal/atrium-project/issues/6#issuecomment-5867861653) (2026-09-28). Paradata
->   written before then labels them CC BY-NC 4.0. With LINDAT, Tag-and-Protect still brings UDPipe's CC BY-NC-SA models;
-> * check the `license_detail` block of the paradata for the run — it records which
->   components were exercised and why the result resolved as it did.
->
-> See [docs/translation-backends.md](docs/translation-backends.md) 📎 for the
-> licensing matrix.
-
-To cite this tool, use [CITATION.cff](CITATION.cff) 📎 — GitHub renders it as
-*"Cite this repository"* in the sidebar.
-
----
-
-## 🙏 Acknowledgements
-
-**Support & questions:** open an issue on the repository [^2] 🔗, or write to **lutsai@ufal.mff.cuni.cz**.
-
-- **Developed by** UFAL [^3] 👥
-- **Funded by** ATRIUM [^4] 💰
-- **Shared by** ATRIUM [^4] & UFAL [^3] 🔗
-- **Translation API**: LINDAT/CLARIAH-CZ Translation Service [^1] 🔗
-- **Lemmatisation API**: LINDAT/CLARIAH-CZ UDPipe Service [^6] 🔗
-- **Language Identification**: Facebook FastText [^5] 🔗
-- **Vocabulary Sources**: AMCR OAI-PMH API [^7] 🔗, TEATER GraphQL API [^8] 🔗
-
-**©️ 2026 UFAL & ATRIUM**
-
-[^1]: https://lindat.mff.cuni.cz/services/translation/
-[^2]: https://github.com/ufal/atrium-translator
-[^3]: https://ufal.mff.cuni.cz/home-page
-[^4]: https://atrium-research.eu/
-[^5]: https://huggingface.co/facebook/fasttext-language-identification
-[^6]: https://lindat.mff.cuni.cz/services/udpipe/
-[^7]: https://api.aiscr.cz/2.2/oai?verb=ListRecords&metadataPrefix=oai_amcr&set=heslo
-[^8]: https://teater.aiscr.cz/
+`out/paradata/` holds the run's record. The ALTO page in the same folder is skipped, because this is a metadata
+run. The output of such a run, made on 2026-10-19, is in
+[data_samples/in-place_translated_files/xml/](data_samples/in-place_translated_files/xml/) for comparison.
+
+**What the run calls.** LINDAT's translation service, and its UDPipe service too, because the shipped
+[config.txt](config.txt) names the bundled vocabulary (terms are matched by lemma); `api.aiscr.cz` for the schema.
+Without LINDAT, each request is retried (`LINDAT_MAX_RETRIES`, 4 by default), then the document fails, the batch
+goes on, and the run exits 3. Without UDPipe, the terms of a passage go unprotected and the run says so. Without
+the schema, the run stops before translating anything, with exit code 1.
+
+**As a service**, the `ghcr.io/ufal/atrium-translator-api` image answers `POST /translate` with the translated
+document. It does no XSD check. Its quick start, endpoints and errors are in [service/README.md](service/README.md).
+
+## How it works
+
+Each document is translated in pieces: an ALTO text block, or a metadata field. Unless the source language is
+given, FastText identifies it per piece, and a guess is used only when it is confident and names a language the
+backend can translate. Long texts are split at sentence boundaries. When a vocabulary is loaded, its terms keep
+their agreed English: the LINDAT backend masks them before translation and restores them afterwards; the language
+models get them as a glossary. Every reply is checked against its source. A reply that is empty, runaway, cut
+short or looping is requested again, re-run at the end of the document, and, if it never recovers, the source text
+is kept and logged `untranslated`. An ALTO block is translated whole for fluency and line by line as a ruler; the
+fluent translation is then divided among the original lines and word boxes. Details:
+[docs/how-it-works.md](docs/how-it-works.md).
+
+## Where it fits in ATRIUM
+
+In the AMČR pilot the translator gives AMČR records their English free-text fields. In the scanned-document
+pipeline it reads the per-page ALTO that ocr-postprocess writes. Its output is an end product, an edition for
+readers: no later stage reads it, and the document record refers to it as `derived_from.translated_xml`. The whole
+workflow: the [hub's workflow page](https://ufal.github.io/atrium-project/workflows/translator/).
+
+## Limits and maturity
+
+- **A language pair the backend cannot translate is refused** before anything is translated: the command line
+  exits 1, the service answers 422 `unsupported_language_pair`. Into English, LINDAT translates from Czech,
+  German, French, Polish, Russian and Ukrainian.
+- **LINDAT is a public research service** without a service-level agreement. On 2026-09-26 one of its replicas
+  answered every other request with a loop; the output guard recovers such replies at the cost of time, and a
+  daily check watches the endpoint ([what was measured](docs/evaluation/lindat-replies.md)).
+- **`append` output is not valid AMČR 2.2**: the schema allows neither `xml:lang` on the free-text fields nor a
+  second copy of them. Where a record must validate, use `replace`, the default. ALTO output is valid ALTO 3.1 in
+  either mode.
+- **Word positions in translated ALTO are approximate.** Line boundaries are exact; how a line's words are spread
+  over its word boxes is constructed.
+- **`ct2` on a GPU needs CUDA 12's cuBLAS** (12.8 or newer on a Blackwell card). EuroLLM on `ct2` drops short
+  segments, and the published images do not include the `ct2` dependencies.
+- **Translation quality is not measured against references.** The backend comparison of 2026-10-19 is
+  reference-less and small, and no human has scored the translations yet
+  ([the bake-off](docs/evaluation/backends.md)). The tests check behaviour, not translation quality.
+- **The service has no authentication or rate limiting.** Deploy it behind a gateway or on a trusted network.
+
+More: the service's [Known limits](service/README.md#known-limits).
+
+## Documentation
+
+| To                                                             | Read                                                                                                                                                   |
+|----------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 📘 set it up, translate ALTO and metadata, choose a mode       | [docs/usage.md](docs/usage.md)                                                                                                                         |
+| 🛠️ deploy and operate the service, its errors and limits      | [service/README.md](service/README.md)                                                                                                                 |
+| 📜 see the API contract                                        | [service/openapi.json](service/openapi.json)                                                                                                           |
+| ⚙️ set every option: config.txt and the environment            | [docs/configuration.md](docs/configuration.md)                                                                                                         |
+| 💡 understand languages, the guard, the ALTO reconstruction    | [docs/how-it-works.md](docs/how-it-works.md)                                                                                                           |
+| 🔎 look up the command line, outputs, paradata, the vocabulary | [cli](docs/reference/cli.md), [outputs](docs/reference/outputs.md), [paradata](docs/reference/paradata.md), [vocabulary](docs/reference/vocabulary.md) |
+| ⚖️ see the components of a run and their licences              | [docs/reference/licences.md](docs/reference/licences.md)                                                                                               |
+| 📊 see what was measured: the backends, LINDAT's replies       | [backends](docs/evaluation/backends.md), [LINDAT's replies](docs/evaluation/lindat-replies.md)                                                         |
+| 🧭 read why it is built this way                               | [backend choice](docs/decisions/backend-choice.md), [replace or append](docs/decisions/output-mode.md), [history](docs/decisions/history.md)           |
+| 🤝 contribute, test, release; the release history              | [docs/development.md](docs/development.md), [CONTRIBUTING.md](CONTRIBUTING.md)                                                                         |
+
+The documentation follows the ATRIUM
+[documentation style](https://github.com/ufal/atrium-project/blob/test/docs/documentation-style.md).
+
+## Licence, citation and acknowledgements
+
+The code is MIT ([LICENSE](LICENSE)). Each run records the components it used, each with its own licence or
+terms. The LINDAT translation and UDPipe services are offered under the
+[LINDAT Terms of Use](https://lindat.mff.cuni.cz/en/terms-of-use), and their CUBBITT and UDPipe models are
+CC BY-NC-SA 4.0. The [FastText language-identification model](https://huggingface.co/facebook/fasttext-language-identification)
+is CC BY-NC 4.0 and is used only when the source language is detected. The AMČR and TEATER vocabularies are CC0. A
+self-hosted model has its own licence; Qwen3.8-27B, for example, is Apache-2.0. The field `license` in the
+paradata and in the document record is a calculated summary of those components, the most restrictive of their
+licences. It is not the licence of the translation. The rights in an output depend on the source document, and are
+stated by whoever holds them ([Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/)).
+The components, when each is used, and the inventory in [para_config.txt](para_config.txt):
+[docs/reference/licences.md](docs/reference/licences.md). Cite with [CITATION.cff](CITATION.cff), which GitHub shows as
+"Cite this repository".
+
+Developed by [ÚFAL](https://ufal.mff.cuni.cz/), Charles University, with AMČR (the Archaeological Map of the Czech
+Republic) as the pipeline partner. Funded by [ATRIUM](https://atrium-research.eu/) (GA 101132163), with the support
+of the LINDAT/CLARIAH-CZ research infrastructure and the AIS CR infrastructure (LM2023031). It translates with the
+[LINDAT translation service](https://lindat.mff.cuni.cz/services/translation/), lemmatises with
+[UDPipe](https://lindat.mff.cuni.cz/services/udpipe/), and builds its vocabulary from the
+[AMČR OAI-PMH API](https://api.aiscr.cz/2.2/oai?verb=ListRecords&metadataPrefix=oai_amcr&set=heslo) and
+[TEATER](https://teater.aiscr.cz/). © 2026 ÚFAL and ATRIUM. Contact: the
+[issue tracker](https://github.com/ufal/atrium-translator/issues), or lutsai@ufal.mff.cuni.cz.

@@ -635,3 +635,25 @@ cell-merging stub: only page 76 changes, every number on its own row.
 * **Also:** `scheduled-smoke.yml` uses the lane notifier (atrium-project#81); `atrium_vocab.py` and its tests re-vendored
   (atrium-project#51).
 * **Checks:** 1,197 passed, 3 skipped (Python 3.11); `workflow_lint.py` and actionlint clean.
+
+## 2026-10-25 — The documentation on the skeleton, the hub's section folded back (atrium-project#79); #46 to close
+* **Shared modules (hub re-vendor, atrium-project#13, #6, #79):** `atrium_rocrate.py` writes David Novák's
+  correct ORCID (`0000-0001-6592-6291`) as a tool creator in every crate; `atrium_document.schema.json` describes
+  `provenance.license*` as calculated from the components, not the output's licence (descriptions only, no
+  `POST_FREEZE_CHANGES` entry); an `atrium_vocab.py` comment names page-classification's new categories page.
+  `service/openapi.json` regenerated: description-only, and the `x-atrium-record-schema` digest.
+* **`CITATION.cff`:** the ORCID corrected; each author's affiliation in its ROR name (Charles University;
+  Czech Academy of Sciences, Institute of Archaeology, Prague). Authors unchanged until they confirm (#13).
+* **atrium-project#81:** `release.yml` gains the `image` job (the hub's `docker-tool.reusable.yml` with this
+  repository's `docker.yml` inputs and `release-gate: true`), the `simulate-probe-failure` dispatch input, and
+  `images.json` in the release; `docker.yml` no longer runs on tags. It takes effect at the next tag, after
+  digital-convert's dispatched demonstration. No version bump.
+* **atrium-project#79:** README 1,230 → 164 lines on the hub's template; the rest, the hub's five
+  `tools/translator/` pages and the backend evaluation moved into `docs/` (usage, configuration, how-it-works,
+  development, reference/, evaluation/, decisions/); `docs/translation-backends.md` stays as a pointer, since
+  code, config and samples name it. Map: the hub's `plans/79.translator_relocation_map.md`. The licence text
+  follows #6 (a calculated summary, not the translation's licence). CONTRIBUTING: plain headings, the release
+  arcs from the hub's changelog, the table's rows and columns as before.
+* **#46:** the closing comment is drafted: AMČR's metadata run is in atrium-project#77's runbook.
+* **Checks:** 1,189 passed, 3 skipped (a `fasttext` stand-in, which does not build in the sandbox); docs_check,
+  runbook_check OK.

@@ -1,4 +1,14 @@
-# ATRIUM Translator API service 🌐
+# ATRIUM Translator API service
+
+The runbook of the translator's HTTP service, for whoever deploys and operates it or calls it from another
+stage: how to start it, its models and caches, endpoints, errors, limits, configuration and known limits. The command
+line is in [docs/usage.md](../docs/usage.md); how a translation is made, in [docs/how-it-works.md](../docs/how-it-works.md).
+
+On this page: [Quick start](#quick-start) · [Models and caches](#models-and-caches) · [Endpoints](#endpoints) ·
+[Errors](#errors) · [OpenAPI](#openapi-the-typed-contract) · [How it works](#how-it-works) ·
+[Configuration](#configuration-environment) · [Limits](#limits) · [Partial results](#partial-results) ·
+[Known limits](#known-limits) · [Shutdown behavior](#shutdown-behavior-issue-55) · [Deployment](#deployment) ·
+[Tests](#tests)
 
 Structure-preserving translation of ALTO/AMCR XML. Chunks the document, translates each
 chunk through the configured backend (LINDAT CUBBITT by default), and returns the
@@ -43,17 +53,17 @@ download it at start.
 
 ## Endpoints
 
-| Method | Path         | Purpose                                                                                                                                                                                |
-|--------|--------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GET    | `/info`      | service identity + capabilities: `service`, `version`, `endpoints`, `limits` (every [limit](#limits), current value), `limits_meta` (the variable that sets each), `supported_formats` |
-| GET    | `/health`    | liveness probe — 200 always, even mid-shutdown. `?deep=true` additionally checks the translation backend warmed up (503 on failure or while draining)                                  |
-| GET    | `/ready`     | readiness probe (issue #55) — 503 until the backend has warmed up, 200 while serving, 503 the instant `SIGTERM` arrives. The Kubernetes `readinessProbe`/`startupProbe` target         |
-| POST   | `/translate` | translate one XML document (multipart upload; optional baseline ATRIUM Document JSON)                                                                                                  |
+| Method | Path         | Purpose                                                                                                                                                                                                                      |
+|--------|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GET    | `/info`      | service identity + capabilities: `service`, `version`, `endpoints`, `limits` (every [limit](#limits), current value), `limits_meta` (the variable that sets each), `supported_formats` (`["ALTO XML", "AMCR Metadata XML"]`) |
+| GET    | `/health`    | liveness probe — 200 `{"status": "ok"}` always, even mid-shutdown. `?deep=true` additionally checks the translation backend warmed up (503 on failure or while draining)                                                     |
+| GET    | `/ready`     | readiness probe (issue #55) — 503 `starting` until the backend has warmed up, 200 `ready` while serving, 503 `draining` the instant `SIGTERM` arrives. The Kubernetes `readinessProbe`/`startupProbe` target                 |
+| POST   | `/translate` | translate one XML document (multipart upload; optional baseline ATRIUM Document JSON)                                                                                                                                        |
 
 Machine-readable schemas: the committed [`openapi.json`](openapi.json), which every release also
 attaches (see [OpenAPI](#openapi-the-typed-contract)); or `GET /openapi.json` and the Swagger UI at
-`/docs` from a running server. The repo-root `README.md` covers the CLI and the translation logic
-itself.
+`/docs` from a running server. The command line is in [docs/usage.md](../docs/usage.md), the translation logic in
+[docs/how-it-works.md](../docs/how-it-works.md).
 
 ### `POST /translate` (multipart form)
 
@@ -82,7 +92,7 @@ curl -sf -F "file=@page.alto.xml" \
 `Content-Disposition: attachment; filename="<doc>_<lang>.alto.xml"` — the body is
 the translated document, structurally identical to the input.
 
-When `document_json` is supplied the response is instead `multipart/mixed`: the
+When `document_json` is supplied the response is instead `multipart/mixed` (a uuid4 boundary): the
 translated XML first, then the updated ATRIUM Document JSON, then `limits_applied.json`
 (see [Limits](#limits)), then `paradata.json` (`application/ld+json`, the call's
 provenance, below), each with its own `Content-Disposition` filename.
@@ -194,9 +204,11 @@ The XML and multipart answers of `/translate` are declared as their media types;
    a tidy-up: uvicorn's `SIGTERM` handler is an event-loop callback, so a
    synchronous translation holding the loop would make the shutdown contract
    unenforceable.
-4. **Record** — a paradata JSON is written for the run, including the translation
-   endpoint *actually resolved* (issue #63) rather than a literal, and the
-   effective licence computed from the components the run exercised.
+4. **Record** — the call's provenance is built (the `CreateAction` returned as `paradata`; no
+   paradata file is written), including the translation endpoint *actually resolved* (issue #63)
+   rather than a literal, and the components the run used, each with its licence or terms
+   ([licences](../docs/reference/licences.md)); the record's `license` is a computed summary of
+   those components, not the licence of the translation.
 5. **Return** — the rewritten XML streams back as an attachment; the
    `TemporaryDirectory` is removed as the request ends.
 
@@ -204,9 +216,9 @@ The XML and multipart answers of `/translate` are declared as their media types;
 
 | Variable                    | Default           | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                               |
 |-----------------------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `MAX_UPLOAD_MB`             | `50`              | canonical upload limit                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `ALLOWED_ORIGINS`           | `*`               | CSV of CORS origins. The code default is the `*` wildcard (credentials are then disabled, per the CORS spec); `.env.example` ships it commented (`# ALLOWED_ORIGINS=*`) so the default stays `*` until an operator narrows it.                                                                                                                                                                                                        |
-| `TRANSLATION_BACKEND`       | `lindat`          | backend seam shared with the CLI (issue #4)                                                                                                                                                                                                                                                                                                                                                                                           |
+| `MAX_UPLOAD_MB`             | `50`              | canonical upload limit, sized for ALTO XML in and ALTO XML out                                                                                                                                                                                                                                                                                                                                                                        |
+| `ALLOWED_ORIGINS`           | `*`               | CSV of CORS origins. The code default is the `*` wildcard (credentials are then disabled, per the CORS spec); `.env.example` ships it commented (`# ALLOWED_ORIGINS=*`) so the default stays `*` until an operator narrows it; an empty value means no origin.                                                                                                                                                                        |
+| `TRANSLATION_BACKEND`       | `lindat`          | `lindat`, `openai_compatible` or `ct2`; the backend seam shared with the CLI (issue #4)                                                                                                                                                                                                                                                                                                                                               |
 | `OUTPUT_MODE`               | `replace`         | `replace` overwrites the source-language field; `append` keeps it and adds an `xml:lang`-marked sibling (ALTO: keeps every `String`'s `CONTENT` and adds `<ALTERNATIVE PURPOSE="translation:<lang>">`). Shared with the CLI's `--output-mode` (issue #46)                                                                                                                                                                             |
 | `DEFAULT_SOURCE_LANG`       | `cs`              | with `source_lang=auto` (the `/translate` default): the language used when detection cannot be trusted and neither the element's label nor the document's language settles it                                                                                                                                                                                                                                                         |
 | `LANG_ID_MIN_CONFIDENCE`    | `0.5`             | FastText score a detected language needs before it is used (`auto` only)                                                                                                                                                                                                                                                                                                                                                              |
@@ -305,9 +317,21 @@ for a `skipped` note.
 
 ## Known limits
 
-- **LINDAT's output is CC BY-NC-SA 4.0** (the CUBBITT models, and UDPipe's when a vocabulary is applied), and
-  AMČR's use of the default backend waits on LINDAT's written permission. The self-hosted alternative is
-  `openai_compatible` with Qwen3.8-27B (Apache-2.0; [docs/translation-backends.md](../docs/translation-backends.md#recommendation)).
+- **The default backend's models are CC BY-NC-SA 4.0** (the CUBBITT models, and UDPipe's when a vocabulary is
+  applied), offered as LINDAT services under the [LINDAT Terms of Use](https://lindat.mff.cuni.cz/en/terms-of-use),
+  and AMČR's use of the default backend waits on LINDAT's written permission. The self-hosted alternative is
+  `openai_compatible` with Qwen3.8-27B (Apache-2.0; [the backend decision](../docs/decisions/backend-choice.md)). The
+  `license` a response's record and paradata carry is a computed summary of these components, not the licence of the
+  translation; the rights in an output depend on the source document
+  ([licences](../docs/reference/licences.md)).
+- **LINDAT is a public research service without a service-level agreement.** A broken replica answered every other
+  request with a loop on 2026-09-26; the guard recovers such replies at the cost of time
+  ([LINDAT's replies](../docs/evaluation/lindat-replies.md)). Without LINDAT every request fails (500).
+- **No XSD validation.** `append` output of AMČR records is not valid AMČR 2.2; the batch image's `--xsd` checks
+  records, the service does not. Production AMČR metadata is translated in `replace` mode.
+- **No authentication or rate limiting.** `/translate` does unbounded outbound work against a translation backend on
+  behalf of any caller: deploy it behind your own gateway, or on a trusted network, never directly on the public
+  internet.
 - **A language pair the backend has no model for is refused** (422 `unsupported_language_pair`), never routed
   through Czech: LINDAT has no `cs-it` or `hu-en`, for example.
 - **`ct2` with EuroLLM drops short segments.** In the bake-off of 2026-10-19 EuroLLM-9B ran on past 96 of 1,230
@@ -351,6 +375,24 @@ large document can legitimately run for minutes and outlive the 20s drain budget
 
 A clean shutdown exits **143** (128 + SIGTERM), not 0: uvicorn re-raises the captured
 signal on purpose so a supervisor sees the real cause. That is a normal stop, not a crash.
+
+## Deployment
+
+The reference Kubernetes manifest and its acceptance runbook are in the hub, shared by all six ATRIUM services:
+
+- [docs/k8s_deployment.md](https://github.com/ufal/atrium-project/blob/main/docs/k8s_deployment.md): the manifest,
+  the three probes, the port and bind configuration, and a *Known limits* section worth reading before promising
+  anything from it;
+- [docs/templates/k8s/atrium-service.deployment.yaml](https://github.com/ufal/atrium-project/blob/main/docs/templates/k8s/atrium-service.deployment.yaml):
+  the manifest itself. Substitute the image and size `resources.limits.memory`; everything else is identical across
+  the six services by design.
+
+What this image gives an orchestrator: `GET /ready` for the `readinessProbe` and `startupProbe`, `GET /health` for the
+`livenessProbe`, and a Dockerfile `HEALTHCHECK`; `STOPSIGNAL SIGTERM` with the drain described above; and one uvicorn
+process per container with no shared state, so it scales out by replica count. A single `/translate` call issues one
+retried backend request per chunk and can run for minutes: raise `GRACEFUL_SHUTDOWN_S` **and** the deployment's
+`terminationGracePeriodSeconds` together for large documents, since a request that outlives both is still cut short
+by `SIGKILL`.
 
 ## Tests
 

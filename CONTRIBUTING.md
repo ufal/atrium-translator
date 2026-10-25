@@ -1,4 +1,4 @@
-# 🤝 Contributing to the LINDAT Translation Wrapper of the ATRIUM project
+# Contributing to the LINDAT Translation Wrapper of the ATRIUM project
 
 Welcome! Thank you for your interest in contributing. This repository [^2] provides a
 robust workflow for translating archival XML records (specifically ALTO XML and AMCR
@@ -9,7 +9,7 @@ namespaces, or OAI-PMH envelopes.
 This document describes the project's capabilities, development workflow, code
 conventions, and rules for contributors.
 
-## 📦 Release History
+## Release History
 
 | Version         | Key Features & Fixes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Release Type |
 |-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
@@ -20,7 +20,7 @@ conventions, and rules for contributors.
 | **v1.3.0-beta** | **12-Factor/API hardening + OpenAPI release contract.** Centralized environment limits, standardized health/readiness and graceful shutdown, reproducible release bundles, versioned OpenAPI assets with breaking-change checks, and expanded service/release verification tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Pre-release  |
 | **v1.2.2-beta** | **AMCR run fixes, CC0 vocabularies, limits (#46, hub #6, #53, #70).** `--xpaths` without `--formats` is a metadata run (the shipped `formats = alto.xml` made it exit 2); the CLI logs the `--xsd` verdict again; AMCR/TEATER vocabularies CC0; every limit an environment setting reported in `/info` and `limits_applied`, incl. the new `UDPIPE_TIMEOUT_S` — **breaking:** a malformed limit stops startup, and `/translate` errors are `{status, reason, detail[, errors\|limit]}` (422 `detail` is a string); `ct2` EuroLLM prompt, echo guard, stop tokens, decode budget, NMT `</s>`, model in paradata; `entities[].translation_en` reserved.                                                                                                                                                                                                                                                                                                                                                          | Pre-release  |
 | **v1.2.1-beta** | **Licence in every record; `--xsd` works on AMCR.** Document records state the run's licence (one-file runs said CC BY-NC 4.0); `--xsd` resolves the AMCR schema's imports and validates the record inside its OAI-PMH envelope — AMCR 2.2 accepts `replace` output and rejects `append` (now warned); API image name corrected to `atrium-translator-api:<version>`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Pre-release  |
-| **v1.2.0-beta** | **LINDAT output guard, ALTO alignment restored ([#46](https://github.com/ufal/atrium-translator/issues/46)).** Garbage replies are re-requested, re-run at the end of the document or kept as source; line alignment is checked against each source line; ALTO append keeps the source text and adds the translation beside each word; the CSV log gains `status` and is never left empty; unclear `auto` languages fall back to `cs`; `ct2` backend enabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Pre-release  |
+| **v1.2.0-beta** | **LINDAT output guard, ALTO alignment restored ([#46](https://github.com/ufal/atrium-translator/issues/46)).** Garbage replies are re-requested, re-run at the end of the document or kept as source; line alignment is checked against each source line; ALTO append keeps the source text and adds the translation beside each word; the CSV log gains `status` and is never left empty; unclear `auto` languages fall back to `cs`; `ct2` backend enabled. Also: vocabulary provenance columns (`source`, `source_id`, `uri`); a metadata-mode directory scan leaves `*.alto.xml` out; log rows in document order.                                                                                                                                                                                                                                                                                                                                                                                          | Pre-release  |
 | **v1.1.0-beta** | **The replace/append switch.** `--output-mode replace\|append` — also `config.txt`, `OUTPUT_MODE` and a `/translate` field — decides whether the source-language field is overwritten or kept beside an `xml:lang`-marked sibling, the shape AMCR's own thesaurus uses for `heslo`/`heslo_en`. ALTO labels rather than duplicates: per-`String` append would multiply a fabricated word-to-box alignment. `replace` stays the default, byte-identical across all 16 shipped samples. Fixes: `/translate` answered HTTP 200 with metadata untranslated (a hard-coded empty XPath list, now loaded from `AMCR_FIELDS_PATH`, with 422 when unconfigured); request parameters were read from the query string while callers sent them in the body, and both are now accepted; the page-batch fallback degraded ~20× in call count behind a silent `except`, and is now counted and logged.                                                                                                                         | Pre-release  |
 | **v1.0.0-beta** | **Pre-production hardening.** Configured retry limits, upload bounds and CLI exit codes now take effect instead of being announced; a degraded model load is reported, not silent; the release zip runs; `.env` reaches the container; CI runs the 3.11 that ships; `/translate` covered end to end. **Breaking:** the batch CLI exits non-zero on failure.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Pre-release  |
 | **v0.10.5**     | Re-vendored `atrium_document.py` (`set_source()` fills sub-keys absent from a partial first write, so §1a's deferred origin checks resolve). `.coveragerc` stops omitting `service/*` — where the `backend`-less `/translate` HTTP 500 lived — with the floor held at **81** against a re-measured 82.87%. `scheduled-smoke.yml` now states what it actually validates: it re-runs the same hermetic suite as the PR lane, so its signal is fresh-install dependency drift rather than integration coverage — the live-backend gap that let that 500 ship is still open — and `-rs` makes skips visible. Concurrency scoped by `github.event_name`; `release.yml` declares one. Bumps: httpx2, huggingface-hub.                                                                                                                                                                                                                                                                                                | Pre-release  |
@@ -57,12 +57,48 @@ conventions, and rules for contributors.
 > (token conservation, bucket count, clean-signal splits, edge cases) and the existing
 > dual-pass assertions in `tests/test_utils.py`.
 
+Releases are numbered as pre-releases, `0.x` and then `-beta`. From v0.10.1 on, each release publishes its container
+images through the hub's release gate. Dates are `date-released` in `CITATION.cff`; before v0.8.1 that field was not updated, so the date is that of the
+commit that set the version. v1.0.0-beta was blocked by the release gate and published by digest only
+([the base image that blocked a release](docs/decisions/history.md#the-base-image-that-blocked-a-release)); v1.5.0-beta
+is the first immutable release.
+
+### The releases in arcs
+
+1. **Getting XML in and out intact** (v0.0.2 to v0.4.1). The early releases narrow the problem: v0.0.2 accepts almost
+   anything (txt, pdf, xml), v0.1.0 adds a draft AMČR path without line-level logging, and v0.2.1 is the first to say
+   what the tool is *for*: ALTO and AMČR XML only. v0.3.0 adds paradata, v0.4.0 the controlled vocabulary, v0.4.1 the
+   first tests.
+2. **Making ALTO output structurally honest** (v0.5.0 to v0.8.0). v0.5.0 is the technical centre of the project: the
+   dual-pass reconstruction, with placeholder-safe vocabulary terms and the number-agreement guard. v0.6.0 hardens it
+   (XXE-proof parsing, `TranslationError` with back-off instead of logging corrupt output, pinned dependencies,
+   `--fast-align`); v0.8.0 moves ALTO from per-block to per-page requests, about twenty times fewer.
+3. **Backends** (v0.6.2 to v0.7.0, and issue #4). A pluggable `TranslationBackend` interface replaces the hard-coded
+   LINDAT call; v0.7.0 calls it "finalized in theory (not tested in practice)": the architecture first, the choice of
+   model left to a measurement harness, `eval/bakeoff.py`.
+4. **Production readiness** (v0.9.0 to v1.1.0-beta). OpenAPI conformance, shared version and licence tests, the
+   `atrium_document` integration, the hub's reusable workflows at `@v1`; then v1.0.0-beta makes five announced but
+   inert contracts real, and v1.1.0-beta adds the replace/append switch and fixes three defects only real use found.
+5. **Trusting the output** (v1.2.0-beta to v1.2.1-beta). The first sample refresh against the live service found
+   replies that were not translations, an aligner that trusted them, and an ALTO `append` that lost the source;
+   v1.2.0-beta checks every reply, re-runs or keeps as source what fails, keeps the scanned text in ALTO `append`,
+   makes `auto` fall back instead of guessing, and gives the log a `status`. v1.2.1-beta makes each record list the
+   run's components, makes `--xsd` work on AMČR records (AMČR 2.2 accepts `replace`, not `append`), and corrects the
+   API image name.
+6. **Production standards for the pilot** (v1.2.2-beta to v1.4.0-beta). The AMČR run's command line, CC0
+   vocabularies, every limit a setting in `/info` with one error shape; the shared service standards and record;
+   untranslatable languages reported, the vocabulary read from keyword-extract's release, mixed-script words caught.
+7. **Measured backends** (v1.5.0-beta). The bake-off keeps LINDAT as the default and makes a self-hosted Qwen3.8-27B
+   the alternative; language pairs a backend cannot translate are refused.
+
+Why each step was taken: [docs/decisions/history.md](docs/decisions/history.md).
+
 ---
 
-## 🏗️ Project Contributions & Capabilities
+## Project Contributions & Capabilities
 
 This pipeline contributes 4 major capabilities to the data translation lifecycle,
-as detailed in the section of the main [README 🧠 Logic Overview](README.md#-logic-overview).
+as detailed in [How the translator works](docs/how-it-works.md#the-processing-flow).
 
 ### 1. Dedicated Archival XML Processing
 
@@ -73,7 +109,7 @@ spatial coordinates or metadata schemas.
 attributes within `TextBlock` and `TextLine` elements natively. Reconstruction uses a
 dual-pass block/line translation plus similarity-based token alignment so that the
 original `String` positions are preserved (see the main
-[README → ALTO Dual-Pass Reconstruction](README.md#-alto-dual-pass-reconstruction)).
+[ALTO dual-pass reconstruction](docs/how-it-works.md#alto-dual-pass-reconstruction)).
 * **XML Metadata Handling:** Uses deep recursive namespace extraction to parse specific
 elements based on custom XPaths and safely replace the text content. Works with any
 well-formed XML (AMCR/OAI-PMH or custom schemas).
@@ -123,12 +159,13 @@ target languages, and XPath lists, ensuring consistency across different archiva
 
 > **Backends:** LINDAT CUBBITT is the default. An OpenAI-compatible LLM API
 > (`--backend openai_compatible`) and a self-hosted CTranslate2 model (`--backend ct2`:
-> EuroLLM, MADLAD-400, NLLB-200 or Opus-MT) ship as alternatives; which one should replace
-> the default is the bake-off question of issue #4 (`eval/bakeoff.py`).
+> EuroLLM, MADLAD-400, NLLB-200 or Opus-MT) ship as alternatives. The bake-off of issue #4
+> (`eval/bakeoff.py`, 2026-10-19) kept LINDAT as the default and made Qwen3.8-27B, self-hosted
+> through `openai_compatible`, the alternative ([the decision](docs/decisions/backend-choice.md)).
 
 ---
 
-## 🌿 Branches & Environments
+## Branches & Environments
 
 | Branch   | Environment          | Rule                                                                            |
 |----------|----------------------|---------------------------------------------------------------------------------|
@@ -142,7 +179,7 @@ master  ←  (humans only, after test stabilises)
 
 ```
 
-### 🏷️ Branch Naming
+### Branch Naming
 
 | Type             | Pattern          | Example                   |
 |------------------|------------------|---------------------------|
@@ -152,7 +189,7 @@ master  ←  (humans only, after test stabilises)
 
 ---
 
-## 🔁 Contributor Workflow
+## Contributor Workflow
 
 1. **Create an issue** (or find an existing one) describing the problem or feature.
 2. **Branch from `test`:**
@@ -167,7 +204,7 @@ git checkout -b feature-<name>
 
 ---
 
-## 📋 Pull Request Format
+## Pull Request Format
 
 Every PR must include:
 
@@ -187,7 +224,7 @@ maintainers' responsibility.
 
 ---
 
-## ✏️ Commit Messages
+## Commit Messages
 
 Format:
 
@@ -212,7 +249,7 @@ Allowed types:
 
 ---
 
-## 🧪 Code Conventions & Testing
+## Code Conventions & Testing
 
 
 ### Code Conventions
@@ -308,14 +345,26 @@ overarching ATRIUM standard.
 ---
 
 
-## 📁 Repository Documentation Management
+## Repository Documentation Management
 
 Each documentation file has one target audience and one responsibility. Rules are not repeated — cross-references are used instead.
 
-| File              | Audience        | Responsibility                                 |
-|-------------------|-----------------|------------------------------------------------|
-| `README.md`       | GitHub visitors | Project overview, workflow stages, quick start |
-| `CONTRIBUTING.md` | Developers      | Code conventions, branches, PRs, testing       |
+| File                    | Audience               | Responsibility                                                      |
+|-------------------------|------------------------|---------------------------------------------------------------------|
+| `README.md`             | GitHub visitors        | What it does, inputs and outputs, quick start, limits, the docs map |
+| `docs/usage.md`         | Users, integrators     | Setup, ALTO and metadata runs, output modes, vocabulary, Docker     |
+| `service/README.md`     | Deployers, integrators | The service runbook: endpoints, errors, limits, configuration       |
+| `docs/configuration.md` | Users, deployers       | config.txt, precedence, environment variables                       |
+| `docs/how-it-works.md`  | Anyone                 | Languages, the guard, ALTO reconstruction, vocabulary, backends     |
+| `docs/reference/`       | Developers, experts    | CLI, outputs, paradata and record schema, vocabulary, licences      |
+| `docs/evaluation/`      | Anyone judging results | The backend bake-off, LINDAT's replies                              |
+| `docs/decisions/`       | Contributors           | Dated decisions and the history                                     |
+| `docs/development.md`   | Developers             | Checks, project structure, code map, the backend interface          |
+| `CONTRIBUTING.md`       | Developers             | Code conventions, branches, PRs, testing, the release history       |
+
+The documentation follows the ATRIUM
+[documentation style](https://github.com/ufal/atrium-project/blob/test/docs/documentation-style.md); check links and
+anchors with `python3 ../atrium-project/tools/docs_check.py --repo atrium-translator`.
 
 * **Do not duplicate rules:** if a rule is defined in `CONTRIBUTING.md`, other files
 reference it rather than copying it.
@@ -324,7 +373,7 @@ still point correctly.
 
 ---
 
-## 📞 Contacts & Acknowledgements
+## Contacts & Acknowledgements
 
 
 For support or specific archival integration questions, contact **lutsai.k@gmail.com** responsible for this GitHub repository [^2].
@@ -335,7 +384,9 @@ For support or specific archival integration questions, contact **lutsai.k@gmail
   * LINDAT/CLARIAH-CZ Translation Service [^1]
   * Facebook's FastText model [^5]
 
-**©️ 2026 UFAL & ATRIUM**
+With the support of the LINDAT/CLARIAH-CZ research infrastructure and the AIS CR infrastructure (LM2023031).
+
+**© 2026 UFAL & ATRIUM**
 
 
 [^1]: https://lindat.mff.cuni.cz/services/translation/
