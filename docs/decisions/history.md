@@ -183,6 +183,7 @@ and brought Docker, the API, the environment and deployment into the README.
 - [agent_dev_logs/DEVLOG.md](../../agent_dev_logs/DEVLOG.md): the timeline index this page condenses.
 - [agent_dev_logs/digests/4.digest.md](../../agent_dev_logs/digests/4.digest.md): the backend choice;
   [46.digest.md](../../agent_dev_logs/digests/46.digest.md): replace or append.
-- [agent_dev_logs/plans/](../../agent_dev_logs/plans/) and [issues/](../../agent_dev_logs/issues/): the plans and the
-  verbatim issue exports.
+- [agent_dev_logs/plans/](../../agent_dev_logs/plans/): the plans. The verbatim exports in `agent_dev_logs/issues/`
+  cover open issues only, and this repository has none since #46 closed; the closed issues are on
+  [GitHub](https://github.com/ufal/atrium-translator/issues?q=is%3Aissue+is%3Aclosed).
 - [evaluation/backends.md](../evaluation/backends.md): the nine-candidate comparison behind #4.

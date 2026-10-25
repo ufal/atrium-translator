@@ -670,3 +670,16 @@ cell-merging stub: only page 76 changes, every number on its own row.
   before the next tag.
 * **#46** closed on 10-25 (AMČR's metadata run is an acceptance test of atrium-project#77's runbook);
   with #4 (10-19) and #52 (10-13) closed, the repository has no open issue.
+
+## 2026-10-25 (night) — The hub's reusables by commit (atrium-project#72)
+* **Hub by commit (atrium-project#72 E.4):** every hub reusable caller (8) and hub-action step (2) runs at
+  `@18f06680dfb6…  # v1`; `para-drift` and `workflow-lint` read the hub at the same `hub-ref`, and the lint has
+  `require-sha-pins: true`, so a caller or action left at `@v1` fails it. A hub change reaches this repository only
+  through a pin move (`scripts/pin_hub_reusables.py` in the hub).
+* **The documentation check (atrium-project#79 E)** comes with this hub commit: Workflow Policy Lint now runs
+  `docs_check.py` over this repository, advisory.
+* **#46:** its export left `issues/` with the closing (the maintainer's refresh); the digest and plan are marked
+  closed and stay, because `utils.py`, `tests/test_output_mode.py` and `docs/decisions/history.md` cite the digest.
+* **`docs/decisions/history.md`:** its link to `agent_dev_logs/issues/` broke when that folder emptied (git keeps no
+  empty folder), which `docs_check` reported; it now says the exports cover open issues and links the closed ones on
+  GitHub.
