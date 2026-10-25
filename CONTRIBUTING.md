@@ -364,7 +364,9 @@ Each documentation file has one target audience and one responsibility. Rules ar
 
 The documentation follows the ATRIUM
 [documentation style](https://github.com/ufal/atrium-project/blob/test/docs/documentation-style.md); check links and
-anchors with `python3 ../atrium-project/tools/docs_check.py --repo atrium-translator`.
+anchors with `python3 ../atrium-project/tools/docs_check.py --repo atrium-translator`; Workflow Policy
+Lint runs the same check on every push. What each CI check proves, and the checklist for a new one:
+[`docs/ci_policy.md`](https://github.com/ufal/atrium-project/blob/test/docs/ci_policy.md#changing-ci).
 
 * **Do not duplicate rules:** if a rule is defined in `CONTRIBUTING.md`, other files
 reference it rather than copying it.

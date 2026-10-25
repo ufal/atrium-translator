@@ -1,9 +1,8 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
-> _XML in-place translation (AMČR metadata records, ALTO). 2 open issues: #4 (the bake-off; finish, pilot
-> atrium-project#67) and #46 (closes after AMČR's production run); #52 closed 2026-10-13 (its pair removed 2026-10-21). Open pull request: #54
-> (Dependabot, into `test`). `test` = `c6f844d` (2026-10-21) · **v1.4.0-beta** (2026-10-09, `05e869c`; its GitHub
-> release is not immutable, atrium-project#72). Latest entry: 2026-10-19 (job T1b read: the glossary request and
-> the Blackwell cuBLAS fixed; T1c; files delivered in chat). Twelve-factor detail lives in the hub:
+> _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
+> #52 2026-10-13; Dependabot's #54 closed 2026-10-21. `test` = `0d496b7` (2026-10-25) · **v1.5.0-beta**
+> (2026-10-19, `379252e`; an immutable GitHub release, atrium-project#72). Latest entry: 2026-10-25 (evening), the
+> CONTRIBUTING checklists and the documentation check in CI. Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -657,3 +656,17 @@ cell-merging stub: only page 76 changes, every number on its own row.
 * **#46:** the closing comment is drafted: AMČR's metadata run is in atrium-project#77's runbook.
 * **Checks:** 1,189 passed, 3 skipped (a `fasttext` stand-in, which does not build in the sandbox); docs_check,
   runbook_check OK.
+
+## 2026-10-25 (evening) — CONTRIBUTING links the two checklists; the documentation check in CI (atrium-project#79, #81)
+* **CONTRIBUTING (atrium-project#79, #81):** the "Repository Documentation Management" section links the
+  hub's documentation style guide and `ci_policy.md#changing-ci`, the questions a new or changed CI check
+  answers, as the hub's CONTRIBUTING template does. Nothing else in the file changed.
+* **The documentation check in CI (atrium-project#79 E):** Workflow Policy Lint runs the hub's
+  `tools/docs_check.py` over this repository, advisory until the newcomer review, from the pin to the hub commit
+  that carries it (atrium-project#72 step B). It passes today.
+* **Quick start:** every endpoint, field, flag and sample file it shows exists at `v1.5.0-beta`, the release it
+  names (a static check; running it needs Docker and the Hugging Face Hub or LINDAT).
+* **atrium-project#81:** the release gate gets one clean dry run (`release.yml` dispatched on `test`)
+  before the next tag.
+* **#46** closed on 10-25 (AMČR's metadata run is an acceptance test of atrium-project#77's runbook);
+  with #4 (10-19) and #52 (10-13) closed, the repository has no open issue.
