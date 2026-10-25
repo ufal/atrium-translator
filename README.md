@@ -5,7 +5,7 @@ card, published by GitHub Pages at <https://ufal.github.io/atrium-translator/>.
 
 * The **code** lives on [`master`](https://github.com/ufal/atrium-translator/tree/master).
 * The **documentation** lives in the ATRIUM hub site at
-  <https://ufal.github.io/atrium-project/tools/translator/>, written from this repository's own
+  <https://ufal.github.io/atrium-project/workflows/translator/>, written from this repository's own
   `README.md`, `CONTRIBUTING.md` and `agent_dev_logs/DEVLOG.md`, which stay the full
   manual. Nothing is copied here &mdash; see
   [`atrium-project` issue #57](https://github.com/ufal/atrium-project/issues/57).
@@ -36,4 +36,4 @@ One-time, needs repository admin: **Settings &rarr; Pages &rarr; Build and deplo
 &rarr; Source: Deploy from a branch &rarr; Branch: `gh-pages` / `/ (root)`**.
 See `PAGES_SETUP.md` in the hub repository for the full note.
 
-_Generated 2026-10-07 for issue #57._
+_Generated 2026-10-25 for issue #57._
