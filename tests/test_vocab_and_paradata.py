@@ -7,15 +7,13 @@ from typing import Any
 
 import pytest
 
-from atrium_test_support import call_best_effort, import_any, maybe_resolve_attr
+from atrium_test_support import call_best_effort, import_any, maybe_resolve_attr, resolve_attr
 
 
 def _resolve_vocab_loader():
-    load_vocab = import_any(["load_vocab"])
-    loader = maybe_resolve_attr(load_vocab, ("load_vocab", "read_vocab", "load_vocabulary", "parse_vocab_csv"))
-    if loader is None:
-        pytest.skip("No vocabulary CSV loader helper exposed in load_vocab.py")
-    return loader
+    # The CSV loader is processors/vocab.py's; load_vocab.py only harvests and writes the CSV.
+    # A missing loader fails the test: it used to look in load_vocab.py and skip every run.
+    return resolve_attr(import_any(["processors.vocab"]), ("load_vocabulary",))
 
 
 def test_vocab_loader_can_read_basic_csv(sample_vocab_csv: Path):

@@ -1,8 +1,8 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
 > _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
-> #52 2026-10-13; Dependabot's #54 closed 2026-10-21. `test` = `0d496b7` (2026-10-25) · **v1.5.0-beta**
-> (2026-10-19, `379252e`; an immutable GitHub release, atrium-project#72). Latest entry: 2026-10-25 (evening), the
-> CONTRIBUTING checklists and the documentation check in CI. Twelve-factor detail lives in the hub:
+> #52 2026-10-13; Dependabot's #54 closed 2026-10-21. `test` = `7c67c7b` (2026-10-25) · **v1.5.0-beta**
+> (2026-10-19, `379252e`; an immutable GitHub release, atrium-project#72). Latest entry: 2026-10-26, two
+> vocabulary tests that always skipped now run. Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -683,3 +683,12 @@ cell-merging stub: only page 76 changes, every number on its own row.
 * **`docs/decisions/history.md`:** its link to `agent_dev_logs/issues/` broke when that folder emptied (git keeps no
   empty folder), which `docs_check` reported; it now says the exports cover open issues and links the closed ones on
   GitHub.
+
+## 2026-10-26 — Triage (atrium-project): two vocabulary tests that never ran
+* `tests/test_vocab_and_paradata.py`: its two vocabulary-loader tests looked for a loader in `load_vocab.py`, which
+  harvests and writes the CSV but loads none, so both skipped on every run ("No vocabulary CSV loader helper
+  exposed"). They now call `processors/vocab.py:load_vocabulary`, the loader the translator uses, and a missing
+  loader fails them instead of skipping (atrium-project#81: no silent skip). Both pass: the header row, a duplicate
+  and a row without a comma are handled.
+* **Checks:** the file: 4 passed, 0 skipped (was 2 passed, 2 skipped); ruff clean. The other modules need `fasttext`,
+  which this environment lacks; CI runs them in the image.
