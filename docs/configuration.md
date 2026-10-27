@@ -28,6 +28,7 @@ For the settings that exist in more than one place the order is the same, highes
 | the output mode                       | `--output-mode`         | `output_mode`         | `OUTPUT_MODE`         | `replace` |
 | the fallback source language          | `--default-source-lang` | `default_source_lang` | `DEFAULT_SOURCE_LANG` | `cs`      |
 | a failed XSD check fails the document | `--xsd-strict`          | —                     | `XSD_STRICT`          | off       |
+| the schema the service validates with | — (the CLI: `--xsd`)    | —                     | `XSD_PATH`            | none      |
 
 The shipped config.txt sets `translation_backend`, `output_mode` and `default_source_lang`, so for a run that
 reads it the environment variable applies only when the key is commented out. The service reads no config.txt
@@ -174,7 +175,7 @@ Only with `source_lang=auto`.
 | `LANG_ID_MODEL_PATH`     | — (images: `/opt/models/fasttext-lid.bin`) | the FastText model file. Unset, a checkout downloads the pinned Hub revision into `HF_HOME` once. A path that is not a file: no detection, the fallbacks decide |
 | `HF_HOME`                | — (images: `/cache/huggingface`)           | where the Hugging Face cache lives; Compose mounts a named volume there                                                                                         |
 
-The published images carry the model from the first release after v1.5.0-beta; earlier images download it at
+The published images carry the model since v1.6.0-beta; earlier images download it at
 start ([Models and caches](../service/README.md#models-and-caches)).
 
 ### The guard's re-run

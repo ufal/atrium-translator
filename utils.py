@@ -467,6 +467,37 @@ _SECURE_PARSER = etree.XMLParser(
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
+# What an XML input is
+# ──────────────────────────────────────────────────────────────────────────────
+
+#: The two kinds of XML the translator reads, decided by the root element (atrium-project#72).
+XML_KIND_ALTO = "alto"
+XML_KIND_METADATA = "metadata"
+
+
+def xml_kind(source) -> str:
+    """``alto`` when the root element's local name is ``alto`` (any ALTO version or namespace),
+    ``metadata`` for any other root: an AMČR record, an OAI-PMH envelope, other XML the XPath
+    targets apply to. *source* is a path or the bytes of the document.
+
+    The command line and the service decide with this one function when the caller does not say
+    (no ``--alto``/``--xpaths``/``--formats``; no ``is_alto``). The whole document is parsed with
+    the hardened parser, so input that is not well-formed is told apart here, before any
+    translation: ``ValueError``.
+    """
+    try:
+        if isinstance(source, (bytes, bytearray)):
+            root = etree.fromstring(bytes(source), _SECURE_PARSER)
+        else:
+            root = etree.parse(str(source), _SECURE_PARSER).getroot()
+    except etree.XMLSyntaxError as exc:
+        raise ValueError(f"not well-formed XML: {exc}") from exc
+    if root is None:
+        raise ValueError("no root element")
+    return XML_KIND_ALTO if etree.QName(root).localname.lower() == "alto" else XML_KIND_METADATA
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # XSD validation
 # ──────────────────────────────────────────────────────────────────────────────
 

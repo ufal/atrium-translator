@@ -692,3 +692,36 @@ cell-merging stub: only page 76 changes, every number on its own row.
   and a row without a comma are handled.
 * **Checks:** the file: 4 passed, 0 skipped (was 2 passed, 2 skipped); ruff clean. The other modules need `fasttext`,
   which this environment lacks; CI runs them in the image.
+
+## 2026-10-27 — v1.6.0-beta: the command line and the service read and return alike (atrium-project#72)
+* **One decision, two callers:** `utils.xml_kind` reads the root element with the hardened parser (`alto` or
+  `metadata`; not well-formed is a `ValueError`). `/translate` uses it when `is_alto` is not sent — unset meant
+  ALTO, so an AMČR record sent without the field came back 200 and untranslated (the silent case of #46, still open
+  for this one field). The CLI uses it when no `--alto`, `--xpaths` or `--formats` is on the command line; a named
+  mode wins, and a file whose root disagrees gets a warning. The test that pins metadata mode for an explicitly
+  named ALTO file stays valid: it is about file selection, and `--xpaths --formats xml` name the mode.
+* **Shared:** `main.translated_filename` (the service had its own copy) and `main.build_run_config` (the service
+  built its own paradata dict, with fewer keys); `_build_paradata_config` is the CLI's thin wrapper. Both records
+  now carry the same keys (pinned).
+* **Service, opt-in (additive):** `fast_align`; `include_record` (a record without a baseline — the CLI writes one
+  always; this endpoint wrote it and discarded it); `include_log` (`log_csv`, or a `text/csv` part, which also makes
+  the answer multipart); `XSD_PATH` (a local schema compiled at startup, strict like `VOCABULARY_PATH`) with
+  `xsd_strict`/`XSD_STRICT`, `xsd_valid`/`xsd_errors` and the `X-Atrium-Xsd-Valid` header; `/info` `xsd`;
+  `document_json_schema_error` for an inherited invalid record; 422 `malformed_xml` (detection only) and
+  `xsd_validation_failed`. The spec grows by these fields only.
+* **CLI defects:** `-o page.xml` with one input was created as a directory; a `.txt` inside a folder was parsed as
+  XML; in a batch, one `--document-json` re-keyed every record and one `--document-json-out` was overwritten per
+  document (both are directories in a batch now; a file is exit 1).
+* **Changed test:** `test_cli_exit_codes.py::test_no_mode_flag_is_a_usage_error` pinned the old rule; replaced by
+  an explicit-metadata-without-targets usage error and a no-flag record-without-targets failed document.
+* **Kept apart, documented** (`docs/usage.md` "The command line and the service"): directories and URL lists (CLI);
+  backend, vocabulary and XPaths per deployment (service); XSD from a URL (CLI) vs a local file (service); paradata
+  file vs `CreateAction`.
+* **Docs:** README (inputs, the service paragraph, no decorative emoji), usage (who decides the mode, the CLI fixes,
+  the comparison table), reference/cli and outputs, configuration, the service runbook (fields, response, errors,
+  `XSD_PATH`, known limits), `.env.example`.
+* **Release:** v1.6.0-beta in `CITATION.cff` (2026-10-27), `para_config.txt`, the regenerated spec, the docs' examples.
+  The `CITATION.cff` schema reference is corrected as in the other five tools (atrium-project#13): version 1.0,
+  2026-09-25 (`doc-schema-v1`), the hub's eight authors; it said 2.0, 2026-10-26, with three.
+* **Checks:** 1219 passed, 1 skipped (Python 3.11 with fasttext, as CI); the new parity test 19/19; ruff and format
+  clean; `check_version.py`, `docs_check.py` OK.

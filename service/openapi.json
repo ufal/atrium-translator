@@ -3,7 +3,7 @@
   "info": {
     "title": "ATRIUM Translator API",
     "description": "Automated pipeline for the translation and enrichment of archaeological archival collections.",
-    "version": "1.5.0-beta",
+    "version": "1.6.0-beta",
     "x-atrium-service": "atrium-translator"
   },
   "paths": {
@@ -1586,7 +1586,55 @@
               }
             ],
             "title": "Is Alto",
-            "description": "`true` (the default): ALTO XML; `false`: AMČR metadata XML. Also read from the query."
+            "description": "`true`: ALTO XML; `false`: AMČR metadata XML. Unset (since v1.6.0-beta): the upload's root element decides, `alto` or any other. Until then unset meant `true`, so a metadata record sent without it came back untranslated. Also read from the query."
+          },
+          "fast_align": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fast Align",
+            "description": "ALTO only: distribute a block's translation over its lines by word counts instead of translating each line as an anchor (the command line's --fast-align): far fewer calls, coarser line splits. Default false. Also read from the query."
+          },
+          "xsd_strict": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xsd Strict",
+            "description": "With `XSD_PATH` set, for a metadata record: `true` refuses a translation that does not validate (422), `false` returns it with `xsd_valid: false`. Default: the `XSD_STRICT` setting. Also read from the query."
+          },
+          "include_log": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Log",
+            "description": "`true`: also return the translation log, the command line's `<doc>_log.csv` (`log_csv` with `response_format=json`, else a part of the multipart/mixed answer). Default false. Also read from the query."
+          },
+          "include_record": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Record",
+            "description": "`true`: return the document record even when none was sent: a new one, as the command line writes. Default false: a record only when `document_json` was sent. Also read from the query."
           },
           "output_mode": {
             "anyOf": [
@@ -2195,7 +2243,67 @@
                 "type": "null"
               }
             ],
-            "description": "Only when a record was sent as `document_json`: the record with the translator's `translations` block and `derived_from.translated_xml` added."
+            "description": "When a record was sent as `document_json`, or asked for with `include_record=true`: the record with the translator's `translations` block and `derived_from.translated_xml` added."
+          },
+          "document_json_schema_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Json Schema Error",
+            "description": "Only when the returned record does not validate: the schema error (the sent record's)."
+          },
+          "log_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Filename",
+            "description": "With `include_log=true`: the log's file name, as the command line writes it."
+          },
+          "log_csv": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Csv",
+            "description": "With `include_log=true`: the translation log (`file, page_num, line_num, text_<src>, text_<tgt>, status`), the `<doc>_log.csv` of the command line, as CSV text."
+          },
+          "xsd_valid": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xsd Valid",
+            "description": "Only for a metadata record when the deployment sets `XSD_PATH`: whether the translation validates."
+          },
+          "xsd_errors": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xsd Errors",
+            "description": "When `xsd_valid` is false: the validator's messages."
           },
           "paradata": {
             "anyOf": [
@@ -2295,6 +2403,17 @@
               }
             ],
             "description": "The vocabulary `/translate` applies, or null when `VOCABULARY_PATH` is unset."
+          },
+          "xsd": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/XsdInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The schema metadata translations are validated against, or null when `XSD_PATH` is unset."
           }
         },
         "additionalProperties": true,
@@ -2343,6 +2462,33 @@
         ],
         "title": "VocabularyInfo",
         "description": "The vocabulary `/translate` applies (`VOCABULARY_PATH`, translator#4)."
+      },
+      "XsdInfo": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "title": "File",
+            "description": "The schema's file name (not its path on the host)."
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256",
+            "description": "sha256 of the schema file."
+          },
+          "strict_default": {
+            "type": "boolean",
+            "title": "Strict Default",
+            "description": "`XSD_STRICT`: whether an invalid translation is refused by default."
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "sha256",
+          "strict_default"
+        ],
+        "title": "XsdInfo",
+        "description": "The XML Schema metadata translations are validated against (`XSD_PATH`)."
       },
       "AtriumDocument_bbox": {
         "type": "array",

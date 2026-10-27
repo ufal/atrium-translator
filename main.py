@@ -45,10 +45,12 @@ from tool_limits import TRANSLATION_CHUNK_CHARS
 from utils import (
     DEFAULT_OUTPUT_MODE,
     OUTPUT_MODES,
+    XML_KIND_ALTO,
     load_xsd,
     normalize_output_mode,
     process_alto_xml,
     process_metadata_xml,
+    xml_kind,
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -56,67 +58,140 @@ from utils import (
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
-    """Return a JSON-serialisable snapshot of all run-time parameters."""
-    backend_name = str(getattr(args, "backend", "") or "lindat")
+def translated_filename(input_name, target_lang: str) -> str:
+    """The translated file's name: ``<doc>_<target>.alto.xml`` for an ALTO name, else
+    ``<stem>_<target><suffix>``. The command line and ``/translate`` name their output with this
+    one function (atrium-project#72); the service used to carry its own copy."""
+    name = Path(str(input_name)).name
+    if name.endswith(".alto.xml"):
+        return f"{name[: -len('.alto.xml')]}_{target_lang}.alto.xml"
+    path = Path(name)
+    return f"{path.stem}_{target_lang}{path.suffix}"
 
+
+def build_run_config(
+    *,
+    backend_name: str,
+    source_lang: str,
+    target_lang: str,
+    mode: str,
+    output_mode: str,
+    translator=None,
+    default_source_lang: str | None = None,
+    allowed_languages=None,
+    input_path: str = "",
+    output_dir: str = "",
+    formats: str = "",
+    xpaths_file: str = "",
+    xsd: str = "",
+    xsd_strict: bool = False,
+    fast_align: bool = False,
+    vocabulary: str = "",
+    vocabulary_sha256: str = "",
+) -> dict:
+    """The run's parameters as its paradata records them: one builder for the command line and
+    the service (atrium-project#72), so a batch run and a ``/translate`` call record the same keys.
+
+    *mode* is ``alto``, ``metadata`` or, when each file's root element decides, ``detect``.
+    *translator* is the live backend when there is one: its ``base_url`` (LINDAT) or
+    ``describe()`` (CT2, LLM) names what the run actually called. Without it the backend's
+    settings are resolved the way the backend resolves them.
+    """
+    backend_name = str(backend_name or "lindat")
     cfg = {
-        "input_path": str(args.input_path),
-        "output_dir": str(args.output or config.get("DEFAULT", "output", fallback="")),
-        "source_lang": str(args.source_lang),
-        "target_lang": str(args.target_lang),
-        "formats": str(args.formats),
-        "mode": "alto" if args.alto else "metadata",
+        "input_path": str(input_path or ""),
+        "output_dir": str(output_dir or ""),
+        "source_lang": str(source_lang),
+        "target_lang": str(target_lang),
+        "formats": str(formats or ""),
+        "mode": str(mode),
         # #46: replace vs append is an output-CONTRACT choice, so it belongs in the
         # provenance record — a consumer holding the artifact needs to know whether
         # the source-language text was kept beside the translation or overwritten.
-        "output_mode": str(getattr(args, "output_mode", DEFAULT_OUTPUT_MODE) or DEFAULT_OUTPUT_MODE),
+        "output_mode": str(output_mode or DEFAULT_OUTPUT_MODE),
         "translation_backend": backend_name,
-        "xpaths_file": str(args.xpaths or ""),
-        "xsd_url": str(args.xsd or ""),
-        "vocabulary": str(args.vocabulary or ""),
+        "xpaths_file": str(xpaths_file or ""),
+        "xsd_url": str(xsd or ""),
+        "xsd_strict": bool(xsd_strict),
+        "fast_align": bool(fast_align),
+        "vocabulary": str(vocabulary or ""),
+        "vocabulary_sha256": str(vocabulary_sha256 or ""),
         "chunk_limit": TRANSLATION_CHUNK_CHARS.get(),
         "lang_id_model": "facebook/fasttext-language-identification",
     }
 
-    # Two fixes to one line (atrium-project#63):
-    #
-    # 1. The guard. This field was recorded unconditionally, so every CLI run on
-    #    the LLM or CT2 backend claimed a LINDAT endpoint it never contacted.
-    #    service/api.py has had the backend guard since finding M1; the CLI path
-    #    never got it.
-    # 2. The value. Resolved through the same function LindatTranslator uses, so
-    #    the record names the host the run actually calls once the endpoint is
-    #    configurable — paradata is a provenance claim, and one that is
-    #    confidently wrong is worse than one that is absent.
-    #
-    # Imported inside the function: the translator instance does not exist until
-    # later in main(), and a module-level import here would pull requests/tqdm
-    # into every run regardless of backend.
+    # The endpoint or model the run actually calls (atrium-project#63, finding M1). A LINDAT run
+    # records the host its backend resolves; any other backend records what describe() reports
+    # and never a LINDAT endpoint it did not contact. Imported here: the translator modules pull
+    # requests and the backends' own dependencies, which a run on another backend does not need.
     if backend_name == "lindat":
-        from processors.translator import resolve_translation_url
+        url = getattr(translator, "base_url", None) if translator is not None else None
+        if not isinstance(url, str) or not url.strip():
+            from processors.translator import resolve_translation_url
 
-        cfg["translation_api"] = resolve_translation_url().rstrip("/") + "/"
-    elif backend_name == "ct2":
-        # Which model, device and quantisation translated: the same CT2_* the backend reads.
-        from processors.ct2_translator import CT2Translator
+            url = resolve_translation_url()
+        cfg["translation_api"] = url.rstrip("/") + "/"
+    else:
+        describe = getattr(translator, "describe", None) if translator is not None else None
+        if not callable(describe) and backend_name == "ct2":
+            from processors.ct2_translator import CT2Translator
 
-        cfg.update(CT2Translator().describe())
-    elif backend_name == "openai_compatible":
-        # Which model, provider and endpoint host translated (LLM_*; never the key).
-        from processors.llm_translator import LLMTranslator
+            describe = CT2Translator().describe
+        elif not callable(describe) and backend_name == "openai_compatible":
+            from processors.llm_translator import LLMTranslator
 
-        cfg.update(LLMTranslator().describe())
+            describe = LLMTranslator().describe
+        details = describe() if callable(describe) else None
+        if isinstance(details, dict):
+            cfg.update(details)
 
-    # The language-identification policy actually in force (processors/language.py),
-    # not the literal 0.2 this used to record — which the ALTO path never applied.
-    # Meaningful only with source_lang=auto; recorded either way so two runs can be
-    # compared. The backend-derived language set is resolved later, once the backend
-    # exists, and is reported in each document's log line.
-    cfg.update(SourceLanguagePolicy.from_env(default=getattr(args, "default_source_lang", None)).describe())
-    if cfg["lang_id_languages"] == "any":
+    # The language-identification policy actually in force (processors/language.py).
+    # Meaningful only with source_lang=auto; recorded either way so two runs can be compared.
+    # Without the backend's language set (the command line builds this before the backend
+    # exists) the set is reported as the backend's, resolved later per document.
+    cfg.update(SourceLanguagePolicy.from_env(default=default_source_lang, allowed=allowed_languages).describe())
+    if cfg["lang_id_languages"] == "any" and allowed_languages is None:
         cfg["lang_id_languages"] = "backend-supported"
     return cfg
+
+
+def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
+    """The command line's run parameters, through the builder the service uses."""
+    vocabulary = getattr(args, "vocabulary", None)
+    return build_run_config(
+        backend_name=str(getattr(args, "backend", "") or "lindat"),
+        source_lang=args.source_lang,
+        target_lang=args.target_lang,
+        mode=_run_mode(args),
+        output_mode=str(getattr(args, "output_mode", DEFAULT_OUTPUT_MODE) or DEFAULT_OUTPUT_MODE),
+        default_source_lang=getattr(args, "default_source_lang", None),
+        input_path=str(args.input_path),
+        output_dir=str(args.output or config.get("DEFAULT", "output", fallback="")),
+        formats=str(args.formats),
+        xpaths_file=str(args.xpaths or ""),
+        xsd=str(args.xsd or ""),
+        xsd_strict=bool(getattr(args, "xsd_strict", False)),
+        fast_align=bool(getattr(args, "fast_align", False)),
+        vocabulary=str(vocabulary or ""),
+        vocabulary_sha256=_sha256_of(vocabulary),
+    )
+
+
+def _sha256_of(path) -> str:
+    """sha256 of a file, or "" when there is none (the vocabulary, so two runs can be told apart)."""
+    if not path or not Path(path).is_file():
+        return ""
+    import hashlib
+
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _run_mode(args) -> str:
+    """``alto`` or ``metadata`` when the caller chose (``--alto``, ``--xpaths``, ``--formats``),
+    ``detect`` when each file's root element decides (``utils.xml_kind``)."""
+    if getattr(args, "mode_explicit", True):
+        return "alto" if args.alto else "metadata"
+    return "detect"
 
 
 #: (atrium-project#10, D4) One-shot latch for the "validation is unavailable" warning.
@@ -406,6 +481,11 @@ def parse_arguments():
     defaults = config["DEFAULT"] if "DEFAULT" in config else {}
     # Asked for on the command line, before config.txt fills the gaps (see `formats` below).
     xpaths_on_cli = args.xpaths is not None
+    # The mode is the caller's when the command line names it: --alto, --xpaths or --formats.
+    # Otherwise each file's root element decides (utils.xml_kind), as /translate decides an
+    # upload sent without is_alto (atrium-project#72); config.txt's `formats` then only says
+    # which files a directory scan picks up.
+    args.mode_explicit = bool(args.alto or xpaths_on_cli or args.formats is not None)
 
     if args.input_path is None and "input_path" in defaults:
         args.input_path = Path(defaults["input_path"])
@@ -466,11 +546,7 @@ def parse_arguments():
 
 def generate_output_path(input_file: Path, base_output: Path, args, is_batch: bool = False) -> Path:
     """Build the destination path for a translated XML file."""
-    if input_file.name.endswith(".alto.xml"):
-        base_name = input_file.name[: -len(".alto.xml")]
-        new_filename = f"{base_name}_{args.target_lang}.alto.xml"
-    else:
-        new_filename = f"{input_file.stem}_{args.target_lang}{input_file.suffix}"
+    new_filename = translated_filename(input_file.name, args.target_lang)
 
     if is_batch:
         return base_output / new_filename
@@ -705,6 +781,57 @@ def process_single_file(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+def _file_args(args, file_path: Path, is_batch: bool) -> argparse.Namespace:
+    """The run's arguments for one file: in a batch, its own baseline and record path.
+
+    ``--document-json`` and ``--document-json-out`` are directories in a batch (checked in
+    ``main``): the baseline is ``<dir>/<doc_id>.document.json`` when it exists, and the record
+    is written to ``<out dir>/<doc_id>.document.json``. A one-file run keeps them as given.
+    """
+    file_args = argparse.Namespace(**vars(args))
+    if not is_batch:
+        return file_args
+    baseline = None
+    if args.document_json:
+        candidate = Path(args.document_json) / f"{canonical_doc_id(file_path)}.document.json"
+        baseline = candidate if candidate.is_file() else None
+    file_args.document_json = baseline
+    if args.document_json_out:
+        out_dir = Path(args.document_json_out)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        file_args.document_json_out = out_dir / f"{record_doc_id(file_path, baseline)}.document.json"
+    return file_args
+
+
+def _choose_mode(file_args, file_path: Path, xpaths_list: list[str], detected_kinds: dict) -> str | None:
+    """Set ``file_args.alto`` for one file; return why the file cannot be translated, or None.
+
+    A mode the caller named (``--alto``, ``--xpaths``, ``--formats``) is kept, with a warning
+    when the file's root element says otherwise. Without one, the root element decides
+    (``utils.xml_kind``, the function ``/translate`` uses for an upload sent without
+    ``is_alto``), and the decision is recorded per document in the paradata.
+    """
+    try:
+        kind = xml_kind(file_path)
+    except (ValueError, OSError) as exc:
+        if file_args.mode_explicit:
+            return None  # the chosen mode reports the file's own error, as before
+        return f"cannot tell ALTO from a metadata record: {exc}"
+    if file_args.mode_explicit:
+        if (kind == XML_KIND_ALTO) != bool(file_args.alto):
+            print(
+                f"[WARN] {file_path.name}: its root element makes it {kind}, but this run translates it as "
+                f"{'ALTO' if file_args.alto else 'a metadata record'} (--alto, --xpaths and --formats decide); "
+                "leave them out to let each file decide."
+            )
+        return None
+    file_args.alto = kind == XML_KIND_ALTO
+    detected_kinds[canonical_doc_id(file_path)] = kind
+    if not file_args.alto and not xpaths_list:
+        return "a metadata record, and no XPath targets are configured (--xpaths, or `fields` in config.txt)"
+    return None
+
+
 # ── Process exit codes ────────────────────────────────────────────────────────
 # main() used to `return` on every failure path with no sys.exit anywhere, so the
 # process exited 0 whatever happened: a Kubernetes Job or cron wrapper around the
@@ -731,8 +858,18 @@ def main() -> int:
         print("[ERROR] Input path does not exist. Provide a valid file or directory.")
         return EXIT_USAGE
 
-    out_dir = args.output or Path.cwd() / f"translated_{args.target_lang}"
+    # `-o <file>.xml` with one input names the translated file itself; it used to be created as a
+    # DIRECTORY of that name, with the translation inside (atrium-project#72). Anything else is
+    # the output directory, as before.
+    output_file_override = None
+    named_one_file = input_path.is_file() and input_path.suffix.lower() != ".txt"
+    if named_one_file and args.output is not None and args.output.suffix.lower() == ".xml" and not args.output.is_dir():
+        output_file_override = args.output
+        out_dir = args.output.parent
+    else:
+        out_dir = args.output or Path.cwd() / f"translated_{args.target_lang}"
     out_dir.mkdir(parents=True, exist_ok=True)
+    is_batch = input_path.is_dir() or (input_path.suffix == ".txt")
 
     with ParadataLogger(
         program="translator",
@@ -740,8 +877,29 @@ def main() -> int:
         paradata_dir=str(out_dir / "paradata"),
         output_types=["xml", "csv", "json"],
     ) as _logger:
-        if not args.alto and not args.xpaths:
+        if args.mode_explicit and not args.alto and not args.xpaths:
             print("[ERROR] Specify either the --alto flag or provide --xpaths / 'fields' in config.")
+            return EXIT_USAGE
+
+        # A batch writes one record per document. One baseline file, or one --document-json-out
+        # file, used to serve every document of the batch: each record took the baseline's
+        # doc_id, and each overwrote the last (atrium-project#72). In a batch both name directories.
+        if is_batch and args.document_json and not Path(args.document_json).is_dir():
+            print(
+                "[ERROR] --document-json names one baseline record; a batch run takes a directory of them "
+                "(<doc_id>.document.json each), or none."
+            )
+            return EXIT_USAGE
+        if (
+            is_batch
+            and args.document_json_out
+            and Path(args.document_json_out).suffix.lower() == ".json"
+            and not Path(args.document_json_out).is_dir()
+        ):
+            print(
+                "[ERROR] --document-json-out names one record; in a batch run pass a directory, and each "
+                "document's record is written there as <doc_id>.document.json."
+            )
             return EXIT_USAGE
 
         if args.vocabulary and not Path(args.vocabulary).is_file():
@@ -846,13 +1004,32 @@ def main() -> int:
                 files_to_process.extend(f for f in input_path.rglob(pattern) if f.is_file())
             files_to_process = list(dict.fromkeys(files_to_process))
 
+            # A `.txt` in the folder is a list of record URLs, as a `.txt` named on the command
+            # line is; it used to be parsed as XML and fail (atrium-project#72).
+            url_lists = [f for f in files_to_process if f.suffix.lower() == ".txt"]
+            if url_lists:
+                files_to_process = [f for f in files_to_process if f not in url_lists]
+                download_dir = args.download_dir or (out_dir / "downloaded_inputs")
+                download_dir.mkdir(parents=True, exist_ok=True)
+                for url_list in url_lists:
+                    urls = [
+                        line.strip()
+                        for line in url_list.read_text(encoding="utf-8").splitlines()
+                        if line.strip().startswith("http")
+                    ]
+                    print(f"[INFO] {url_list.name}: a list of {len(urls)} URL(s), downloaded, not read as XML.")
+                    for url in urls:
+                        local_file = fetch_xml_from_url(url, download_dir)
+                        if local_file:
+                            files_to_process.append(local_file)
+
             # `formats = xml` also matches `*.alto.xml`. In metadata mode an ALTO file
             # matches none of the XPath targets, so it used to be "translated" into an
             # unchanged copy with an empty log and counted as a success — which is how
             # both data_samples/*/xml/ folders came to hold an MTX…_en.alto.xml. ALTO
             # files are translated by ALTO mode; a directory scan in metadata mode
             # leaves them out and says so. (An explicitly named file is still processed.)
-            if not args.alto:
+            if args.mode_explicit and not args.alto:
                 alto_files = [f for f in files_to_process if f.name.lower().endswith(".alto.xml")]
                 if alto_files:
                     files_to_process = [f for f in files_to_process if f not in alto_files]
@@ -862,7 +1039,9 @@ def main() -> int:
                     )
 
         else:
-            if any(input_path.name.endswith(fmt) for fmt in allowed_formats):
+            # A file named without a mode is taken when it is XML; its root element decides how.
+            named_xml = not args.mode_explicit and input_path.name.lower().endswith(".xml")
+            if named_xml or any(input_path.name.endswith(fmt) for fmt in allowed_formats):
                 files_to_process = [input_path]
             else:
                 print(f"[WARN] Input file '{input_path.name}' does not match allowed formats: {args.formats}")
@@ -873,17 +1052,24 @@ def main() -> int:
 
         # ── Process each file ──────────────────────────────────────────
         total_inputs = len(files_to_process)
-        is_batch = input_path.is_dir() or (input_path.suffix == ".txt")
         failed_files: list[str] = []
+        detected_kinds: dict[str, str] = {}
 
         for i, file_path in enumerate(files_to_process, 1):
             print(f"\n[FILE {i}/{total_inputs}] Processing: {file_path.name}")
-            output_file = generate_output_path(file_path, out_dir, args, is_batch=is_batch)
+            file_args = _file_args(args, file_path, is_batch)
+            problem = _choose_mode(file_args, file_path, xpaths_list, detected_kinds)
+            if problem:
+                print(f"[ERROR] {file_path.name}: {problem}")
+                _logger.log_skip(str(file_path), problem)
+                failed_files.append(file_path.name)
+                continue
+            output_file = output_file_override or generate_output_path(file_path, out_dir, args, is_batch=is_batch)
 
             success, protected = process_single_file(
                 file_path=file_path,
                 output_file=output_file,
-                args=args,
+                args=file_args,
                 translator=translator,
                 identifier=identifier,
                 xpaths_list=xpaths_list,
@@ -909,7 +1095,7 @@ def main() -> int:
                 # use, or `vocabulary_protected_terms` cannot be joined back to a document.
                 # Same derivation as process_single_file's, baseline included — keyed on the
                 # page a document was split into, this map joins to nothing.
-                doc_name = record_doc_id(file_path, args.document_json)
+                doc_name = record_doc_id(file_path, file_args.document_json)
                 protected_by_doc[doc_name] = protected
                 if getattr(translator, "supports_glossary", False):
                     print(f"[INFO] Prompt glossary: {protected} term(s) applied in {file_path.name}")
@@ -922,7 +1108,7 @@ def main() -> int:
             # signature of a broken replica — see eval/lindat_probe.py.
             degenerate = getattr(translator, "degenerate_replies", None)
             if isinstance(degenerate, int) and not isinstance(degenerate, bool):
-                degenerate_by_doc[record_doc_id(file_path, args.document_json)] = degenerate
+                degenerate_by_doc[record_doc_id(file_path, file_args.document_json)] = degenerate
                 if degenerate:
                     print(
                         f"[WARN] LINDAT: {degenerate} degenerate reply(ies) re-requested in {file_path.name} "
@@ -941,6 +1127,11 @@ def main() -> int:
             if isinstance(self_cfg, dict):
                 self_cfg["lindat_degenerate_replies"] = dict(degenerate_by_doc)
                 self_cfg["lindat_degenerate_replies_total"] = sum(degenerate_by_doc.values())
+
+        if detected_kinds:
+            self_cfg = getattr(_logger, "config", None)
+            if isinstance(self_cfg, dict):
+                self_cfg["detected_kind"] = dict(detected_kinds)
 
         # The XSD verdict of every record, in one place: the per-file WARNING scrolls away in
         # a long run, and the paradata could not say whether a run's output validated.

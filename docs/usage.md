@@ -32,6 +32,29 @@ The repository is not a pip-installable package: every command runs from the rep
 `python main.py`. The optional backends have their own requirement files: `requirements-llm.txt` for
 `openai_compatible`, `requirements-ct2.txt` for `ct2`. The service needs `service/requirements.txt` as well.
 
+## ALTO or metadata: who decides
+
+A file's **root element** decides when the command line names no mode: `<alto>` (any ALTO version) is translated
+as an ALTO page, any other root as a metadata record, for which the XPath targets come from config.txt's
+`fields =` key. Naming `--alto`, `--xpaths` or `--formats` decides for the whole run instead; a file whose root
+says otherwise is still translated in the named mode, with a warning. `/translate` decides the same way, by the
+same function (`utils.xml_kind`), when `is_alto` is not sent (since v1.6.0-beta; before, the command line needed
+a mode flag and the service took every upload for ALTO).
+
+In a folder scanned without a mode flag, config.txt's `formats` only says which files are picked up; each file's
+root then decides. A file named on the command line without a mode flag is taken when it is XML, whatever its name.
+
+Since v1.6.0-beta, also:
+
+- `-o page_en.xml` with **one input file** names the translated file (it used to be created as a directory of that
+  name, with the translation inside); `-o` with a folder or a URL list is the output directory, as before;
+- a `.txt` file **inside a folder** is a list of URLs, as a `.txt` named on the command line is (it used to be
+  parsed as XML and fail);
+- in a **batch** (a folder or a URL list), `--document-json` and `--document-json-out` name directories: each
+  document's baseline is `<dir>/<doc_id>.document.json` when it exists, and its record is written to
+  `<out dir>/<doc_id>.document.json`. One file for a whole batch is refused (exit 1): its `doc_id` keyed every
+  record, and each record overwrote the last.
+
 ## Translate ALTO pages
 
 Use `--alto` with `--formats alto.xml`, or set `formats = alto.xml` in [config.txt](../config.txt). ALTO mode
@@ -82,7 +105,8 @@ python main.py ./data_samples/my_documents --xpaths amcr-fields.txt --formats xm
   corpus.
 - **`--xsd`** validates each record (inside an OAI-PMH envelope, each `oai:metadata` payload), logs each verdict
   and ends with one `XSD: N/M record(s) valid` line. It warns; with `--xsd-strict` an invalid record counts as a
-  failed document (exit 3; the XML is still written). The service has no XSD check.
+  failed document (exit 3; the XML is still written). The service validates against a local `XSD_PATH` set by its
+  deployment (since v1.6.0-beta).
 
 [amcr-fields.txt](../amcr-fields.txt) holds ten XPaths: `popis`, `poznamka`, `lokalizace`,
 `lokalizace_okolnosti`, `souhrn_upresneni`, two `nalez_*/poznamka`, and the three `lokalita/chranene_udaje/*`
@@ -285,8 +309,8 @@ Two images are published, one per entry point. Both are built from the same `Doc
 | `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python main.py`        | batch CLI    |
 | `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api` | HTTP service |
 
-`<version>` is the release without its leading `v` (`1.5.0-beta` for release `v1.5.0-beta`), or `latest`. The
-`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.5.0-beta`. A tag
+`<version>` is the release without its leading `v` (`1.6.0-beta` for release `v1.6.0-beta`), or `latest`. The
+`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.6.0-beta`. A tag
 such as `atrium-translator:1.5.0-beta-api` is never published. The images carry `data_samples/my_documents/` and
 the vocabulary, not the sample outputs, and neither includes the `ct2` dependencies.
 
@@ -344,16 +368,28 @@ the expected value.
 ## The HTTP service
 
 The same pipeline behind `POST /translate`. Its quick start, request fields, responses, errors and limits are in
-[service/README.md](../service/README.md); the contract is [service/openapi.json](../service/openapi.json). Three
-things differ from the command line:
+[service/README.md](../service/README.md); the contract is [service/openapi.json](../service/openapi.json).
 
-- **Metadata mode needs the XPath targets**, the list the CLI reads from config.txt's `fields =` key. The service
-  reads it from `AMCR_FIELDS_PATH` (default `amcr-fields.txt`, present in the image). With no readable file, ALTO
-  requests are unaffected and metadata requests are refused with 422 naming the variable, never answered 200 with
-  an untranslated document.
-- **The service does not validate against an XSD.** Run the batch image with `--xsd` for that.
-- **It applies a vocabulary only when the deployment sets `VOCABULARY_PATH`**; the CLI applies one given with
-  `--vocabulary` or named in config.txt.
+### The command line and the service
+
+Since v1.6.0-beta both entry points share the mode decision (`utils.xml_kind`), the file naming
+(`main.translated_filename`), the run's recorded parameters (`main.build_run_config`, the same keys in both
+paradata) and `process_single_file`; [tests/test_cli_service_parity.py](../tests/test_cli_service_parity.py)
+translates the same ALTO page and AMČR record through both and compares the XML, the log rows and the record's
+`translations` block.
+
+| What                    | Command line                                              | Service                                                                                  | Why they differ                                                  |
+|-------------------------|-----------------------------------------------------------|------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| How much per run        | a file, a folder, a `.txt` list of URLs                   | one XML document per request                                                             | the service is stateless and does not fetch URLs (SSRF)          |
+| ALTO or metadata        | the root element, unless `--alto`/`--xpaths`/`--formats`  | the root element, unless `is_alto`                                                       | —                                                                |
+| XPath targets           | `--xpaths`, or config.txt `fields`                        | `AMCR_FIELDS_PATH`; without it, metadata requests are refused 422                        | set per deployment                                               |
+| Backend, vocabulary     | `--backend`, `--vocabulary` or config.txt                 | `TRANSLATION_BACKEND`, `VOCABULARY_PATH`                                                 | set per deployment                                               |
+| `--fast-align`          | a flag                                                    | `fast_align=true`                                                                        | —                                                                |
+| XSD validation          | `--xsd` (a URL or a path), `--xsd-strict`                 | `XSD_PATH` (a local file, loaded at startup), `xsd_strict`; the verdict in the answer    | a request never makes the service fetch a schema                 |
+| The record              | always written (`<doc_id>.document.json`)                 | returned when `document_json` is sent, or with `include_record=true`                     | an answer is the document by default                             |
+| The log                 | `<doc>_log.csv` beside the XML                            | with `include_log=true`: `log_csv`, or a part of the multipart answer                    | an answer is the document by default                             |
+| An invalid baseline     | a warning on stderr; the record is still written          | passed through, and said in `document_json_schema_error`                                 | rule 6: carry what an earlier stage wrote                        |
+| Paradata                | a file in `<output>/paradata/`                            | the response's `paradata`, a `CreateAction`                                              | atrium-project#71                                                |
 
 ```bash
 curl -s -X POST localhost:8000/translate \
@@ -362,8 +398,8 @@ curl -s -X POST localhost:8000/translate \
 ```
 
 `output_mode=append` works the same way, but its AMČR output does not validate against AMČR 2.2 (above).
-`is_alto`, `source_lang`, `target_lang`, `output_mode` and `response_format` are accepted **either** as multipart
-form fields or as query-string parameters.
+`is_alto`, `source_lang`, `target_lang`, `output_mode`, `response_format`, `fast_align`, `include_record`,
+`include_log` and `xsd_strict` are accepted **either** as multipart form fields or as query-string parameters.
 
 The service is stateless: per-request scratch lives in a temporary directory that ends with the request, so
 replicas scale horizontally. It has no authentication or rate limiting: `/translate` does unbounded outbound work

@@ -16,8 +16,8 @@ must stay the same document in another language. It reads XML only, not plain te
 [ATRIUM documentation](https://ufal.github.io/atrium-project/workflows/translator/) ·
 [SSH Open Marketplace](https://marketplace.sshopencloud.eu/tool-or-service/CizIUW) ("Translator of XML files - ATRIUM")
 
-**Start here.** 🚀 Run the [quick start](#quick-start) below. 📘 To translate your own ALTO pages or records, read
-[docs/usage.md](docs/usage.md). 🛠️ To deploy the service, read [service/README.md](service/README.md). ⚠️ Before
+**Start here.** Run the [quick start](#quick-start) below. To translate your own ALTO pages or records, read
+[docs/usage.md](docs/usage.md). To deploy the service, read [service/README.md](service/README.md). Before
 relying on the output, read [Limits and maturity](#limits-and-maturity). Everything else is in the
 [documentation map](#documentation).
 
@@ -25,8 +25,8 @@ relying on the output, read [Limits and maturity](#limits-and-maturity). Everyth
 
 | Input                                                                                        | Output                                                                                                  |
 |----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
-| ALTO XML pages (`--alto`)                                                                    | the same pages, each word box's text translated, or given an `<ALTERNATIVE>` with the translation       |
-| any well-formed XML with a list of XPaths (`--xpaths`): AMČR records, OAI-PMH responses, TEI | the same documents, the named fields translated, or followed by an `xml:lang`-marked translated sibling |
+| ALTO XML pages (an `<alto>` root, or `--alto`)                                               | the same pages, each word box's text translated, or given an `<ALTERNATIVE>` with the translation       |
+| any other XML, with a list of XPaths (`--xpaths`): AMČR records, OAI-PMH responses, TEI      | the same documents, the named fields translated, or followed by an `xml:lang`-marked translated sibling |
 | a file, a folder, or a `.txt` list of URLs (such as OAI-PMH `GetRecord` requests)            | per document, `<name>_log.csv`: the source and the translation side by side, with a `status` each       |
 | optionally, an ATRIUM document record to add to, and a vocabulary of Czech–English terms     | per document, the record with its `translations` block; per run, the paradata                           |
 
@@ -78,7 +78,10 @@ goes on, and the run exits 3. Without UDPipe, the terms of a passage go unprotec
 the schema, the run stops before translating anything, with exit code 1.
 
 **As a service**, the `ghcr.io/ufal/atrium-translator-api` image answers `POST /translate` with the translated
-document. It does no XSD check. Its quick start, endpoints and errors are in [service/README.md](service/README.md).
+document. It reads the same inputs the same way: the root element decides ALTO or metadata unless `is_alto` is
+sent, and on request it returns the record (`include_record`), the log (`include_log`) and an XSD verdict
+(`XSD_PATH`). What stays different, and why: [docs/usage.md](docs/usage.md#the-command-line-and-the-service).
+Its quick start, endpoints and errors are in [service/README.md](service/README.md).
 
 ## How it works
 
@@ -123,18 +126,18 @@ More: the service's [Known limits](service/README.md#known-limits).
 
 ## Documentation
 
-| To                                                             | Read                                                                                                                                                   |
-|----------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 📘 set it up, translate ALTO and metadata, choose a mode       | [docs/usage.md](docs/usage.md)                                                                                                                         |
-| 🛠️ deploy and operate the service, its errors and limits      | [service/README.md](service/README.md)                                                                                                                 |
-| 📜 see the API contract                                        | [service/openapi.json](service/openapi.json)                                                                                                           |
-| ⚙️ set every option: config.txt and the environment            | [docs/configuration.md](docs/configuration.md)                                                                                                         |
-| 💡 understand languages, the guard, the ALTO reconstruction    | [docs/how-it-works.md](docs/how-it-works.md)                                                                                                           |
-| 🔎 look up the command line, outputs, paradata, the vocabulary | [cli](docs/reference/cli.md), [outputs](docs/reference/outputs.md), [paradata](docs/reference/paradata.md), [vocabulary](docs/reference/vocabulary.md) |
-| ⚖️ see the components of a run and their licences              | [docs/reference/licences.md](docs/reference/licences.md)                                                                                               |
-| 📊 see what was measured: the backends, LINDAT's replies       | [backends](docs/evaluation/backends.md), [LINDAT's replies](docs/evaluation/lindat-replies.md)                                                         |
-| 🧭 read why it is built this way                               | [backend choice](docs/decisions/backend-choice.md), [replace or append](docs/decisions/output-mode.md), [history](docs/decisions/history.md)           |
-| 🤝 contribute, test, release; the release history              | [docs/development.md](docs/development.md), [CONTRIBUTING.md](CONTRIBUTING.md)                                                                         |
+| To                                                          | Read                                                                                                                                                   |
+|-------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| set it up, translate ALTO and metadata, choose a mode       | [docs/usage.md](docs/usage.md)                                                                                                                         |
+| deploy and operate the service, its errors and limits       | [service/README.md](service/README.md)                                                                                                                 |
+| see the API contract                                        | [service/openapi.json](service/openapi.json)                                                                                                           |
+| set every option: config.txt and the environment            | [docs/configuration.md](docs/configuration.md)                                                                                                         |
+| understand languages, the guard, the ALTO reconstruction    | [docs/how-it-works.md](docs/how-it-works.md)                                                                                                           |
+| look up the command line, outputs, paradata, the vocabulary | [cli](docs/reference/cli.md), [outputs](docs/reference/outputs.md), [paradata](docs/reference/paradata.md), [vocabulary](docs/reference/vocabulary.md) |
+| see the components of a run and their licences              | [docs/reference/licences.md](docs/reference/licences.md)                                                                                               |
+| see what was measured: the backends, LINDAT's replies       | [backends](docs/evaluation/backends.md), [LINDAT's replies](docs/evaluation/lindat-replies.md)                                                         |
+| read why it is built this way                               | [backend choice](docs/decisions/backend-choice.md), [replace or append](docs/decisions/output-mode.md), [history](docs/decisions/history.md)           |
+| contribute, test, release; the release history              | [docs/development.md](docs/development.md), [CONTRIBUTING.md](CONTRIBUTING.md)                                                                         |
 
 The documentation follows the ATRIUM
 [documentation style](https://github.com/ufal/atrium-project/blob/test/docs/documentation-style.md).

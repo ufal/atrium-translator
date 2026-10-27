@@ -2,8 +2,9 @@
 
 For users and reviewers who read what a run produced. It answers which files a run writes, what each column and
 `status` of the translation log means, and what the translator writes into the document record. The paradata is in
-[paradata.md](paradata.md). The service returns the same document, record and provenance in its response instead of
-writing files ([service/README.md](../../service/README.md#response)).
+[paradata.md](paradata.md). The service returns the same document and provenance in its response instead of writing
+files, and the same record and log when the request sends a record or asks for them (`include_record`, `include_log`,
+since v1.6.0-beta; [service/README.md](../../service/README.md#response)).
 
 | Output              | Name                                                                 | Contents                                                                                       |
 |---------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------|

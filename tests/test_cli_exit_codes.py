@@ -49,11 +49,25 @@ def test_missing_input_path_is_a_usage_error(isolated, monkeypatch):
     assert _run(monkeypatch, str(isolated / "nope"), "--alto", "-o", str(isolated / "out")) == EXIT_USAGE
 
 
-def test_no_mode_flag_is_a_usage_error(isolated, monkeypatch):
-    doc = isolated / "sample.alto.xml"
-    doc.write_text(_ALTO)
-    # Neither --alto nor --xpaths, and no config.txt to supply `fields`.
-    assert _run(monkeypatch, str(doc), "-o", str(isolated / "out")) == EXIT_USAGE
+_AMCR = """<?xml version="1.0" encoding="UTF-8"?>
+<amcr:amcr xmlns:amcr="https://api.aiscr.cz/schema/amcr/2.2/"><amcr:nazev>Davle</amcr:nazev></amcr:amcr>
+"""
+
+
+def test_an_explicit_metadata_run_without_targets_is_a_usage_error(isolated, monkeypatch):
+    doc = isolated / "record.xml"
+    doc.write_text(_AMCR)
+    # --formats names the mode (metadata), and there is no --xpaths and no config.txt `fields`.
+    assert _run(monkeypatch, str(doc), "--formats", "xml", "-o", str(isolated / "out")) == EXIT_USAGE
+
+
+def test_without_a_mode_flag_a_record_without_targets_is_a_failed_document(isolated, monkeypatch):
+    """No --alto, --xpaths or --formats: since v1.6.0-beta the file's root element decides, as
+    /translate decides an upload sent without is_alto (atrium-project#72). This used to be a usage
+    error. A metadata record still needs XPath targets: without them it fails, before any call."""
+    doc = isolated / "record.xml"
+    doc.write_text(_AMCR)
+    assert _run(monkeypatch, str(doc), "-o", str(isolated / "out")) == EXIT_FAILED
 
 
 def test_empty_input_directory_reports_no_input(isolated, monkeypatch):
