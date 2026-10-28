@@ -3,7 +3,7 @@
   "info": {
     "title": "ATRIUM Translator API",
     "description": "Automated pipeline for the translation and enrichment of archaeological archival collections.",
-    "version": "1.6.0-beta",
+    "version": "1.6.1-beta",
     "x-atrium-service": "atrium-translator"
   },
   "paths": {

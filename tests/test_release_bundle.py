@@ -19,6 +19,7 @@ broken download months later.
 from __future__ import annotations
 
 import ast
+import re
 import shutil
 import subprocess
 import sys
@@ -147,3 +148,30 @@ def test_staged_bundle_imports(tmp_path, entry):
         text=True,
     )
     assert result.returncode == 0, f"`{entry}` failed inside the release bundle:\n{result.stderr}"
+
+
+def _image_python() -> str:
+    """The Python the images run: the Dockerfile's `FROM python:X.Y...`."""
+    match = re.search(r"^FROM python:(\d+\.\d+)", (REPO_ROOT / "Dockerfile").read_text(), re.MULTILINE)
+    assert match, "the Dockerfile no longer starts from a python:X.Y image; update this test"
+    return match.group(1)
+
+
+def test_the_bundle_is_installed_with_the_python_of_the_images():
+    """v1.6.0-beta installed the bundle with the runner's own Python, 3.14 by then, which
+    fasttext-wheel 0.9.2 has no wheel for: the images were published, the release was not.
+    Every release step that runs `pip install` must follow a setup-python of the images' version.
+    """
+    steps = yaml.safe_load(WORKFLOW.read_text())["jobs"]["create-release"]["steps"]
+    python, installs = None, []
+    for step in steps:
+        if str(step.get("uses", "")).startswith("actions/setup-python"):
+            python = str(step.get("with", {}).get("python-version"))
+        elif "pip install" in step.get("run", ""):
+            installs.append((step.get("name"), python))
+    assert installs, "the release job installs nothing any more; update this test"
+    wrong = [(name, found) for name, found in installs if found != _image_python()]
+    assert not wrong, (
+        f"these release steps install packages with Python {wrong}, not the images' {_image_python()}: "
+        "move the setup-python step above them"
+    )

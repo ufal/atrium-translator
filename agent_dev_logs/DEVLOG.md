@@ -725,3 +725,26 @@ cell-merging stub: only page 76 changes, every number on its own row.
   2026-09-25 (`doc-schema-v1`), the hub's eight authors; it said 2.0, 2026-10-26, with three.
 * **Checks:** 1219 passed, 1 skipped (Python 3.11 with fasttext, as CI); the new parity test 19/19; ruff and format
   clean; `check_version.py`, `docs_check.py` OK.
+
+## 2026-10-28 — v1.6.1-beta: the release job installs with the images' Python (atrium-project#72)
+
+* **What failed:** the v1.6.0-beta tag published both images (`1.6.0-beta`, tests and probes green), but
+  `create-release` stopped at "Verify the bundle actually runs" (run 40593506890): it ran `pip install` with the
+  runner's own Python, 3.14 on `ubuntu-latest` by then, before the job's `setup-python` step. `fasttext-wheel`
+  0.9.2 has wheels up to 3.12, so pip compiled it and the build failed (`uint64_t` undeclared in `src/args.cc`).
+  v1.5.0-beta passed on 19 October with the runner's older Python.
+* **Fix:** `setup-python` 3.11 (the Dockerfile's `python:3.11-slim`) moved above the bundle check; the spec check
+  after it is unchanged.
+* **Guard:** `tests/test_release_bundle.py::test_the_bundle_is_installed_with_the_python_of_the_images` — every
+  `pip install` step of `create-release` must follow a `setup-python` of the Dockerfile's version. It fails on the
+  v1.6.0-beta workflow.
+* **Release:** v1.6.1-beta (`CITATION.cff` 2026-10-28, `para_config.txt`, the spec's `info.version`, the docs'
+  examples); CONTRIBUTING row. No code or API change: `service/openapi.json` differs only in its version.
+* **Checks:** 1220 passed, 1 skipped (`test_ct2_backend.py`, no `ctranslate2`); `pip install --dry-run` of the
+  bundle's two requirement files on Python 3.11 resolves 43 packages, all wheels; `atrium_openapi.py check`,
+  `check_version.py --tag v1.6.1-beta`, `docs_check.py`, `runbook_check.py`, ruff OK.
+
+## 2026-10-28 — Documentation review: no decorative emoji (atrium-project#79)
+
+* `service/README.md`: the `HOST` warning takes the runbook template's `> **Note:**` form, and the slowest-request
+  paragraph loses its emoji. Documentation only; it ships with v1.6.1-beta.

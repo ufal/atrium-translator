@@ -245,7 +245,7 @@ The XML and multipart answers of `/translate` are declared as their media types;
 | `TRANSLATION_URL`           | LINDAT            | translation API base URL for the `lindat` backend; `LINDAT_BASE_URL` is an alias (issue #63)                                                                                                                                                                                                                                                                                                                                          |
 | `UDPIPE_URL`                | LINDAT            | UDPipe 2 endpoint for vocabulary lemma matching (Tag-and-Protect); same name as atrium-nlp-enrich (issue #63). The service calls it only with `VOCABULARY_PATH` set and the `lindat` backend                                                                                                                                                                                                                                          |
 | `PORT`                      | `8000`            | port the service **binds**, and the one `service/healthcheck.py` probes (issues #55, #58)                                                                                                                                                                                                                                                                                                                                             |
-| `HOST`                      | `0.0.0.0`         | bind address (issue #58). ⚠️ see the warning below                                                                                                                                                                                                                                                                                                                                                                                    |
+| `HOST`                      | `0.0.0.0`         | bind address (issue #58); see the warning below                                                                                                                                                                                                                                                                                                                                                                                       |
 | `GRACEFUL_SHUTDOWN_S`       | `20`              | seconds uvicorn waits for in-flight requests (issue #55)                                                                                                                                                                                                                                                                                                                                                                              |
 | `RELOAD`                    | `false`           | filesystem auto-reload — development only, never in a deployment                                                                                                                                                                                                                                                                                                                                                                      |
 | `LOG_LEVEL`                 | `INFO`            | root logger level for the `python -m service.api` start path (issue #61)                                                                                                                                                                                                                                                                                                                                                              |
@@ -273,7 +273,7 @@ image's `ENTRYPOINT` (`python -m service.api`) runs. Before issue #58 the entryp
 while `service/healthcheck.py` read it. Setting `PORT` therefore moved the health *probe*
 and not the listener, and the container reported unhealthy forever.
 
-> ⚠️ `HOST=127.0.0.1` yields a container that reports **healthy** and serves nobody:
+> **Note:** `HOST=127.0.0.1` yields a container that reports **healthy** and serves nobody:
 > `service/healthcheck.py` always probes loopback by design and never reads `HOST`, so a
 > loopback bind passes every probe while being unreachable from outside the container.
 
@@ -382,7 +382,7 @@ event loop. That was a prerequisite, not a tidy-up: uvicorn's `SIGTERM` handler 
 event-loop callback, so while a synchronous `process_single_file()` held the loop the
 signal could not be processed at all.
 
-⚠️ This is the fleet's slowest request shape: one **retried** LINDAT call per chunk, so a
+This is the fleet's slowest request shape: one **retried** LINDAT call per chunk, so a
 large document can legitimately run for minutes and outlive the 20s drain budget. Raise
 `GRACEFUL_SHUTDOWN_S` and the deployment's grace period together for that workload — see
 `docs/k8s_deployment.md` ("Known limits") in the hub.
