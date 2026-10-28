@@ -25,7 +25,7 @@
 #
 # Without it the model loads and every generation fails; the backend's start-up probe
 # (warm()) reports that, with this fix, before any document is touched.
-ctranslate2>=4.8.3
+ctranslate2>=4.8.4
 sentencepiece>=0.2.2
 # EuroLLM uses its Hugging Face tokenizer and chat template for CTranslate2
 # generation. Keep this on the current Transformers 5.x line: the repository's
