@@ -24,6 +24,6 @@ concurrency:
 
 jobs:
   trivy-scan:
-    uses: ufal/atrium-project/.github/workflows/security.reusable.yml@b07090fea83896c1ce25be5233c6f6d0c41b5e2b  # v1
+    uses: ufal/atrium-project/.github/workflows/security.reusable.yml@439488bb285d48eec099195528f9d1772f3b1119  # v1
     with:
       image-ref: ghcr.io/ufal/atrium-translator:latest
