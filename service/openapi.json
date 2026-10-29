@@ -3,7 +3,7 @@
   "info": {
     "title": "ATRIUM Translator API",
     "description": "Automated pipeline for the translation and enrichment of archaeological archival collections.",
-    "version": "1.6.1-beta",
+    "version": "1.7.0-beta",
     "x-atrium-service": "atrium-translator"
   },
   "paths": {
@@ -1544,7 +1544,7 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File",
-            "description": "The XML to translate: ALTO XML, or AMČR metadata XML (`is_alto=false`)."
+            "description": "The XML to translate, its name ending in `.xml`: an ALTO page, or a metadata record such as AMČR's. Its root element decides which, unless `is_alto` is sent."
           },
           "document_json": {
             "type": "string",
@@ -1662,7 +1662,7 @@
               }
             ],
             "title": "Response Format",
-            "description": "`xml` (the default): the translated XML, or multipart/mixed when a record was sent. `json`: one `TranslateResponse` object with the XML as text and the record as `document_json`. Also read from the query."
+            "description": "`xml` (the default): the translated XML, or multipart/mixed when a record was sent or `include_record` or `include_log` is true. `json`: one `TranslateResponse` object with the XML as text, the record as `document_json` and the log as `log_csv`. Also read from the query."
           }
         },
         "type": "object",

@@ -65,15 +65,16 @@ output_mode = replace
 | `source_lang`         | `auto`                                          | `--source_lang`         | `cs`                                                                  |
 | `target_lang`         | `en`                                            | `--target_lang`         | `en`                                                                  |
 | `default_source_lang` | `cs`                                            | `--default-source-lang` | `DEFAULT_SOURCE_LANG`, then `cs`                                      |
-| `formats`             | `alto.xml`                                      | `--formats`             | `xml`; a command line with `--xpaths` gets `xml,txt`                  |
-| `fields`              | `amcr-fields.txt`                               | `--xpaths`              | no XPath targets: a metadata run stops with exit 1                    |
+| `formats`             | `alto.xml`                                      | `--formats`             | `xml`; with `--xpaths` and `alto.xml` here, `xml,txt`                 |
+| `fields`              | `amcr-fields.txt`                               | `--xpaths`              | no XPath targets: each record fails (exit 3); `--formats xml`, exit 1 |
 | `vocabulary`          | `data_samples/vocabulary.csv`                   | `--vocabulary`          | no vocabulary (a key naming a missing file is ignored)                |
 | `translation_backend` | `lindat`                                        | `--backend`             | `TRANSLATION_BACKEND`, then `lindat`                                  |
 | `output_mode`         | `replace`                                       | `--output-mode`         | `OUTPUT_MODE`, then `replace`                                         |
 
-**`formats = alto.xml` turns ALTO mode on,** as does any `formats` list that contains `alto.xml`, so `--alto`
-becomes optional. A command line with `--xpaths` and without `--formats` is a metadata run, whatever the key says
-(from v1.2.2-beta).
+**`formats` says which files a folder scan picks up,** and nothing more: the shipped `alto.xml` takes only
+`*.alto.xml`, and each file's root element then decides ALTO or metadata. `--formats` on the command line also
+names the mode for the whole run: a list with `alto.xml` is ALTO mode, so `--alto` becomes optional; any other list
+is metadata mode. A command line with `--xpaths` and no `--formats` scans `xml,txt` when this key holds `alto.xml`.
 
 **`source_lang = auto` means detection.** FastText identifies the language unless `--source_lang` is given, and a
 guess is used only when the text is long enough, the guess confident enough and the language one the backend

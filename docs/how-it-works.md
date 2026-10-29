@@ -21,12 +21,15 @@ The translator runs as a batch command line and as an HTTP service, with the sam
   translation log and a document record per document, and one paradata record per run.
 - **The service, `service/api.py`,** is a FastAPI application whose `POST /translate` calls the same
   `main.process_single_file()` the CLI uses, without a second copy of the logic or of the model registry. It bounds
-  every upload and request, and returns each call's provenance in the response
-  ([service/README.md](../service/README.md)).
+  every upload and request, and returns each call's provenance in its JSON and multipart answers
+  ([service/README.md](../service/README.md)). Where the two still differ, and why:
+  [usage.md](usage.md#the-command-line-and-the-service).
 
 ## The processing flow
 
-1. **Routing.** ALTO mode (`--alto`, or `formats` containing `alto.xml`), or XML metadata mode (`--xpaths`).
+1. **Routing.** The file's root element decides: `<alto>` is an ALTO page, any other root a metadata record
+   (`utils.xml_kind`). `--alto`, `--xpaths` or `--formats` on the command line, or `is_alto` in a request, name the
+   mode instead.
 2. **Extraction.**
    - **ALTO:** the pages are read `Page` → `TextBlock` → `TextLine` → `String`, and each line's text is rebuilt
      from its `String` `CONTENT` attributes.
@@ -195,8 +198,8 @@ What happens to a rejected reply:
 A per-document summary line, a warning when anything was flagged or fell back, reports batches accepted, fallbacks
 by cause, segments flagged, recovered and left untranslated, and lines placed by word count. `main.py` adds one
 line per document with the number of LINDAT replies rejected and re-requested (`[WARN] LINDAT: N degenerate
-reply(ies) re-requested …`, also recorded in the paradata as `lindat_degenerate_replies`); the individual
-rejections are logged at INFO unless the retry fails too.
+reply(ies) re-requested …`); the paradata of both entry points records the count as `lindat_degenerate_replies`.
+The individual rejections are logged at INFO unless the retry fails too.
 
 The guard's rules were calibrated at no false flag on all 1,193 ALTO blocks of June and the 37 metadata fields,
 with every looping one caught; the mixed-script rule on the 4,264 logged rows of `data_samples/`, where its one hit
@@ -312,8 +315,9 @@ Used for any XML that is not ALTO; in practice AMČR records, bare or inside an 
    written without re-indentation, so a diff against the source shows only the translated fields.
 
 `append` is idempotent: a field that already has a target-language sibling, or is itself one, is skipped without a
-request. `--xsd` validates the finished file and reports failures as warnings: for an OAI-PMH response, each record
-inside the envelope. AMČR 2.2 rejects the `append` shape
+request. `--xsd` (the service: `XSD_PATH`) validates the finished file, for an OAI-PMH response each record inside
+the envelope, and reports a failure as a warning; strict, as a failed document (exit 3) or a 422. AMČR 2.2 rejects
+the `append` shape
 ([Choose the output mode](usage.md#choose-the-output-mode-replace-or-append)).
 
 ## Vocabulary protection

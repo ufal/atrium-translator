@@ -67,7 +67,7 @@ LLM_MAX_TOKENS = limit("LLM_MAX_TOKENS", 2048, unit="tokens", minimum=1)
 #: Retries of one LLM call on a network error or HTTP 429/5xx.
 LLM_MAX_RETRIES = limit("LLM_MAX_RETRIES", 4, unit="retries")
 
-#: Vocabulary terms injected into one LLM prompt (CLI with ``--vocab``). More matches than
+#: Vocabulary terms injected into one LLM prompt (with ``--vocabulary`` or ``VOCABULARY_PATH``). More matches than
 #: this → the longest ones are kept → ``trimmed`` note.
 LLM_MAX_GLOSSARY_TERMS = limit("LLM_MAX_GLOSSARY_TERMS", 40, unit="terms")
 
@@ -85,7 +85,7 @@ CT2_MAX_INPUT_TOKENS = limit("CT2_MAX_INPUT_TOKENS", 1024, unit="tokens", minimu
 #: degenerate, never used as a translation.
 CT2_MAX_DECODING_TOKENS = limit("CT2_MAX_DECODING_TOKENS", 2048, unit="tokens", minimum=1)
 
-#: Vocabulary terms injected into one CTranslate2 EuroLLM prompt (CLI with ``--vocab``).
+#: Vocabulary terms injected into one CTranslate2 EuroLLM prompt (with ``--vocabulary`` or ``VOCABULARY_PATH``).
 #: More matches → the longest are kept → ``trimmed`` note.
 CT2_MAX_GLOSSARY_TERMS = limit("CT2_MAX_GLOSSARY_TERMS", 40, unit="terms")
 

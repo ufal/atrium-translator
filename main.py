@@ -148,11 +148,52 @@ def build_run_config(
     # The language-identification policy actually in force (processors/language.py).
     # Meaningful only with source_lang=auto; recorded either way so two runs can be compared.
     # Without the backend's language set (the command line builds this before the backend
-    # exists) the set is reported as the backend's, resolved later per document.
+    # exists) the set is reported as the backend's; main() records the set itself once the
+    # backend is up, so both entry points name the same languages.
     cfg.update(SourceLanguagePolicy.from_env(default=default_source_lang, allowed=allowed_languages).describe())
     if cfg["lang_id_languages"] == "any" and allowed_languages is None:
         cfg["lang_id_languages"] = "backend-supported"
     return cfg
+
+
+def run_outcome_config(
+    *,
+    protected_by_doc: dict | None = None,
+    degenerate_by_doc: dict | None = None,
+    xsd_verdicts: dict | None = None,
+    xsd_strict: bool = False,
+) -> dict:
+    """What a run adds to its paradata config once its documents are translated: one helper for
+    the command line and the service (atrium-project#72), so a batch run and a ``/translate`` call
+    record the same keys.
+
+    *protected_by_doc* (``{doc_id: terms}``, with a vocabulary) and *degenerate_by_doc*
+    (``{doc_id: replies}``, LINDAT) give ``vocabulary_protected_terms`` and
+    ``lindat_degenerate_replies`` with their ``_total``; *xsd_verdicts* (``{file: (doc_id, valid)}``,
+    with a schema) gives ``xsd_validation``. A key is left out when its input is empty.
+    """
+    cfg: dict = {}
+    if protected_by_doc:
+        cfg["vocabulary_protected_terms"] = dict(protected_by_doc)
+        cfg["vocabulary_protected_terms_total"] = sum(protected_by_doc.values())
+    if degenerate_by_doc:
+        cfg["lindat_degenerate_replies"] = dict(degenerate_by_doc)
+        cfg["lindat_degenerate_replies_total"] = sum(degenerate_by_doc.values())
+    if xsd_verdicts:
+        invalid = sorted(doc for doc, ok in xsd_verdicts.values() if not ok)
+        cfg["xsd_validation"] = {
+            "valid": len(xsd_verdicts) - len(invalid),
+            "invalid": invalid,
+            "strict": bool(xsd_strict),
+        }
+    return cfg
+
+
+def degenerate_replies(translator) -> int | None:
+    """The degenerate replies the backend re-requested for the last document (LINDAT), or None
+    for a backend that does not count them."""
+    count = getattr(translator, "degenerate_replies", None)
+    return count if isinstance(count, int) and not isinstance(count, bool) else None
 
 
 def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
@@ -747,8 +788,8 @@ def process_single_file(
 
             _logger.log_success("xml")
             _logger.log_success("csv")
-            if args.document_json or args.document_json_out:
-                _logger.log_success("json")
+            # The record is written on every success, beside the XML when no path is given.
+            _logger.log_success("json")
             success = True
 
         except LimitExceeded:
@@ -876,6 +917,9 @@ def main() -> int:
         config=_build_paradata_config(args, config),
         paradata_dir=str(out_dir / "paradata"),
         output_types=["xml", "csv", "json"],
+        # para_config.txt beside this file, as the service finds it: read from the working
+        # directory, a run started elsewhere recorded version "unknown" and UNKNOWN licences.
+        config_dir=str(Path(__file__).resolve().parent),
     ) as _logger:
         if args.mode_explicit and not args.alto and not args.xpaths:
             print("[ERROR] Specify either the --alto flag or provide --xpaths / 'fields' in config.")
@@ -941,6 +985,16 @@ def main() -> int:
             except TranslationError as exc:
                 print(f"[ERROR] The {args.backend or 'lindat'} backend cannot start: {exc}")
                 return EXIT_USAGE
+        # The languages the backend can translate into the target, now that it is up: the run's
+        # paradata named them only as "backend-supported" (build_run_config), the service's lists them.
+        self_cfg = getattr(_logger, "config", None)
+        if isinstance(self_cfg, dict):
+            self_cfg.update(
+                SourceLanguagePolicy.from_env(
+                    default=args.default_source_lang,
+                    allowed=allowed_source_languages(translator, args.target_lang),
+                ).describe()
+            )
         identifier = LanguageIdentifier() if args.source_lang == "auto" else None
         # One policy for the whole run: which detections are trusted, and what an
         # untrusted one falls back to. The accepted languages are those the backend
@@ -1106,8 +1160,8 @@ def main() -> int:
             # often the endpoint answered with degenerate output that had to be
             # re-requested. A steady nonzero count on a sequential run is the
             # signature of a broken replica — see eval/lindat_probe.py.
-            degenerate = getattr(translator, "degenerate_replies", None)
-            if isinstance(degenerate, int) and not isinstance(degenerate, bool):
+            degenerate = degenerate_replies(translator)
+            if degenerate is not None:
                 degenerate_by_doc[record_doc_id(file_path, file_args.document_json)] = degenerate
                 if degenerate:
                     print(
@@ -1116,35 +1170,24 @@ def main() -> int:
                         "check the endpoint with `python -m eval.lindat_probe`)."
                     )
 
-        if protected_by_doc:
-            self_cfg = getattr(_logger, "config", None)
-            if isinstance(self_cfg, dict):
-                self_cfg["vocabulary_protected_terms"] = dict(protected_by_doc)
-                self_cfg["vocabulary_protected_terms_total"] = sum(protected_by_doc.values())
-
-        if degenerate_by_doc:
-            self_cfg = getattr(_logger, "config", None)
-            if isinstance(self_cfg, dict):
-                self_cfg["lindat_degenerate_replies"] = dict(degenerate_by_doc)
-                self_cfg["lindat_degenerate_replies_total"] = sum(degenerate_by_doc.values())
-
-        if detected_kinds:
-            self_cfg = getattr(_logger, "config", None)
-            if isinstance(self_cfg, dict):
-                self_cfg["detected_kind"] = dict(detected_kinds)
-
         # The XSD verdict of every record, in one place: the per-file WARNING scrolls away in
         # a long run, and the paradata could not say whether a run's output validated.
+        self_cfg = getattr(_logger, "config", None)
+        if isinstance(self_cfg, dict):
+            self_cfg.update(
+                run_outcome_config(
+                    protected_by_doc=protected_by_doc,
+                    degenerate_by_doc=degenerate_by_doc,
+                    xsd_verdicts=xsd_verdicts if xsd_schema is not None else None,
+                    xsd_strict=bool(args.xsd_strict),
+                )
+            )
+            if detected_kinds:
+                self_cfg["detected_kind"] = dict(detected_kinds)
+
         if xsd_schema is not None and xsd_verdicts:
             invalid = [(name, doc) for name, (doc, ok) in xsd_verdicts.items() if not ok]
             valid = len(xsd_verdicts) - len(invalid)
-            self_cfg = getattr(_logger, "config", None)
-            if isinstance(self_cfg, dict):
-                self_cfg["xsd_validation"] = {
-                    "valid": valid,
-                    "invalid": sorted(doc for _, doc in invalid),
-                    "strict": bool(args.xsd_strict),
-                }
             if invalid:
                 print(
                     f"[WARN] XSD: {valid}/{len(xsd_verdicts)} record(s) valid; invalid: "

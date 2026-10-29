@@ -40,7 +40,15 @@ import atrium_rocrate
 from atrium_document import canonical_doc_id
 from atrium_limits import LimitExceeded, LimitNotes
 from atrium_paradata import ParadataLogger
-from main import build_run_config, log_backend_components, process_single_file, record_doc_id, translated_filename
+from main import (
+    build_run_config,
+    degenerate_replies,
+    log_backend_components,
+    process_single_file,
+    record_doc_id,
+    run_outcome_config,
+    translated_filename,
+)
 from processors.backend import get_backend
 from processors.identifier import LanguageIdentifier
 from processors.language import (
@@ -397,12 +405,12 @@ def _resolve_vocabulary(path_value: str) -> tuple[Optional[Path], Optional[dict]
     return candidate, info
 
 
-def _as_bool(raw, *, default: bool) -> bool:
+def _as_bool(raw, *, default: bool, field: str = "") -> bool:
     """Parse a query-string boolean the way FastAPI parses a form one.
 
-    Kept deliberately narrow: anything unrecognised falls back to *default* rather
-    than raising, so a typo in a query string cannot 500 a request that would
-    otherwise have run in the default mode.
+    Unset is *default*. A value that is not a boolean is refused with 422, as the same
+    value in the form is: it used to fall back to *default*, so `?is_alto=ture` translated
+    a metadata record as ALTO (atrium-project#72).
     """
     if raw is None:
         return default
@@ -411,7 +419,7 @@ def _as_bool(raw, *, default: bool) -> bool:
         return True
     if value in ("0", "false", "no", "off"):
         return False
-    return default
+    raise HTTPException(status_code=422, detail=f"{field or 'The query value'} must be true or false, not {raw!r}.")
 
 
 def _load_xpaths(path_value: str) -> list[str]:
@@ -618,7 +626,13 @@ async def verify_content_type(request: Request):
 )
 async def translate_document(
     request: Request,
-    file: UploadFile = File(..., description="The XML to translate: ALTO XML, or AMČR metadata XML (`is_alto=false`)."),
+    file: UploadFile = File(
+        ...,
+        description=(
+            "The XML to translate, its name ending in `.xml`: an ALTO page, or a metadata record such as AMČR's. Its root "
+            "element decides which, unless `is_alto` is sent."
+        ),
+    ),
     document_json: UploadFile = File(
         None,
         description=(
@@ -695,9 +709,9 @@ async def translate_document(
     response_format: Optional[ResponseFormat] = Form(
         None,
         description=(
-            "`xml` (the default): the translated XML, or multipart/mixed when a record was sent. `json`: one "
-            "`TranslateResponse` object with the XML as text and the record as `document_json`. Also read from "
-            "the query."
+            "`xml` (the default): the translated XML, or multipart/mixed when a record was sent or `include_record` "
+            "or `include_log` is true. `json`: one `TranslateResponse` object with the XML as text, the record as "
+            "`document_json` and the log as `log_csv`. Also read from the query."
         ),
     ),
 ):
@@ -711,14 +725,15 @@ async def translate_document(
     target_lang = normalise_lang_code(target_lang) or target_lang
     _refuse_untranslatable_pair(source_lang, target_lang)
     if is_alto is None and qp.get("is_alto") is not None:
-        is_alto = _as_bool(qp.get("is_alto"), default=True)
-    fast_align = bool(fast_align) if fast_align is not None else _as_bool(qp.get("fast_align"), default=False)
+        is_alto = _as_bool(qp.get("is_alto"), default=True, field="is_alto")
+    if fast_align is None:
+        fast_align = _as_bool(qp.get("fast_align"), default=False, field="fast_align")
     if xsd_strict is None:
-        xsd_strict = _as_bool(qp.get("xsd_strict"), default=_xsd_strict_default())
-    include_log = bool(include_log) if include_log is not None else _as_bool(qp.get("include_log"), default=False)
-    include_record = (
-        bool(include_record) if include_record is not None else _as_bool(qp.get("include_record"), default=False)
-    )
+        xsd_strict = _as_bool(qp.get("xsd_strict"), default=_xsd_strict_default(), field="xsd_strict")
+    if include_log is None:
+        include_log = _as_bool(qp.get("include_log"), default=False, field="include_log")
+    if include_record is None:
+        include_record = _as_bool(qp.get("include_record"), default=False, field="include_record")
     # The form field is validated by its enum; the query value is checked here, so both
     # sources refuse an unknown format alike (422) rather than falling back silently.
     response_format = response_format or qp.get("response_format") or "xml"
@@ -903,7 +918,7 @@ async def translate_document(
             # handler (an event-loop callback) could not run at all and
             # --timeout-graceful-shutdown had nothing to measure.
             xsd_verdicts: Dict[str, Any] = {}
-            success, _ = await asyncio.to_thread(
+            success, protected = await asyncio.to_thread(
                 process_single_file,
                 file_path=input_path,
                 output_file=output_path,
@@ -921,6 +936,22 @@ async def translate_document(
             # took its licence block; this keeps the run's own paradata complete.
             if success:
                 log_backend_components(models["translator"], logger, detected=source_lang == "auto")
+
+            # The keys the command line adds once a document is done (main.run_outcome_config).
+            run_config = getattr(logger, "config", None)
+            if isinstance(run_config, dict):
+                doc_key = record_doc_id(input_path, doc_json_path)
+                degenerate = degenerate_replies(models["translator"])
+                run_config.update(
+                    run_outcome_config(
+                        protected_by_doc={doc_key: protected}
+                        if getattr(models["translator"], "vocabulary", None)
+                        else None,
+                        degenerate_by_doc={doc_key: degenerate} if degenerate is not None else None,
+                        xsd_verdicts=xsd_verdicts if xsd_schema is not None else None,
+                        xsd_strict=bool(xsd_strict),
+                    )
+                )
 
         # The limits that shaped this translation without refusing it (atrium-project#53):
         # recorded in the run's paradata by process_single_file, and echoed to the caller below

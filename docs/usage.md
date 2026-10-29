@@ -57,14 +57,15 @@ Since v1.6.0-beta, also:
 
 ## Translate ALTO pages
 
-Use `--alto` with `--formats alto.xml`, or set `formats = alto.xml` in [config.txt](../config.txt). ALTO mode
-translates the `CONTENT` attributes of the `String` elements and nothing else.
+An `<alto>` root is enough: without a mode flag each file's root element decides. `--alto`, or `--formats` with
+`alto.xml` on the command line, makes the whole run ALTO. ALTO mode translates the `CONTENT` attributes of the
+`String` elements and nothing else.
 
 ```bash
 python main.py ./data_samples/my_documents --alto --formats alto.xml --target_lang en
 ```
 
-`alto.xml` in `formats`, on the command line or in config.txt, turns ALTO mode on without `--alto`. The default
+In config.txt, `formats = alto.xml` (the shipped value) only says which files a folder scan picks up. The default
 target language is English (`en`).
 
 An example:
@@ -95,10 +96,8 @@ python main.py ./data_samples/my_documents --xpaths amcr-fields.txt --formats xm
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o out
 ```
 
-- **`--formats`.** The shipped config.txt sets `formats = alto.xml` for the ALTO sample, and that value turns ALTO
-  mode on. From v1.2.2-beta a command line with `--xpaths` and no `--formats` is a metadata run (`xml,txt`). With
-  v1.2.1-beta and earlier, pass `--formats xml` (or `xml,txt` for a URL list) yourself: without it the run finds
-  no input and exits 2, or translates only the ALTO file of a mixed folder.
+- **`--formats`.** The shipped config.txt sets `formats = alto.xml`, so a folder scan picks up only `*.alto.xml`.
+  A command line with `--xpaths` and no `--formats` scans `xml,txt` instead and is a metadata run.
 - **A directory scan in metadata mode leaves `*.alto.xml` files out** and says so; a file named on the command
   line is still processed.
 - **`--source_lang cs`** skips language detection, and with it the CC BY-NC FastText model, on a Czech-only
@@ -309,8 +308,8 @@ Two images are published, one per entry point. Both are built from the same `Doc
 | `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python main.py`        | batch CLI    |
 | `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api` | HTTP service |
 
-`<version>` is the release without its leading `v` (`1.6.1-beta` for release `v1.6.1-beta`), or `latest`. The
-`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.6.1-beta`. A tag
+`<version>` is the release without its leading `v` (`1.7.0-beta` for release `v1.7.0-beta`), or `latest`. The
+`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.7.0-beta`. A tag
 such as `atrium-translator:1.6.1-beta-api` is never published. The images carry `data_samples/my_documents/` and
 the vocabulary, not the sample outputs, and neither includes the `ct2` dependencies.
 
@@ -325,7 +324,7 @@ docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
   /data/input --alto --formats alto.xml --target_lang en -o /data/output
 
 # AMČR metadata records (./data/input holds the *.xml records), the production shape of issue #46:
-# replace mode, validated against AMČR 2.2. --xsd exists only in this batch image, not in /translate.
+# replace mode, validated against AMČR 2.2. The service validates against its deployment's XSD_PATH instead.
 docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
   ghcr.io/ufal/atrium-translator:latest \
   /data/input --xpaths amcr-fields.txt --formats xml --source_lang cs --target_lang en \
@@ -372,24 +371,32 @@ The same pipeline behind `POST /translate`. Its quick start, request fields, res
 
 ### The command line and the service
 
-Since v1.6.0-beta both entry points share the mode decision (`utils.xml_kind`), the file naming
-(`main.translated_filename`), the run's recorded parameters (`main.build_run_config`, the same keys in both
-paradata) and `process_single_file`; [tests/test_cli_service_parity.py](../tests/test_cli_service_parity.py)
-translates the same ALTO page and AMČR record through both and compares the XML, the log rows and the record's
-`translations` block.
+Both entry points run one code path: the mode decision (`utils.xml_kind`), the file naming
+(`main.translated_filename`), `main.process_single_file` for the translation, the log and the record, and the
+paradata's keys (`main.build_run_config` for the run's parameters, `main.run_outcome_config` for what it counted:
+protected vocabulary terms, LINDAT's degenerate replies, the XSD verdicts). A scratch harness ran 256 combinations
+through both on 2026-10-28 (ALTO named `.alto.xml` and `.xml`, an AMČR record; the mode detected and named; `cs`
+and `auto`; `replace` and `append`; `--fast-align`; a vocabulary; a seed record; no XSD, a passing one, a failing
+one, a strict one), with one stub backend and language detector on both sides. The XML, the log, the record and the
+paradata's keys and values were equal in every case but the strict-XSD one in the table.
+[tests/test_cli_service_parity.py](../tests/test_cli_service_parity.py) keeps the main cases.
 
-| What                    | Command line                                              | Service                                                                                  | Why they differ                                                  |
-|-------------------------|-----------------------------------------------------------|------------------------------------------------------------------------------------------|------------------------------------------------------------------|
-| How much per run        | a file, a folder, a `.txt` list of URLs                   | one XML document per request                                                             | the service is stateless and does not fetch URLs (SSRF)          |
-| ALTO or metadata        | the root element, unless `--alto`/`--xpaths`/`--formats`  | the root element, unless `is_alto`                                                       | —                                                                |
-| XPath targets           | `--xpaths`, or config.txt `fields`                        | `AMCR_FIELDS_PATH`; without it, metadata requests are refused 422                        | set per deployment                                               |
-| Backend, vocabulary     | `--backend`, `--vocabulary` or config.txt                 | `TRANSLATION_BACKEND`, `VOCABULARY_PATH`                                                 | set per deployment                                               |
-| `--fast-align`          | a flag                                                    | `fast_align=true`                                                                        | —                                                                |
-| XSD validation          | `--xsd` (a URL or a path), `--xsd-strict`                 | `XSD_PATH` (a local file, loaded at startup), `xsd_strict`; the verdict in the answer    | a request never makes the service fetch a schema                 |
-| The record              | always written (`<doc_id>.document.json`)                 | returned when `document_json` is sent, or with `include_record=true`                     | an answer is the document by default                             |
-| The log                 | `<doc>_log.csv` beside the XML                            | with `include_log=true`: `log_csv`, or a part of the multipart answer                    | an answer is the document by default                             |
-| An invalid baseline     | a warning on stderr; the record is still written          | passed through, and said in `document_json_schema_error`                                 | rule 6: carry what an earlier stage wrote                        |
-| Paradata                | a file in `<output>/paradata/`                            | the response's `paradata`, a `CreateAction`                                              | atrium-project#71                                                |
+| Input or setting     | Command line                                                     | Service                                                                                          | Same?                                                                                        |
+|----------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| How much per run     | a file, a folder, a `.txt` list of URLs                          | one XML document per request                                                                     | differs: the service is stateless and fetches no URLs                                        |
+| ALTO or metadata     | the root element, unless `--alto`, `--xpaths` or `--formats`     | the root element, unless `is_alto`                                                               | the same                                                                                     |
+| Source language      | `--source_lang`, config.txt `source_lang`, else `cs`             | `source_lang`, else `auto`                                                                       | the same when given; the defaults differ                                                     |
+| Fallback language    | `--default-source-lang`, config.txt, `DEFAULT_SOURCE_LANG`, `cs` | `DEFAULT_SOURCE_LANG`, `cs`                                                                      | the same rule, set per deployment                                                            |
+| Output mode          | `--output-mode`, config.txt, `OUTPUT_MODE`, `replace`            | `output_mode`, `OUTPUT_MODE`, `replace`                                                          | the same; an unknown value: `--output-mode` refuses it, the service warns and uses `replace` |
+| `--fast-align`       | a flag                                                           | `fast_align=true`                                                                                | the same                                                                                     |
+| XPath targets        | `--xpaths`, or config.txt `fields`                               | `AMCR_FIELDS_PATH`; without it a metadata request is refused (422)                               | differs: set per deployment                                                                  |
+| Backend, vocabulary  | `--backend`, `--vocabulary` or config.txt                        | `TRANSLATION_BACKEND`, `VOCABULARY_PATH`                                                         | differs: set per deployment                                                                  |
+| XSD validation       | `--xsd` (a URL or a path), `--xsd-strict`                        | `XSD_PATH` (a local file, loaded at startup), `xsd_strict`; the verdict in the answer            | the same verdict; the service never fetches a schema                                         |
+| A strict XSD failure | the XML is written, the document counts as failed (exit 3)       | 422 `xsd_validation_failed`, no XML                                                              | differs: an answer is all or nothing                                                         |
+| The record           | always written (`<doc_id>.document.json`)                        | returned when `document_json` is sent, or with `include_record=true`                             | the same record                                                                              |
+| The log              | `<doc>_log.csv` beside the XML                                   | with `include_log=true`: `log_csv`, or a part of the multipart answer                            | the same rows                                                                                |
+| An invalid baseline  | a warning on stderr; the record is still written                 | passed through; `document_json_schema_error` in the JSON answer (the multipart one has none)     | the same record                                                                              |
+| Paradata             | a file in `<output>/paradata/`, program `translator`             | the `CreateAction` of the JSON and multipart answers, program `translator-api`; none in bare XML | the same keys and values; a path on the command line is a file name in the service           |
 
 ```bash
 curl -s -X POST localhost:8000/translate \
@@ -399,7 +406,9 @@ curl -s -X POST localhost:8000/translate \
 
 `output_mode=append` works the same way, but its AMČR output does not validate against AMČR 2.2 (above).
 `is_alto`, `source_lang`, `target_lang`, `output_mode`, `response_format`, `fast_align`, `include_record`,
-`include_log` and `xsd_strict` are accepted **either** as multipart form fields or as query-string parameters.
+`include_log` and `xsd_strict` are accepted **either** as multipart form fields or as query-string parameters. A
+boolean that cannot be read is refused (422) from either place; before v1.7.0-beta a query value fell back to its
+default, so `?is_alto=ture` translated a record as ALTO.
 
 The service is stateless: per-request scratch lives in a temporary directory that ends with the request, so
 replicas scale horizontally. It has no authentication or rate limiting: `/translate` does unbounded outbound work
@@ -442,7 +451,7 @@ calling a running service. Installation and the contract it relies on:
 |------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
 | `.env` values have no effect under `python main.py`  | `.env` is read by Compose (`env_file`) for the container; `main.py` reads only the process environment                                                                                                                                              | export the variables (`set -a; . ./.env; set +a`), or run through Compose                               |
 | `EACCES` writing to `./data` under Docker            | the host directory is not writable by uid 10001, the image's default user                                                                                                                                                                           | run with `--user "$(id -u):0"`; under Compose set `ATRIUM_UID` in `.env`                                |
-| A metadata run finds nothing and exits 2             | config.txt's `formats = alto.xml` with v1.2.1-beta or earlier                                                                                                                                                                                       | pass `--formats xml` (or `xml,txt` for a URL list)                                                      |
+| A metadata run finds nothing and exits 2             | a folder of records scanned with config.txt's `formats = alto.xml`, which picks up only `*.alto.xml`                                                                                                                                                | pass `--xpaths`, or `--formats xml` (`xml,txt` for a URL list)                                          |
 | The run exits 1 before translating                   | a refused language pair, a missing vocabulary file, an XSD that cannot be loaded, or a backend that cannot start; the `[ERROR]` line names which                                                                                                    | fix what the line names                                                                                 |
 | Container reports healthy, nothing can reach it      | `HOST=127.0.0.1` binds inside the container only                                                                                                                                                                                                    | leave `HOST` unset (it defaults to `0.0.0.0`)                                                           |
 | Every block is translated as the default language    | the FastText model could not be downloaded or loaded, so nothing is detected and the fallbacks decide                                                                                                                                               | check `GET /health?deep=true`, which reports it; or pass `--source_lang`, which skips detection         |

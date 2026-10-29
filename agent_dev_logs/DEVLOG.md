@@ -1,8 +1,8 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
 > _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
-> #52 2026-10-13; Dependabot's #54 closed 2026-10-21. `test` = `7c67c7b` (2026-10-25) · **v1.5.0-beta**
-> (2026-10-19, `379252e`; an immutable GitHub release, atrium-project#72). Latest entry: 2026-10-26, two
-> vocabulary tests that always skipped now run. Twelve-factor detail lives in the hub:
+> #52 2026-10-13; Dependabot's #54 closed 2026-10-21. `test` = `b629c71` (2026-10-28) · **v1.6.1-beta**
+> (2026-10-28; an immutable GitHub release, atrium-project#72). Latest entry: 2026-10-28, v1.7.0-beta, one
+> behaviour from either entry point, the pilot candidate (atrium-project#77). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -748,3 +748,26 @@ cell-merging stub: only page 76 changes, every number on its own row.
 
 * `service/README.md`: the `HOST` warning takes the runbook template's `> **Note:**` form, and the slowest-request
   paragraph loses its emoji. Documentation only; it ships with v1.6.1-beta.
+
+## 2026-10-28 — v1.7.0-beta: one behaviour from either entry point (atrium-project#72, #77)
+
+* **How it was checked:** a scratch harness (not committed) ran `main.main()` and `POST /translate` on the same
+  input with one stub backend and one stub language detector: an ALTO page named `.alto.xml` and `.xml`, an AMČR
+  record with three fields; the mode detected and named; `cs` and `auto`; `replace` and `append`; `--fast-align`; a
+  vocabulary; a seed record; no XSD, a passing, a failing and a strict one. 256 cases. Before the fixes every case
+  differed in the paradata; after them, the XML, the log, the record and the paradata's keys and values are equal
+  in all but the 32 strict-XSD cases (the CLI writes the XML and exits 3, the service answers 422: documented).
+* **Service:** the paradata records `xsd_validation`, `vocabulary_protected_terms(_total)` and
+  `lindat_degenerate_replies(_total)`, through `main.run_outcome_config`, the helper the CLI now uses too. A query
+  boolean that cannot be read (`?is_alto=ture`) is a 422, as the same form value is; it meant the default, ALTO.
+* **CLI:** `para_config.txt` is read beside `main.py`, as the service reads it; run from another folder, the paradata
+  said version `unknown` and an UNKNOWN licence. `lang_id_languages` names the backend's languages once it is up
+  (it said `backend-supported`). The record written beside every translation is counted (`json: 1`; it said 0
+  without `--document-json`).
+* **Docs:** `docs/usage.md`'s parity section is the one table of inputs and settings, each "the same" or why not.
+  Corrected: `formats` in config.txt picks the files a scan takes and no longer turns ALTO mode on (usage,
+  configuration, the CLI reference, config.txt); exit 1 is a *named* metadata mode without XPaths; the `--xsd`
+  "batch image only" comment; the service README's "CLI `--vocab`" limit rows (and `tool_limits.py`); the `file` and
+  `response_format` descriptions in the spec; how-it-works' routing step and provenance; the paradata keys.
+* **Release:** v1.7.0-beta in `CITATION.cff`, `para_config.txt`, the regenerated spec, the docs' examples;
+  CONTRIBUTING row.

@@ -29,7 +29,7 @@ licence summary with [para_licenses.py](../../para_licenses.py). Every field of 
 |-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `schema_version`                    | the paradata schema version, `"2.0"`                                                                                                                                                                                         |
 | `program`                           | always `"translator"`                                                                                                                                                                                                        |
-| `tool_version`                      | the tool's version tag, from `para_config.txt` (e.g. `v1.6.1-beta`)                                                                                                                                                          |
+| `tool_version`                      | the tool's version tag, from `para_config.txt` (e.g. `v1.7.0-beta`)                                                                                                                                                          |
 | `repository`                        | the runner repository (`ATRIUM_RUNNER_REPO` when set)                                                                                                                                                                        |
 | `runner_ref`                        | the git ref the running container was built from (`ATRIUM_RUNNER_REF`)                                                                                                                                                       |
 | `docker_image`                      | the running image (`ATRIUM_RUNNER_IMAGE`); empty if unset                                                                                                                                                                    |
@@ -50,12 +50,16 @@ licence summary with [para_licenses.py](../../para_licenses.py). Every field of 
 | `skipped_files_detail`              | `{file, reason, timestamp}` for every skipped file                                                                                                                                                                           |
 | `limits_applied`                    | every limit that shaped a result without refusing it (`limit`, `effect`, `value`, count, detail), e.g. a segment split at `TRANSLATION_CHUNK_CHARS`, fields kept in the source language after the re-run (atrium-project#53) |
 
-`config` holds the run's settings (`input_path`, `output_dir`, `source_lang`, `target_lang`, `formats`, `mode`,
-`output_mode`, `translation_backend`, `xpaths_file`, `xsd_url`, `vocabulary`, `chunk_limit`), the language-ID model
-and the translation endpoint actually resolved (`lang_id_model`, `translation_api`), the source-language policy
-(`default_source_lang`, `fasttext_confidence_threshold`, `lang_id_min_letters`, `lang_id_languages`), and the counts
-of the run: `vocabulary_protected_terms` per document and its `_total`, `lindat_degenerate_replies` per document and
-its `_total`, and, with `--xsd`, `xsd_validation` (`valid`, `invalid` doc ids, `strict`).
+`config` holds the run's settings (`input_path`, `output_dir`, `source_lang`, `target_lang`, `formats`, `mode`:
+`alto`, `metadata` or `detect`, `output_mode`, `translation_backend`, `xpaths_file`, `xsd_url`, `xsd_strict`,
+`fast_align`, `vocabulary`, `vocabulary_sha256`, `chunk_limit`), the language-ID model and the translation endpoint
+actually resolved (`lang_id_model`, `translation_api`), the source-language policy (`default_source_lang`,
+`fasttext_confidence_threshold`, `lang_id_min_letters`, `lang_id_languages`: the languages the backend translates
+into the target), and the counts of the run: `detected_kind` per document when the root element decided,
+`vocabulary_protected_terms` per document and its `_total` with a vocabulary, `lindat_degenerate_replies` per
+document and its `_total` with LINDAT, and, with an XSD, `xsd_validation` (`valid`, `invalid` doc ids, `strict`).
+The service's `paradataRecord.config` has the same keys, built by the same functions (`main.build_run_config`,
+`main.run_outcome_config`; the counts since v1.7.0-beta), with file names where the command line has paths.
 
 ### An example
 
@@ -65,7 +69,7 @@ Abridged, from a metadata run with LINDAT and the vocabulary:
 {
   "schema_version": "2.0",
   "program": "translator",
-  "tool_version": "v1.6.1-beta",
+  "tool_version": "v1.7.0-beta",
   "repository": "https://github.com/ufal/atrium-translator",
   "runner_ref": "",
   "docker_image": "",

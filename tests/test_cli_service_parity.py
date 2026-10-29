@@ -12,6 +12,10 @@ equal. The other checks pin what v1.6.0-beta aligned:
 * the command line's `-o <file>.xml`, `.txt` URL lists inside a directory, and one record per document in
   a batch.
 
+v1.7.0-beta: the service's paradata records the run's outcome keys as the command line's does
+(`main.run_outcome_config`), and a query boolean that cannot be read is refused (422) as the same form
+value is, instead of meaning its default.
+
 What stays apart by design (directories and URL lists on the command line only; backend, vocabulary and
 XPaths set per deployment in the service): docs/usage.md "The command line and the service".
 """
@@ -271,8 +275,21 @@ def test_xsd_validation_with_a_deployment_schema(stub, tmp_path, schema, strict,
     if status == 200:
         assert response.json()["xsd_valid"] is valid
         assert response.headers["X-Atrium-Xsd-Valid"] == str(valid).lower()
+        recorded = response.json()["paradata"]["paradataRecord"]["config"]["xsd_validation"]
+        assert recorded == {"valid": int(valid), "invalid": [] if valid else ["record"], "strict": False}
     else:
         assert response.json().get("cause") == "xsd_validation_failed"
+
+
+@pytest.mark.parametrize("field", ["is_alto", "fast_align", "include_record"])
+def test_a_query_boolean_that_cannot_be_read_is_refused(stub, field):
+    response = client.post(
+        f"/translate?{field}=ture",
+        files={"file": ("record.xml", _AMCR.encode("utf-8"), "application/xml")},
+        data={"source_lang": "cs"},
+    )
+    assert response.status_code == 422
+    assert field in response.text
 
 
 def test_an_inherited_invalid_record_is_reported(stub):

@@ -81,7 +81,8 @@ attaches (see [OpenAPI](#openapi-the-typed-contract)); or `GET /openapi.json` an
 | `xsd_strict`      | form or query | boolean | `XSD_STRICT`    | With `XSD_PATH` set, for a metadata record: `true` refuses a translation that does not validate (422), `false` returns it with `xsd_valid: false`. Since v1.6.0-beta.                                                                                                                                                 |
 
 Every field is read from the multipart body first and the query string second (issue #46), so either calling
-style works.
+style works. A boolean that cannot be read is refused (422) from either place; before v1.7.0-beta a query value fell
+back to its default, so `?is_alto=ture` translated a record as ALTO.
 
 ```bash
 curl -sf -F "file=@page.alto.xml" \
@@ -129,7 +130,8 @@ instead, typed in the spec as `TranslateResponse` — the shape a client generat
 
 `type` is `alto` or `metadata`; `content` is the translated XML as UTF-8 text; `document_json`
 is present when a record was sent or `include_record` asked for one, and `document_json_schema_error` when that
-record does not validate (an invalid baseline is passed through, rule 6, and said so); `log_filename` and
+record does not validate (an invalid baseline is passed through, rule 6, and said so; only this JSON answer says
+it, the multipart one does not); `log_filename` and
 `log_csv` come with `include_log`; `xsd_valid` and `xsd_errors` with `XSD_PATH`; `limits_applied` is the full list
 (the header is still set).
 
@@ -299,15 +301,15 @@ checks this table against `tool_limits.py` and `.env.example`.
 | `lindat_max_retries`             | `LINDAT_MAX_RETRIES`                         | 4       | retries | the file fails → 500                                                                                   |
 | `lindat_guard_retries`           | `LINDAT_GUARD_RETRIES`                       | 2       | retries | the segment is flagged for the end-of-document re-run                                                  |
 | `translation_rerun_rounds`       | `TRANSLATION_RERUN_ROUNDS`                   | 1       | rounds  | the segment keeps its source text (logged `untranslated`) — `skipped` note with the count              |
-| `udpipe_timeout_s`               | `UDPIPE_TIMEOUT_S`                           | 30      | s       | CLI with a vocabulary (LINDAT): the chunk is not lemmatised, its terms go unprotected — `skipped` note |
+| `udpipe_timeout_s`               | `UDPIPE_TIMEOUT_S`                           | 30      | s       | with a vocabulary (LINDAT): the chunk is not lemmatised, its terms go unprotected — `skipped` note     |
 | `llm_timeout_s`                  | `LLM_TIMEOUT_S`                              | 120     | s       | the call is retried (`LLM_MAX_RETRIES`)                                                                |
 | `llm_max_tokens`                 | `LLM_MAX_TOKENS`                             | 2048    | tokens  | a reply cut at it (`finish_reason=length`) is degenerate: re-run, else kept as source — never used     |
 | `llm_max_retries`                | `LLM_MAX_RETRIES`                            | 4       | retries | the file fails → 500                                                                                   |
-| `llm_max_glossary_terms`         | `LLM_MAX_GLOSSARY_TERMS`                     | 40      | terms   | CLI `--vocab`: the longest terms are kept — `trimmed` note                                             |
+| `llm_max_glossary_terms`         | `LLM_MAX_GLOSSARY_TERMS`                     | 40      | terms   | with a vocabulary: the longest terms are kept — `trimmed` note                                         |
 | `llm_glossary_description_chars` | `LLM_GLOSSARY_DESCRIPTION_CHARS`             | 0       | chars   | 0: no descriptions in the prompt; a longer description is cut at a word — `trimmed` note               |
 | `ct2_max_input_tokens`           | `CT2_MAX_INPUT_TOKENS`                       | 1024    | tokens  | the chunk is re-split and translated in full — `split` note                                            |
 | `ct2_max_decoding_tokens`        | `CT2_MAX_DECODING_TOKENS`                    | 2048    | tokens  | a reply that reaches it is degenerate: re-run, else kept as source — never used                        |
-| `ct2_max_glossary_terms`         | `CT2_MAX_GLOSSARY_TERMS`                     | 40      | terms   | CLI `--vocab`: the longest terms are kept — `trimmed` note                                             |
+| `ct2_max_glossary_terms`         | `CT2_MAX_GLOSSARY_TERMS`                     | 40      | terms   | with a vocabulary: the longest terms are kept — `trimmed` note                                         |
 
 Platform limits (not settings): libxml2's default limits (parsed without `huge_tree`: nesting
 depth, a 10 MB text node) — a document over them fails as malformed XML (500); Starlette's
