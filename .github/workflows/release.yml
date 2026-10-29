@@ -19,7 +19,7 @@ concurrency:
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
   # The dry run (atrium-project#32 round 2, #40: an immutable release uses up its tag, so
   # the gate is proven BEFORE tagging): the bundle is built and verified and the OpenAPI
   # checks run against the dispatched ref and the latest release; nothing is published.

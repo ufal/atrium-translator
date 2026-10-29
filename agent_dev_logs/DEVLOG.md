@@ -771,3 +771,19 @@ cell-merging stub: only page 76 changes, every number on its own row.
   `response_format` descriptions in the spec; how-it-works' routing step and provenance; the paradata keys.
 * **Release:** v1.7.0-beta in `CITATION.cff`, `para_config.txt`, the regenerated spec, the docs' examples;
   CONTRIBUTING row.
+
+## 2026-10-29 (evening) — v1.7.1-beta: the shared contract, the release trigger (atrium-project#72)
+
+* **Shared modules** (re-vendored from the hub with `scripts/revendor_shared.sh`): `atrium_document.py` raises
+  `InvalidRecordError` when a list block the merge adds rows to is not a list of objects, and
+  `service/atrium_service.py` answers it with 422 `invalid_record` (atrium-project#72). The translator merges no list
+  block, so its answers do not change; the spec's registry text names the case, as in every tool.
+* **Release trigger:** `release.yml` runs on `v*` tags, as in the other five (atrium-project#81 A.3; it was `v*.*.*`).
+  The version guard still refuses a tag that is not the version.
+* **Docs:** `data_samples/README.md` calls the paradata's licence the run's calculated licence summary
+  (atrium-project#6); the README's style-guide link is on `main`.
+* **CI:** the hub's workflows are pinned to the commit that carries the modules (the maintainer's pin move; the Trivy
+  database retry of `b07090f` is already in).
+* **Release:** v1.7.1-beta in `CITATION.cff`, `para_config.txt`, the spec's version; CONTRIBUTING row; the version
+  examples (`docs/usage.md`, `docs/reference/paradata.md`).
+* **Checks:** 1217 passed, 1 skipped; pre-commit clean.

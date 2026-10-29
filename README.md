@@ -140,7 +140,7 @@ More: the service's [Known limits](service/README.md#known-limits).
 | contribute, test, release; the release history              | [docs/development.md](docs/development.md), [CONTRIBUTING.md](CONTRIBUTING.md)                                                                         |
 
 The documentation follows the ATRIUM
-[documentation style](https://github.com/ufal/atrium-project/blob/test/docs/documentation-style.md).
+[documentation style](https://github.com/ufal/atrium-project/blob/main/docs/documentation-style.md).
 
 ## Licence, citation and acknowledgements
 

@@ -29,7 +29,7 @@ licence summary with [para_licenses.py](../../para_licenses.py). Every field of 
 |-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `schema_version`                    | the paradata schema version, `"2.0"`                                                                                                                                                                                         |
 | `program`                           | always `"translator"`                                                                                                                                                                                                        |
-| `tool_version`                      | the tool's version tag, from `para_config.txt` (e.g. `v1.7.0-beta`)                                                                                                                                                          |
+| `tool_version`                      | the tool's version tag, from `para_config.txt` (e.g. `v1.7.1-beta`)                                                                                                                                                          |
 | `repository`                        | the runner repository (`ATRIUM_RUNNER_REPO` when set)                                                                                                                                                                        |
 | `runner_ref`                        | the git ref the running container was built from (`ATRIUM_RUNNER_REF`)                                                                                                                                                       |
 | `docker_image`                      | the running image (`ATRIUM_RUNNER_IMAGE`); empty if unset                                                                                                                                                                    |
@@ -69,7 +69,7 @@ Abridged, from a metadata run with LINDAT and the vocabulary:
 {
   "schema_version": "2.0",
   "program": "translator",
-  "tool_version": "v1.7.0-beta",
+  "tool_version": "v1.7.1-beta",
   "repository": "https://github.com/ufal/atrium-translator",
   "runner_ref": "",
   "docker_image": "",

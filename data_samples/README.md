@@ -73,8 +73,9 @@ from its own translation, so no number moves to its neighbour's row.
 
 > The `.document.json` of both ALTO samples and of the first AMCR record of the append folder state **CC BY-NC 4.0**
 > (`fasttext` only): they were written before the backend's licence components were recorded, which later code
-> fixes. Those runs' paradata and their other records state the run's actual licence, **CC BY-NC-SA 4.0**; the replace
-> folder's records (v1.2.2-beta) all do. The next LINDAT refresh below rewrites the others. The AMCR/TEATER vocabulary
+> fixes. Those runs' paradata and their other records state the run's calculated licence summary,
+> **CC BY-NC-SA 4.0**; the replace folder's records (v1.2.2-beta) all do. The next LINDAT refresh below rewrites
+> the others. The AMCR/TEATER vocabulary
 > is **CC0**, as its rights holder AMČR stated
 > ([atrium-project#6](https://github.com/ufal/atrium-project/issues/6#issuecomment-5867861653), 2026-09-28); paradata
 > written before v1.2.2-beta labels it CC BY-NC 4.0. With LINDAT that changes nothing: LINDAT and the UDPipe models are

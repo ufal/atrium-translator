@@ -308,8 +308,8 @@ Two images are published, one per entry point. Both are built from the same `Doc
 | `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python main.py`        | batch CLI    |
 | `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api` | HTTP service |
 
-`<version>` is the release without its leading `v` (`1.7.0-beta` for release `v1.7.0-beta`), or `latest`. The
-`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.7.0-beta`. A tag
+`<version>` is the release without its leading `v` (`1.7.1-beta` for release `v1.7.1-beta`), or `latest`. The
+`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.7.1-beta`. A tag
 such as `atrium-translator:1.6.1-beta-api` is never published. The images carry `data_samples/my_documents/` and
 the vocabulary, not the sample outputs, and neither includes the `ct2` dependencies.
 
