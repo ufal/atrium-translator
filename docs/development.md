@@ -5,7 +5,7 @@ in. How to contribute (branches, pull requests, commit messages), the release pr
 in [CONTRIBUTING.md](../CONTRIBUTING.md); the reasons behind the design, in [decisions/](decisions/).
 
 On this page: [Checks](#checks) · [Project structure](#project-structure) · [Code map](#code-map) ·
-[The backend interface](#the-backend-interface)
+[The backend interface](#the-backend-interface) · [Working records](#working-records)
 
 ## Checks
 
@@ -74,7 +74,7 @@ atrium-translator/
 ├── eval/                      # bakeoff.py (backend comparison, #4) · langid_report.py (language-ID tuning)
 │                              # · lindat_probe.py (is one LINDAT replica broken?) · results/
 ├── docs/                      # this documentation
-├── agent_dev_logs/            # derived timeline, per-issue digests and plans
+├── agent_dev_logs/            # the maintainers' working records (see "Working records" below)
 └── data_samples/
     ├── vocabulary.csv         # Czech → English domain vocabulary (AMČR/TEATER terms)
     ├── my_documents/          # sample inputs (an anonymised ALTO page, AMČR metadata records)
@@ -154,3 +154,18 @@ enters around the requests of the end-of-document re-run (round 1, 2, …): aske
 the same reply. `CT2Translator` widens its beam inside the block (thread-local, since one backend object serves every
 request). A backend without the method is called as before: asking LINDAT again reaches another replica, and the
 OpenAI-compatible backend (temperature 0, a remote model) has shown no such need.
+
+## Working records
+
+[`agent_dev_logs/`](../agent_dev_logs/) is the maintainers' working record of the repository. It is not
+documentation for users, operators or integrators, and nothing else in the documentation points into it. It holds:
+
+- [`DEVLOG.md`](../agent_dev_logs/DEVLOG.md), a timeline index of the work, by date, with the issue each entry
+  belongs to;
+- `digests/`, one digest per issue (#4, #46 and #52), and `plans/`, one plan per issue;
+- `issues/`, the verbatim exports of open issues. The folder is absent while no issue is open: #4, #46 and #52 are
+  closed, and their threads are on
+  [GitHub](https://github.com/ufal/atrium-translator/issues?q=is%3Aissue+is%3Aclosed).
+
+The reasons behind the design are told, condensed, in [decisions/history.md](decisions/history.md); the release
+history is in [CONTRIBUTING.md](../CONTRIBUTING.md#release-history).

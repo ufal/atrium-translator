@@ -1,13 +1,13 @@
-# Contributing to the LINDAT Translation Wrapper of the ATRIUM project
+# Contributing to the ATRIUM translator
 
-Welcome! Thank you for your interest in contributing. This repository [^2] provides a
-robust workflow for translating archival XML records (specifically ALTO XML and AMCR
-metadata) into English and other target languages. It addresses common challenges in
-digital archives, such as safely translating highly nested XMLs without breaking tags,
-namespaces, or OAI-PMH envelopes.
+Welcome! Thank you for your interest in contributing. This repository [^2] translates ALTO pages and XML metadata
+records, such as AMČR's, into English and other target languages, in place: the markup stays. In the ATRIUM pipeline it
+is the last stage, after ocr-postprocess, and in the AMČR pilot it gives the records their English free-text fields.
 
-This document describes the project's capabilities, development workflow, code
-conventions, and rules for contributors.
+This document is for contributors: the release history, the branches, the pull request and commit formats, and the code
+and test conventions. What the tool does is in `README.md`; how to set it up for development, and where the
+maintainers' working records are, is in `docs/development.md`. ATRIUM-wide conventions (branching, commit types, the
+test and lint standard) are identical across all repositories; anything repo-specific is called out explicitly.
 
 ## Release History
 
@@ -35,7 +35,7 @@ conventions, and rules for contributors.
 | **v0.10.0**     | Added draft of `atrium_document` integrated into pipeline of data processing here. Refreshed paradata template.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Pre-release  |
 | **v0.9.0**      | Updated and bumped dependencies versions, edited GHA release workflow. Standartazied API service to the OpenAPI rules - aligned with `agent-skill` branch service as well.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Pre-release  |
 | **v0.8.1**      | Added version reading and license tests (cross-repository template). Dependency versions updated. LLM review performed with Fable. Added new tests and fixed existing ones.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Pre-release  |
-| **v0.8.0**      | Added agent_dev_log directory with issue logs and their digests+plans. Updated the paradata-related scripts with the atrium-project template. Updated processing to per-page call instead of per-block calls for ALTO XML inputs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Pre-release  |
+| **v0.8.0**      | Added the maintainers' working records (see docs/development.md). Updated the paradata-related scripts with the atrium-project template. Updated processing to per-page call instead of per-block calls for ALTO XML inputs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Pre-release  |
 | **v0.7.0**      | Multi-option backend finalized in theory (not tested in practice), added tests, and Docker GHA was updated.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Pre-release  |
 | **v0.6.2**      | Multi-option backend translation model (draft) and Docker GH Actions alignment.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Pre-release  |
 | **v0.6.1**      | Next round LLM review edits and Docker GH Actions alignment.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Pre-release  |
@@ -96,76 +96,6 @@ is the first immutable release.
    the alternative; language pairs a backend cannot translate are refused.
 
 Why each step was taken: [docs/decisions/history.md](docs/decisions/history.md).
-
----
-
-## Project Contributions & Capabilities
-
-This pipeline contributes 4 major capabilities to the data translation lifecycle,
-as detailed in [How the translator works](docs/how-it-works.md#the-processing-flow).
-
-### 1. Dedicated Archival XML Processing
-
-The pipeline allows archives to safely translate structured documents without altering their
-spatial coordinates or metadata schemas.
-
-* **ALTO XML Handling:** Specifically targets and translates only the `CONTENT`
-attributes within `TextBlock` and `TextLine` elements natively. Reconstruction uses a
-dual-pass block/line translation plus similarity-based token alignment so that the
-original `String` positions are preserved (see the main
-[ALTO dual-pass reconstruction](docs/how-it-works.md#alto-dual-pass-reconstruction)).
-* **XML Metadata Handling:** Uses deep recursive namespace extraction to parse specific
-elements based on custom XPaths and safely replace the text content. Works with any
-well-formed XML (AMCR/OAI-PMH or custom schemas).
-
-### 2. Multi-Mode Translation Execution
-
-Archive managers can choose processing modes based on their specific document types and workflows:
-
-| Mode                      | Best For...               | Key Feature                                                                                                              |
-|---------------------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| **ALTO XML Mode**         | Scanned document archives | Dual-pass translation + token alignment redistributes translated words back into the exact spatial `CONTENT` attributes. |
-| **XML Metadata Mode**     | Highly nested metadata    | Safely handles OAI-PMH envelopes and translates specific targeted XPath fields in any well-formed XML.                   |
-| **Batch & URL Ingestion** | Large-scale collections   | Scans entire directories or downloads/sanitizes XMLs directly from REST URLs.                                            |
-
-### 3. Automated Language & Quality Controls
-
-A core contribution of this project is minimizing manual preprocessing and providing immediate review tools:
-
-* **Language Identification:** With `--source_lang auto`, source text is analyzed using
-**FastText** [^5] once per ALTO `TextBlock` (so every line in a block shares one source
-language) or metadata field, plus once for the whole document. A guess is used only if
-the text is long enough, the score high enough and the language one the backend can
-translate; otherwise the element's own label (`LANG` / `xml:lang`), then the document's
-language, then the default source language (`cs`) apply — so an exotic guess on a short
-OCR fragment never becomes a source language (`processors/language.py`).
-* **Sentence-Aware Chunking:** Long texts are split at the highest-priority boundary found
-in each window, tried in strict order — newline (`\n`) → sentence-terminal punctuation
-(`. `, `! `, `? `) → clause-level punctuation (`; `, `, `) → word boundary — before being sent
-to the translation API. Keeping whole sentences together preserves NMT context; the word
-boundary is a fallback and a hard cut is the last resort, so mid-word truncation never occurs.
-The same shared chunker (`processors/chunking.py`) feeds the UDPipe lemmatiser.
-* **QA Logging:** Automatically produces a supplementary CSV file (`file, page_num,
-line_num, text_src, text_tgt, status`) for easy line-by-line manual QA review; `status`
-marks lines recovered by the end-of-document re-run, placed by word count, or left
-untranslated because the backend kept returning degenerate output.
-* **Schema Validation:** Optionally validates metadata outputs against an XSD schema to
-guarantee post-translation structural integrity.
-
-### 4. Seamless API & Configuration Integration
-
-The project includes streamlined interfaces for reproducible archival processing:
-
-* **LINDAT Integration:** Direct connection to the LINDAT/CLARIAH-CZ Translation Service
-API (v2) [^1].
-* **Standardized Configs:** Support for `config.txt` to define default input paths,
-target languages, and XPath lists, ensuring consistency across different archival teams.
-
-> **Backends:** LINDAT CUBBITT is the default. An OpenAI-compatible LLM API
-> (`--backend openai_compatible`) and a self-hosted CTranslate2 model (`--backend ct2`:
-> EuroLLM, MADLAD-400, NLLB-200 or Opus-MT) ship as alternatives. The bake-off of issue #4
-> (`eval/bakeoff.py`, 2026-10-19) kept LINDAT as the default and made Qwen3.8-27B, self-hosted
-> through `openai_compatible`, the alternative ([the decision](docs/decisions/backend-choice.md)).
 
 ---
 
@@ -353,18 +283,20 @@ overarching ATRIUM standard.
 
 Each documentation file has one target audience and one responsibility. Rules are not repeated — cross-references are used instead.
 
-| File                    | Audience               | Responsibility                                                      |
-|-------------------------|------------------------|---------------------------------------------------------------------|
-| `README.md`             | GitHub visitors        | What it does, inputs and outputs, quick start, limits, the docs map |
-| `docs/usage.md`         | Users, integrators     | Setup, ALTO and metadata runs, output modes, vocabulary, Docker     |
-| `service/README.md`     | Deployers, integrators | The service runbook: endpoints, errors, limits, configuration       |
-| `docs/configuration.md` | Users, deployers       | config.txt, precedence, environment variables                       |
-| `docs/how-it-works.md`  | Anyone                 | Languages, the guard, ALTO reconstruction, vocabulary, backends     |
-| `docs/reference/`       | Developers, experts    | CLI, outputs, paradata and record schema, vocabulary, licences      |
-| `docs/evaluation/`      | Anyone judging results | The backend bake-off, LINDAT's replies                              |
-| `docs/decisions/`       | Contributors           | Dated decisions and the history                                     |
-| `docs/development.md`   | Developers             | Checks, project structure, code map, the backend interface          |
-| `CONTRIBUTING.md`       | Developers             | Code conventions, branches, PRs, testing, the release history       |
+| File                    | Audience               | Responsibility                                                                                      |
+|-------------------------|------------------------|-----------------------------------------------------------------------------------------------------|
+| `README.md`             | GitHub visitors        | What it does, inputs and outputs, quick start, limits, the docs map                                 |
+| `docs/usage.md`         | Users, integrators     | Setup, ALTO and metadata runs, output modes, vocabulary, Docker                                     |
+| `service/README.md`     | Deployers, integrators | The service runbook: endpoints, errors, limits, configuration                                       |
+| `docs/configuration.md` | Users, deployers       | config.txt, precedence, environment variables                                                       |
+| `docs/how-it-works.md`  | Anyone                 | Languages, the guard, ALTO reconstruction, vocabulary, backends                                     |
+| `docs/reference/`       | Developers, experts    | CLI, outputs, paradata and record schema, vocabulary, licences                                      |
+| `docs/evaluation/`      | Anyone judging results | The backend bake-off, LINDAT's replies                                                              |
+| `docs/decisions/`       | Contributors           | Dated decisions and the history                                                                     |
+| `docs/development.md`   | Developers             | Checks, project structure, code map, the backend interface; the only pointer to the working records |
+| `CONTRIBUTING.md`       | Developers             | Code conventions, branches, PRs, testing, the release history                                       |
+
+The maintainers' working records are linked from `docs/development.md` and from no other page.
 
 The documentation follows the ATRIUM
 [documentation style](https://github.com/ufal/atrium-project/blob/test/docs/documentation-style.md); check links and
@@ -384,7 +316,7 @@ still point correctly.
 
 For support or specific archival integration questions, contact **lutsai.k@gmail.com** responsible for this GitHub repository [^2].
 
-* **Developed by:** UFAL [^3]
+* **Developed by:** ÚFAL [^3]
 * **Funded by:** ATRIUM [^4]
 * **APIs & Models:**
   * LINDAT/CLARIAH-CZ Translation Service [^1]
@@ -392,7 +324,7 @@ For support or specific archival integration questions, contact **lutsai.k@gmail
 
 With the support of the LINDAT/CLARIAH-CZ research infrastructure and the AIS CR infrastructure (LM2023031).
 
-**© 2026 UFAL & ATRIUM**
+**© 2026 ÚFAL & ATRIUM**
 
 
 [^1]: https://lindat.mff.cuni.cz/services/translation/

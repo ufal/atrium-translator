@@ -1,5 +1,11 @@
 # Translation backends: what was measured
 
+**In short:** On 2026-10-19 five variants of three backends translated the same 1,230 segments: 37 AMČR metadata
+fields and 1,193 ALTO blocks. LINDAT kept the most glossary terms (229 of 232) and failed no segment. Qwen3.8-27B came
+close (227 of 232) and ran about three times as fast. EuroLLM-9B failed 96 segments (8 %). So LINDAT stays the default
+and Qwen is the self-hosted alternative. The comparison has no reference translations and no human scores, so it does
+not rank translation quality. The June survey below was written before any measurement.
+
 For anyone judging the translator's output or choosing a backend. It gives the evidence of issue
 [#4](https://github.com/ufal/atrium-translator/issues/4) ("Translation base model to use"): the bake-off of
 2026-10-19 that kept LINDAT as the default, and the survey of candidate models it started from. The decision itself

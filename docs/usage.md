@@ -1,19 +1,28 @@
 # Using the translator
 
-For users and integrators who want to translate their own documents. It answers how to install the translator,
-how to run it on ALTO pages and on metadata records, which output mode to choose, how to use and build the
+For users and integrators who want to translate their own documents. It answers how to install the translator and how
+to run it on ALTO pages and on metadata records. It also covers which output mode to choose, how to use and build the
 vocabulary, how to run the Docker images and the service, and what to do when something goes wrong. Every flag is in
-[the command-line reference](reference/cli.md); every setting in [configuration.md](configuration.md); deploying and
-operating the service, with every error and limit, in [service/README.md](../service/README.md).
+[the command-line reference](reference/cli.md); every setting in [configuration.md](configuration.md). Deploying and
+operating the service, with every error and limit, is in [service/README.md](../service/README.md).
 
-On this page: [Setup](#setup) · [ALTO pages](#translate-alto-pages) ·
-[AMČR metadata records](#translate-amčr-metadata-records) ·
-[Replace or append](#choose-the-output-mode-replace-or-append) · [Use a vocabulary](#use-a-vocabulary) ·
-[Build the vocabulary](#build-the-vocabulary) · [Docker and Compose](#docker-and-compose) ·
-[The HTTP service](#the-http-service) · [As one stage of the pipeline](#as-one-stage-of-the-pipeline) ·
-[From a coding agent](#from-a-coding-agent) · [Troubleshooting](#troubleshooting)
+On this page, by task:
 
-## Setup
+- [Set it up](#set-up-the-translator)
+- [Choose ALTO or metadata mode](#choose-alto-or-metadata-mode)
+- [Translate ALTO pages](#translate-alto-pages)
+- [Translate AMČR metadata records](#translate-amčr-metadata-records)
+- [Choose replace or append](#choose-the-output-mode-replace-or-append)
+- [Use a vocabulary](#use-a-vocabulary)
+- [Build the vocabulary](#build-the-vocabulary)
+- [Run it in Docker](#docker-and-compose)
+- [Call the HTTP service](#call-the-http-service)
+- [Use it as one stage of the pipeline](#as-one-stage-of-the-pipeline)
+- [Call it from a coding agent](#call-it-from-a-coding-agent)
+- [Compare the command line with the service](#the-command-line-and-the-service)
+- [Fix a problem](#troubleshooting)
+
+## Set up the translator
 
 Python 3.11, the version the images and CI run.
 
@@ -32,28 +41,26 @@ The repository is not a pip-installable package: every command runs from the rep
 `python main.py`. The optional backends have their own requirement files: `requirements-llm.txt` for
 `openai_compatible`, `requirements-ct2.txt` for `ct2`. The service needs `service/requirements.txt` as well.
 
-## ALTO or metadata: who decides
+## Choose ALTO or metadata mode
 
-A file's **root element** decides when the command line names no mode: `<alto>` (any ALTO version) is translated
-as an ALTO page, any other root as a metadata record, for which the XPath targets come from config.txt's
+A file's **root element** decides when the command line names no mode. An `<alto>` root (any ALTO version) is
+translated as an ALTO page. Any other root is a metadata record, and its XPath targets come from config.txt's
 `fields =` key. Naming `--alto`, `--xpaths` or `--formats` decides for the whole run instead; a file whose root
 says otherwise is still translated in the named mode, with a warning. `/translate` decides the same way, by the
-same function (`utils.xml_kind`), when `is_alto` is not sent (since v1.6.0-beta; before, the command line needed
-a mode flag and the service took every upload for ALTO).
+same function (`utils.xml_kind`), when `is_alto` is not sent.
 
 In a folder scanned without a mode flag, config.txt's `formats` only says which files are picked up; each file's
 root then decides. A file named on the command line without a mode flag is taken when it is XML, whatever its name.
 
-Since v1.6.0-beta, also:
+Also:
 
-- `-o page_en.xml` with **one input file** names the translated file (it used to be created as a directory of that
-  name, with the translation inside); `-o` with a folder or a URL list is the output directory, as before;
-- a `.txt` file **inside a folder** is a list of URLs, as a `.txt` named on the command line is (it used to be
-  parsed as XML and fail);
+- `-o page_en.xml` with **one input file** names the translated file; `-o` with a folder or a URL list is the output
+  directory;
+- a `.txt` file **inside a folder** is a list of URLs, as a `.txt` named on the command line is;
 - in a **batch** (a folder or a URL list), `--document-json` and `--document-json-out` name directories: each
   document's baseline is `<dir>/<doc_id>.document.json` when it exists, and its record is written to
-  `<out dir>/<doc_id>.document.json`. One file for a whole batch is refused (exit 1): its `doc_id` keyed every
-  record, and each record overwrote the last.
+  `<out dir>/<doc_id>.document.json`. One file for a whole batch is refused (exit 1), because its `doc_id` would key
+  every record and each record would overwrite the last.
 
 ## Translate ALTO pages
 
@@ -74,8 +81,8 @@ An example:
 - Output, `replace`: [MTX201501307_anon_en.alto.xml](../data_samples/in-place_translated_files/alto/MTX201501307_anon_en.alto.xml)
 - Output, `append`: [MTX201501307_anon_en.alto.xml](../data_samples/appended_translated_files/alto/MTX201501307_anon_en.alto.xml)
 
-Each `TextBlock` is translated as a whole, for the quality of the translation, and the words are then distributed
-back over the `String` elements of each `TextLine`, so the layout of the page is kept. How:
+Each `TextBlock` is translated as a whole, for the quality of the translation. The words are then distributed back
+over the `String` elements of each `TextLine`, so the layout of the page is kept. How:
 [ALTO dual-pass reconstruction](how-it-works.md#alto-dual-pass-reconstruction).
 
 `--fast-align` places each line's words by its source word count instead of translating each line as an anchor:
@@ -87,8 +94,7 @@ Metadata mode translates the text of the elements that a list of XPaths names, o
 [AMČR](https://api.aiscr.cz/) records, bare or in OAI-PMH envelopes, and works with any well-formed XML and any
 namespace.
 
-AMČR's production run translates the records in `replace` mode and validates them against AMČR 2.2
-(translator#46):
+AMČR's production run translates the records in `replace` mode and validates them against AMČR 2.2:
 
 ```bash
 python main.py ./data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
@@ -105,7 +111,7 @@ python main.py ./data_samples/my_documents --xpaths amcr-fields.txt --formats xm
 - **`--xsd`** validates each record (inside an OAI-PMH envelope, each `oai:metadata` payload), logs each verdict
   and ends with one `XSD: N/M record(s) valid` line. It warns; with `--xsd-strict` an invalid record counts as a
   failed document (exit 3; the XML is still written). The service validates against a local `XSD_PATH` set by its
-  deployment (since v1.6.0-beta).
+  deployment.
 
 [amcr-fields.txt](../amcr-fields.txt) holds ten XPaths: `popis`, `poznamka`, `lokalizace`,
 `lokalizace_okolnosti`, `souhrn_upresneni`, two `nalez_*/poznamka`, and the three `lokalita/chranene_udaje/*`
@@ -117,13 +123,14 @@ fields. For example:
 //amcr:amcr/amcr:archeologicky_zaznam/amcr:lokalita/amcr:chranene_udaje/amcr:popis
 ```
 
-The namespace prefix (`amcr:`) is resolved from the document: the AMČR and OAI-PMH namespace URIs are bound to
+The namespace prefix (`amcr:`) is resolved from the document. The AMČR and OAI-PMH namespace URIs are bound to
 `amcr:` and `oai:` whatever prefixes the file uses, so the same XPaths work on a bare record and on one in an
 envelope.
 
 **Straight from AMČR.** An input can be a `.txt` file of URLs, such as the OAI-PMH `GetRecord` requests in
-[amcr-inputs.txt](../amcr-inputs.txt); each is downloaded to `--download-dir` (default
-`<output>/downloaded_inputs`) and translated like a local file. `txt` must be among the formats:
+[amcr-inputs.txt](../amcr-inputs.txt). Each is downloaded to `--download-dir` (default `<output>/downloaded_inputs`)
+under a file name reduced to letters, digits, `-` and `_`, and translated like a local file. `txt` must be among the
+formats:
 
 ```bash
 python main.py amcr-inputs.txt --xpaths amcr-fields.txt --formats xml,txt \
@@ -151,13 +158,12 @@ Each translated file is written to the output directory with a companion `_log.c
 
 ## Choose the output mode: replace or append
 
-A translation can be written into a document in two ways. This was issue
-[#46](https://github.com/ufal/atrium-translator/issues/46)'s central question; it is a switch, so a real corpus
-could settle it ([the decision](decisions/output-mode.md)).
+A translation can be written into a document in two ways. It is a switch, so a real corpus can settle which one fits
+([the decision](decisions/output-mode.md)).
 
 | Mode                | What the output contains                                                                                                                                                                                              |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `replace` (default) | The source-language field is **overwritten**. The output is a monolingual mirror of the input; the original text survives only in the sidecar `*_log.csv`. This is what the tool has always done.                     |
+| `replace` (default) | The source-language field is **overwritten**. The output is a monolingual mirror of the input; the original text survives only in the sidecar `*_log.csv`.                                                            |
 | `append`            | The source field is **kept**, and a sibling element carrying `xml:lang="<target>"` is inserted directly after it. The source element is stamped with its own `xml:lang` too, so both halves of the pair are labelled. |
 
 Set it with `--output-mode`, `output_mode` in config.txt, or `OUTPUT_MODE`, in that order of precedence.
@@ -173,7 +179,7 @@ python main.py ./data_samples/my_documents \
 ```
 
 **AMČR 2.2 does not accept `append` output.** Validated against the published schema, the 15 shipped records are
-valid as source and as `replace` output, and **none** is valid as `append` output, for both halves of the pair:
+valid as source and as `replace` output. **None** is valid as `append` output, for both halves of the pair:
 
 | Samples (`data_samples/`)        | Valid against AMČR 2.2 | Why not                                                                                                                       |
 |----------------------------------|------------------------|-------------------------------------------------------------------------------------------------------------------------------|
@@ -189,8 +195,8 @@ a run that appends to AMČR records logs one warning saying so.
 locally, since lxml's libxml2 fetches nothing over HTTP. Validation applies to metadata output only.
 
 **ALTO in `append` mode keeps the source and adds the translation as an `ALTERNATIVE`.** Every `String` keeps its
-`CONTENT`, so the scanned text and its geometry are untouched, and gains ALTO's own element for "an alternative for
-the word", carrying the same English that `replace` would have written into that box:
+`CONTENT`, so the scanned text and its geometry are untouched. It also gains ALTO's own element for "an alternative
+for the word", carrying the same English that `replace` would have written into that box:
 
 ```xml
 <TextBlock ID="B1" LANG="cs">
@@ -208,13 +214,13 @@ per `String` is still one block translation distributed over the scanned boxes
 `PURPOSE` exists on `ALTERNATIVE` from ALTO 2.1 on. ALTO `append` output **is** schema-valid: the source, `replace`
 and `append` ALTO samples all validate against ALTO 3.1.
 
-**ALTO in `replace` mode** writes the English into `CONTENT` and moves any language label the block already
-carries (ABBYY writes `LANG="cs"` or `"sk"`) to the target language, so the output no longer claims Czech for
-English text. An unlabelled input stays unlabelled.
+**ALTO in `replace` mode** writes the English into `CONTENT`. It moves any language label the block already carries
+(ABBYY writes `LANG="cs"` or `"sk"`) to the target language, so the output does not claim Czech for English text. An
+unlabelled input stays unlabelled.
 
-**`append` is idempotent.** Its output describes itself, so a second pass over an already translated document
-skips those fields, and ALTO blocks that already carry a translation `ALTERNATIVE`, instead of translating English
-into English. `replace` output carries no such marker.
+**`append` is idempotent.** Its output describes itself. A second pass over an already translated document skips those
+fields, and ALTO blocks that already carry a translation `ALTERNATIVE`, instead of translating English into English.
+`replace` output carries no such marker.
 
 The mode is recorded in the paradata and in the document record's `translations` block, so an output always says
 which contract produced it.
@@ -238,7 +244,7 @@ ignored. Clear `vocabulary =` in config.txt to translate without one.
 The service applies a vocabulary only when the deployment sets `VOCABULARY_PATH`.
 
 With the `lindat` backend the terms are protected by Tag-and-Protect, which calls UDPipe to match single words by
-lemma; the `openai_compatible` and `ct2` backends get the matching terms as a glossary in the prompt. Without a
+lemma. The `openai_compatible` and `ct2` backends get the matching terms as a glossary in the prompt. Without a
 vocabulary no UDPipe call is made. How each works:
 [Vocabulary protection](how-it-works.md#vocabulary-protection); the CSV format and the lemma forms per language:
 [reference/vocabulary.md](reference/vocabulary.md).
@@ -264,7 +270,7 @@ The merged vocabulary is written to [data_samples/vocabulary.csv](../data_sample
 entries take precedence over TEATER on a key collision. `--delay` paces both sources: the pause between AMČR pages
 and the minimum gap between TEATER requests.
 
-**From a release instead of a harvest** (atrium-project#72). atrium-keyword-extract owns the project's one
+**From a release instead of a harvest.** atrium-keyword-extract owns the project's one
 vocabulary and attaches it, CC0, to each of its releases as `atrium-vocabulary-<version>.zip`, with a `.sha256`
 beside it. The same CSV can be built from that asset, so the translator's vocabulary is a pinned release rather
 than what the live APIs answered on the day of a harvest:
@@ -277,23 +283,21 @@ python load_vocab.py --from-release v1.3.0-beta --description-chars 0   # no des
 ```
 
 The pairs are the asset's curated `vocabulary.csv`, keyword-extract's list with its exclusions applied, so the
-project curates one list rather than two (agreed with AMČR on
-[atrium-project#72](https://github.com/ufal/atrium-project/issues/72), 13 October 2026). Each pair takes the
+project curates one list rather than two (agreed with AMČR). Each pair takes the
 identity of the concept that won it in the asset's `union_nested.json` (its URI from `amcr_flat.csv` /
 `teater_flat.csv`) and that concept's description from `amcr_flat.json` / `teater_flat.json`. An asset that does
 not match its checksum, or lacks the curated list or either flat CSV, is refused (exit 3) and the output is left
-untouched; a curated pair found in no harvest is kept without provenance and reported.
+untouched. A curated pair found in no harvest is kept without provenance and reported.
 
-The committed `vocabulary.csv` is built from `v1.3.0-beta`: 4,715 pairs (the September harvest had 5,087), 1,961 of
-them with a description. `tests/test_vocabulary_pin.py` pins it to that asset by checksum. atrium-keyword-extract
-has released newer vocabularies since; adopting one is a deliberate change of the CSV, the pin and this paragraph
-together.
+The committed `vocabulary.csv` is built from `v1.3.0-beta`: 4,715 pairs, 1,961 of them with a description.
+`tests/test_vocabulary_pin.py` pins it to that asset by checksum. A newer keyword-extract vocabulary is not adopted
+automatically: adopting one is a deliberate change of the CSV, the pin and this paragraph together.
 
 The vocabulary workflow across the tools, from keyword-extract's curation to this CSV, is
 [W7 on the hub's pipelines page](https://ufal.github.io/atrium-project/pipelines/#w7--vocabulary-harvesting--review-the-translators-half).
 
 **TEATER's certificate.** As of 2026-09, `teater.aiscr.cz` serves its TLS certificate without the *RapidSSL TLS
-RSA CA G1* intermediate, so `requests` cannot verify it, and the TEATER harvest logs an SSL error and yields
+RSA CA G1* intermediate. So `requests` cannot verify it, and the TEATER harvest logs an SSL error and yields
 nothing. Do not disable verification: point `REQUESTS_CA_BUNDLE` at a CA bundle that also contains that
 intermediate. `api.aiscr.cz` serves the same intermediate in its full chain
 (`openssl s_client -showcerts -connect api.aiscr.cz:443`).
@@ -323,7 +327,7 @@ docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
   ghcr.io/ufal/atrium-translator:latest \
   /data/input --alto --formats alto.xml --target_lang en -o /data/output
 
-# AMČR metadata records (./data/input holds the *.xml records), the production shape of issue #46:
+# AMČR metadata records (./data/input holds the *.xml records), the production shape:
 # replace mode, validated against AMČR 2.2. The service validates against its deployment's XSD_PATH instead.
 docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
   ghcr.io/ufal/atrium-translator:latest \
@@ -335,11 +339,10 @@ docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
 belongs to you. `--user "$(id -u):0"` runs the container as your uid with group 0; every path the image writes
 (`/data`, `/cache`, `$HOME`) is group-0 writable for exactly this. Docker Desktop (macOS, Windows) needs neither.
 Under Compose, `./data` is in the clone (`data/.gitkeep`) and the services run as `user: "${ATRIUM_UID:-10001}:0"`:
-on Linux, put your uid in `.env` once, `echo "ATRIUM_UID=$(id -u)" >> .env` (atrium-project#69, roadmap B6; this
-replaces the old `sudo chown -R 10001 data` step).
+on Linux, put your uid in `.env` once: `echo "ATRIUM_UID=$(id -u)" >> .env`.
 
-The batch entry point exits **non-zero** on failure (`1` usage, `2` nothing matched the formats, `3` one or more
-documents failed), so it can be wrapped in a cron job or a Kubernetes `Job` and monitored
+The batch entry point exits **non-zero** on failure: `1` usage, `2` nothing matched the formats, `3` one or more
+documents failed. So it can be wrapped in a cron job or a Kubernetes `Job` and monitored
 ([exit codes](reference/cli.md#exit-codes)).
 
 ### Compose
@@ -364,39 +367,10 @@ PORT=9000 docker compose --profile api up -d
 A clean stop of the service exits 143 (128 + SIGTERM), which Compose and Kubernetes report as non-zero; that is
 the expected value.
 
-## The HTTP service
+## Call the HTTP service
 
-The same pipeline behind `POST /translate`. Its quick start, request fields, responses, errors and limits are in
+The same pipeline behind `POST /translate`. Its start, request fields, responses, errors and limits are in
 [service/README.md](../service/README.md); the contract is [service/openapi.json](../service/openapi.json).
-
-### The command line and the service
-
-Both entry points run one code path: the mode decision (`utils.xml_kind`), the file naming
-(`main.translated_filename`), `main.process_single_file` for the translation, the log and the record, and the
-paradata's keys (`main.build_run_config` for the run's parameters, `main.run_outcome_config` for what it counted:
-protected vocabulary terms, LINDAT's degenerate replies, the XSD verdicts). A scratch harness ran 256 combinations
-through both on 2026-10-28 (ALTO named `.alto.xml` and `.xml`, an AMČR record; the mode detected and named; `cs`
-and `auto`; `replace` and `append`; `--fast-align`; a vocabulary; a seed record; no XSD, a passing one, a failing
-one, a strict one), with one stub backend and language detector on both sides. The XML, the log, the record and the
-paradata's keys and values were equal in every case but the strict-XSD one in the table.
-[tests/test_cli_service_parity.py](../tests/test_cli_service_parity.py) keeps the main cases.
-
-| Input or setting     | Command line                                                     | Service                                                                                          | Same?                                                                                        |
-|----------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| How much per run     | a file, a folder, a `.txt` list of URLs                          | one XML document per request                                                                     | differs: the service is stateless and fetches no URLs                                        |
-| ALTO or metadata     | the root element, unless `--alto`, `--xpaths` or `--formats`     | the root element, unless `is_alto`                                                               | the same                                                                                     |
-| Source language      | `--source_lang`, config.txt `source_lang`, else `cs`             | `source_lang`, else `auto`                                                                       | the same when given; the defaults differ                                                     |
-| Fallback language    | `--default-source-lang`, config.txt, `DEFAULT_SOURCE_LANG`, `cs` | `DEFAULT_SOURCE_LANG`, `cs`                                                                      | the same rule, set per deployment                                                            |
-| Output mode          | `--output-mode`, config.txt, `OUTPUT_MODE`, `replace`            | `output_mode`, `OUTPUT_MODE`, `replace`                                                          | the same; an unknown value: `--output-mode` refuses it, the service warns and uses `replace` |
-| `--fast-align`       | a flag                                                           | `fast_align=true`                                                                                | the same                                                                                     |
-| XPath targets        | `--xpaths`, or config.txt `fields`                               | `AMCR_FIELDS_PATH`; without it a metadata request is refused (422)                               | differs: set per deployment                                                                  |
-| Backend, vocabulary  | `--backend`, `--vocabulary` or config.txt                        | `TRANSLATION_BACKEND`, `VOCABULARY_PATH`                                                         | differs: set per deployment                                                                  |
-| XSD validation       | `--xsd` (a URL or a path), `--xsd-strict`                        | `XSD_PATH` (a local file, loaded at startup), `xsd_strict`; the verdict in the answer            | the same verdict; the service never fetches a schema                                         |
-| A strict XSD failure | the XML is written, the document counts as failed (exit 3)       | 422 `xsd_validation_failed`, no XML                                                              | differs: an answer is all or nothing                                                         |
-| The record           | always written (`<doc_id>.document.json`)                        | returned when `document_json` is sent, or with `include_record=true`                             | the same record                                                                              |
-| The log              | `<doc>_log.csv` beside the XML                                   | with `include_log=true`: `log_csv`, or a part of the multipart answer                            | the same rows                                                                                |
-| An invalid baseline  | a warning on stderr; the record is still written                 | passed through; `document_json_schema_error` in the JSON answer (the multipart one has none)     | the same record                                                                              |
-| Paradata             | a file in `<output>/paradata/`, program `translator`             | the `CreateAction` of the JSON and multipart answers, program `translator-api`; none in bare XML | the same keys and values; a path on the command line is a file name in the service           |
 
 ```bash
 curl -s -X POST localhost:8000/translate \
@@ -407,11 +381,10 @@ curl -s -X POST localhost:8000/translate \
 `output_mode=append` works the same way, but its AMČR output does not validate against AMČR 2.2 (above).
 `is_alto`, `source_lang`, `target_lang`, `output_mode`, `response_format`, `fast_align`, `include_record`,
 `include_log` and `xsd_strict` are accepted **either** as multipart form fields or as query-string parameters. A
-boolean that cannot be read is refused (422) from either place; before v1.7.0-beta a query value fell back to its
-default, so `?is_alto=ture` translated a record as ALTO.
+boolean that cannot be read is refused (422) from either place, so `?is_alto=ture` is an error and not ALTO.
 
 The service is stateless: per-request scratch lives in a temporary directory that ends with the request, so
-replicas scale horizontally. It has no authentication or rate limiting: `/translate` does unbounded outbound work
+replicas scale horizontally. It has no authentication or rate limiting. `/translate` does unbounded outbound work
 against a translation backend for any caller, so deploy it behind your own gateway or on a trusted network, not
 directly on the public internet.
 
@@ -439,11 +412,42 @@ the page's file name, because the input is a page (`…-1.alto.xml`), not the do
 and how the AMČR deployment chains them: the
 [hub's workflow page](https://ufal.github.io/atrium-project/workflows/translator/).
 
-## From a coding agent
+## Call it from a coding agent
 
 The `agent-skill` branch packages the HTTP service as an Agent Skill, so a coding agent can translate a file by
 calling a running service. Installation and the contract it relies on:
 [Agent skills](https://ufal.github.io/atrium-project/agent-skills/) on the hub.
+
+## The command line and the service
+
+Both entry points run one code path. It covers the mode decision (`utils.xml_kind`), the file naming
+(`main.translated_filename`), `main.process_single_file` for the translation, the log and the record, and the
+paradata's keys. `main.build_run_config` builds the run's parameters, and `main.run_outcome_config` what it counted:
+protected vocabulary terms, LINDAT's degenerate replies and the XSD verdicts.
+
+A scratch harness compared the two on 256 combinations on 2026-10-28, with one stub backend and language detector on
+both sides. The combinations covered ALTO named `.alto.xml` and `.xml`, and an AMČR record; the mode detected and
+named; `cs` and `auto`; `replace` and `append`; `--fast-align`; a vocabulary; a seed record; and no XSD, a passing
+one, a failing one and a strict one. The XML, the log, the record and the paradata's keys and values were equal in
+every case but the strict-XSD one in the table.
+[tests/test_cli_service_parity.py](../tests/test_cli_service_parity.py) keeps the main cases.
+
+| Input or setting     | Command line                                                     | Service                                                                                          | Same?                                                                                        |
+|----------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| How much per run     | a file, a folder, a `.txt` list of URLs                          | one XML document per request                                                                     | differs: the service is stateless and fetches no URLs                                        |
+| ALTO or metadata     | the root element, unless `--alto`, `--xpaths` or `--formats`     | the root element, unless `is_alto`                                                               | the same                                                                                     |
+| Source language      | `--source_lang`, config.txt `source_lang`, else `cs`             | `source_lang`, else `auto`                                                                       | the same when given; the defaults differ                                                     |
+| Fallback language    | `--default-source-lang`, config.txt, `DEFAULT_SOURCE_LANG`, `cs` | `DEFAULT_SOURCE_LANG`, `cs`                                                                      | the same rule, set per deployment                                                            |
+| Output mode          | `--output-mode`, config.txt, `OUTPUT_MODE`, `replace`            | `output_mode`, `OUTPUT_MODE`, `replace`                                                          | the same; an unknown value: `--output-mode` refuses it, the service warns and uses `replace` |
+| `--fast-align`       | a flag                                                           | `fast_align=true`                                                                                | the same                                                                                     |
+| XPath targets        | `--xpaths`, or config.txt `fields`                               | `AMCR_FIELDS_PATH`; without it a metadata request is refused (422)                               | differs: set per deployment                                                                  |
+| Backend, vocabulary  | `--backend`, `--vocabulary` or config.txt                        | `TRANSLATION_BACKEND`, `VOCABULARY_PATH`                                                         | differs: set per deployment                                                                  |
+| XSD validation       | `--xsd` (a URL or a path), `--xsd-strict`                        | `XSD_PATH` (a local file, loaded at startup), `xsd_strict`; the verdict in the answer            | the same verdict; the service never fetches a schema                                         |
+| A strict XSD failure | the XML is written, the document counts as failed (exit 3)       | 422 `xsd_validation_failed`, no XML                                                              | differs: an answer is all or nothing                                                         |
+| The record           | always written (`<doc_id>.document.json`)                        | returned when `document_json` is sent, or with `include_record=true`                             | the same record                                                                              |
+| The log              | `<doc>_log.csv` beside the XML                                   | with `include_log=true`: `log_csv`, or a part of the multipart answer                            | the same rows                                                                                |
+| An invalid baseline  | a warning on stderr; the record is still written                 | passed through; `document_json_schema_error` in the JSON answer (the multipart one has none)     | the same record                                                                              |
+| Paradata             | a file in `<output>/paradata/`, program `translator`             | the `CreateAction` of the JSON and multipart answers, program `translator-api`; none in bare XML | the same keys and values; a path on the command line is a file name in the service           |
 
 ## Troubleshooting
 

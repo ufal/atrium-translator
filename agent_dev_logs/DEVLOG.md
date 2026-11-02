@@ -796,3 +796,16 @@ cell-merging stub: only page 76 changes, every number on its own row.
 * **Also:** README, `docs/reference/{paradata,outputs}.md`, the runbook, `data_samples/README.md` and
   `docs/development.md`'s layout comment (motyc, 10-29). Dated records (evaluation, decisions, changelog) unchanged.
 * **Checks:** 1225 passed, 1 skipped, as before.
+
+## 2026-11-02 — atrium-project#79 phase F, tool round: the docs for each kind of reader
+
+Documentation only; no code, test or configuration change.
+* **F3:** `docs/development.md` § Working records is the one Markdown pointer into `agent_dev_logs/`; other pages cite
+  the issue. CONTRIBUTING's documentation table follows the hub template.
+* **F4:** the two opening paragraphs became one of 79 words; "Start here" is gone; the 2026-09-26 LINDAT incident date lives on `evaluation/lindat-replies.md`, which the limit links.
+* **F5:** the runbook follows the template's order, with "At a glance" under Start and "Shutdown behaviour"; tracker
+  shorthand and version history are out of its running text. "Quick start" is "Start", with "Deployment" folded in.
+* **F6/F7:** task headings and a task list on `docs/usage.md`; "In short" on the two evaluation and three decision pages, with Decision · Status · Why · Consequence on `backend-choice` and `output-mode`; `lindat-replies` 26.0 → 16.6, `decisions/history` 25.5 → 15.0.
+* **Map:** the hub's `agent_dev_logs/plans/79.F-relocation_map.md` § atrium-translator (every moved block, corrected facts,
+  renamed anchors).
+* **Checks:** `docs_check` and `runbook_check` pass; 1225 passed, 1 skipped, as at the head.
