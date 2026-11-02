@@ -88,8 +88,8 @@ The per-document record this tool reads and writes, `<doc_id>.document.json`, fo
   this block.
 - **`derived_from.translated_xml`**: the name of the translated file. The translated **text** is not stored in the
   record.
-- **The licence block** (`provenance.license`, `license_url`, `license_detail`): the components of the run
-  ([licences.md](licences.md)). The backend's components are recorded before the record takes it, so a one-file run
+- **The licence block** (`provenance.license_detail`): the components of the run, each with its licence
+  ([licences.md](licences.md)); `provenance.license` and `license_url` beside it are an older calculated field. The backend's components are recorded before the record takes it, so a one-file run
   (one pipeline stage, one `/translate` call) states the same as a batch.
 
 **`entities[].translation_en` is reserved:** the schema assigns it to the translator, but `entities[]` is written by

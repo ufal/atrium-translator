@@ -149,10 +149,8 @@ terms. The LINDAT translation and UDPipe services are offered under the
 [LINDAT Terms of Use](https://lindat.mff.cuni.cz/en/terms-of-use), and their CUBBITT and UDPipe models are
 CC BY-NC-SA 4.0. The [FastText language-identification model](https://huggingface.co/facebook/fasttext-language-identification)
 is CC BY-NC 4.0 and is used only when the source language is detected. The AMČR and TEATER vocabularies are CC0. A
-self-hosted model has its own licence; Qwen3.8-27B, for example, is Apache-2.0. The field `license` in the
-paradata and in the document record is a calculated summary of those components, the most restrictive of their
-licences. It is not the licence of the translation. The rights in an output depend on the source document, and are
-stated by whoever holds them ([Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/)).
+self-hosted model has its own licence; Qwen3.8-27B, for example, is Apache-2.0. None of these is the licence of
+the translation. The rights in an output depend on the source document, and are stated by whoever holds them ([Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/)).
 The components, when each is used, and the inventory in [para_config.txt](para_config.txt):
 [docs/reference/licences.md](docs/reference/licences.md). Cite with [CITATION.cff](CITATION.cff), which GitHub shows as
 "Cite this repository".

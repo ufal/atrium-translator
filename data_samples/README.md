@@ -71,15 +71,16 @@ and translated from the fallback language; translator#52). A table
 column whose block translation merged repeated cells (page 76 of the ALTO sample) is placed line by line, each cell
 from its own translation, so no number moves to its neighbour's row.
 
-> The `.document.json` of both ALTO samples and of the first AMCR record of the append folder state **CC BY-NC 4.0**
-> (`fasttext` only): they were written before the backend's licence components were recorded, which later code
-> fixes. Those runs' paradata and their other records state the run's calculated licence summary,
-> **CC BY-NC-SA 4.0**; the replace folder's records (v1.2.2-beta) all do. The next LINDAT refresh below rewrites
+> The `.document.json` of both ALTO samples and of the first AMCR record of the append folder list only `fasttext`:
+> they were written before the backend's components were recorded, which later code fixes. Those runs' paradata and
+> their other records also list LINDAT and the UDPipe models, **CC BY-NC-SA 4.0**; the replace folder's records
+> (v1.2.2-beta) all do. The next LINDAT refresh below rewrites
 > the others. The AMCR/TEATER vocabulary
 > is **CC0**, as its rights holder AMČR stated
 > ([atrium-project#6](https://github.com/ufal/atrium-project/issues/6#issuecomment-5867861653), 2026-09-28); paradata
-> written before v1.2.2-beta labels it CC BY-NC 4.0. With LINDAT that changes nothing: LINDAT and the UDPipe models are
-> CC BY-NC-SA 4.0. A `ct2` EuroLLM run with the vocabulary and `--source_lang cs` resolves to **MIT**.
+> written before v1.2.2-beta labels it CC BY-NC 4.0. A LINDAT run still lists LINDAT and the UDPipe models,
+> CC BY-NC-SA 4.0. A `ct2` EuroLLM run with the vocabulary and `--source_lang cs` lists only permissive components and
+> the CC0 vocabulary.
 >
 > **`vocabulary.csv`** is **CC0** per that statement. Since 2026-10-18 it is built from atrium-keyword-extract's
 > `v1.3.0-beta` vocabulary (`python load_vocab.py --from-release v1.3.0-beta`): the 4,715 pairs of its curated list, each

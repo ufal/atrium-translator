@@ -787,3 +787,12 @@ cell-merging stub: only page 76 changes, every number on its own row.
 * **Release:** v1.7.1-beta in `CITATION.cff`, `para_config.txt`, the spec's version; CONTRIBUTING row; the version
   examples (`docs/usage.md`, `docs/reference/paradata.md`).
 * **Checks:** 1217 passed, 1 skipped; pre-commit clean.
+
+## 2026-11-02 — The calculated licence out of the docs (atrium-project#6)
+
+* **`docs/reference/licences.md`:** no "summary" outcomes: "A default run" and "A run with only permissive
+  components" list components; the candidate-backends table keeps each backend's licence and drops the summary
+  columns. The `license` field and the `notes` sentence are named once, as an older field not to be used.
+* **Also:** README, `docs/reference/{paradata,outputs}.md`, the runbook, `data_samples/README.md` and
+  `docs/development.md`'s layout comment (motyc, 10-29). Dated records (evaluation, decisions, changelog) unchanged.
+* **Checks:** 1225 passed, 1 skipped, as before.

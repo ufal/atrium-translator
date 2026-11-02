@@ -1,8 +1,8 @@
 # Paradata and the record schema
 
 For integrators and auditors who read a run's provenance. It answers where the paradata record is written, what
-each field means, and which schema the document record follows. What the records list about licences, and what the
-`license` field does not mean: [licences.md](licences.md).
+each field means, and which schema the document record follows. What the records list about licences:
+[licences.md](licences.md).
 
 ## The paradata record
 
@@ -19,8 +19,8 @@ Where one input passes through several tools, the per-tool records can be fused 
 `merge_paradata_files()`; the merged record lists the union of the components every tool used.
 
 The logger is [atrium_paradata.py](../../atrium_paradata.py), shared across the ATRIUM tools, which reads this
-repository's [para_config.txt](../../para_config.txt) for the tool version and the component table, and computes the
-licence summary with [para_licenses.py](../../para_licenses.py). Every field of the shared format is in the hub's
+repository's [para_config.txt](../../para_config.txt) for the tool version and the component table, and normalises
+the component licences with [para_licenses.py](../../para_licenses.py). Every field of the shared format is in the hub's
 [paradata schema](https://github.com/ufal/atrium-project/blob/test/docs/paradata_schema.md).
 
 ### The fields
@@ -37,8 +37,8 @@ licence summary with [para_licenses.py](../../para_licenses.py). Every field of 
 | `run_id`                            | the timestamp identifier of the run, also the file's name                                                                                                                                                                    |
 | `run_uuid`                          | `urn:uuid:…`, minted when the run starts; it also stamps every block the run writes into a record                                                                                                                            |
 | `run_agent`                         | the operating organisation's IRI (`ATRIUM_RUN_AGENT`), or empty                                                                                                                                                              |
-| `license`, `license_url`            | a **calculated summary** of the components the run used: the most restrictive of their licences. It is not the licence of the output ([licences.md](licences.md))                                                            |
-| `license_detail`                    | the components with their licences (`components`), how the summary was computed (`determined_by`, `is_non_commercial`, `is_share_alike`, `unknown_licenses`) and a `notes` sentence                                          |
+| `license`, `license_url`            | an older calculated field, not a licence and not to be used ([licences.md](licences.md))                                                                                                                                     |
+| `license_detail`                    | the components with their licences (`components`); beside them, fields of the older calculation (`determined_by`, `is_non_commercial`, `is_share_alike`, `unknown_licenses`) and a `notes` sentence                          |
 | `start_time`, `end_time`            | ISO 8601 UTC timestamps                                                                                                                                                                                                      |
 | `duration_seconds`                  | wall-clock run time                                                                                                                                                                                                          |
 | `config`                            | the run's settings (below)                                                                                                                                                                                                   |
@@ -115,9 +115,9 @@ Abridged, from a metadata run with LINDAT and the vocabulary:
 }
 ```
 
-In the field names `license_detail.effective_license` and in the `notes` sentence, the shared module still calls the
-summary the "effective output license". Read it as the summary of the components, as above: the shared modules are
-being changed to stop stating it as a licence ([Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/)).
+The field `license_detail.effective_license` and the `notes` sentence still say "effective output license". They
+belong to the older calculation, are not a licence, and should not be used; the shared modules are being changed
+([Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/)).
 
 ## The record schema
 

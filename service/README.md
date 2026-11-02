@@ -220,8 +220,7 @@ The XML and multipart answers of `/translate` are declared as their media types;
 4. **Record** — the call's provenance is built (the `CreateAction` returned as `paradata`; no
    paradata file is written), including the translation endpoint *actually resolved* (issue #63)
    rather than a literal, and the components the run used, each with its licence or terms
-   ([licences](../docs/reference/licences.md)); the record's `license` is a computed summary of
-   those components, not the licence of the translation.
+   ([licences](../docs/reference/licences.md)); none of them is the licence of the translation.
 5. **Return** — the rewritten XML streams back as an attachment; the
    `TemporaryDirectory` is removed as the request ends.
 
@@ -335,9 +334,8 @@ for a `skipped` note.
 - **The default backend's models are CC BY-NC-SA 4.0** (the CUBBITT models, and UDPipe's when a vocabulary is
   applied), offered as LINDAT services under the [LINDAT Terms of Use](https://lindat.mff.cuni.cz/en/terms-of-use),
   and AMČR's use of the default backend waits on LINDAT's written permission. The self-hosted alternative is
-  `openai_compatible` with Qwen3.8-27B (Apache-2.0; [the backend decision](../docs/decisions/backend-choice.md)). The
-  `license` a response's record and paradata carry is a computed summary of these components, not the licence of the
-  translation; the rights in an output depend on the source document
+  `openai_compatible` with Qwen3.8-27B (Apache-2.0; [the backend decision](../docs/decisions/backend-choice.md)). None
+  of these licences is the licence of the translation; the rights in an output depend on the source document
   ([licences](../docs/reference/licences.md)).
 - **LINDAT is a public research service without a service-level agreement.** A broken replica answered every other
   request with a loop on 2026-09-26; the guard recovers such replies at the cost of time

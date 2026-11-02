@@ -46,7 +46,7 @@ atrium-translator/
 ├── atrium_rocrate.py          # RO-Crate (JSON-LD) export of document records; the service's CreateAction
 ├── atrium_limits.py           # the limits contract: declaration, parsing, /info report (atrium-project#53)
 ├── atrium_openapi.py          # OpenAPI export, digest and compatibility check
-├── para_licenses.py           # the licence summary computed from the components a run used
+├── para_licenses.py           # the licences of the components a run used, normalised
 ├── check_version.py           # release gate: tag == CITATION.cff == para_config.txt
 │
 ├── tool_limits.py             # this tool's limits (TRANSLATION_CHUNK_CHARS, LINDAT_*, LLM_*, CT2_*)
