@@ -817,3 +817,10 @@ Documentation only; no code, test or configuration change.
 * **`requirements-test.txt`** pins `numpy>=1.26.4,<2.0` and `huggingface-hub==2.2.0` as `requirements.txt` does: fastText 0.9.2's `predict` fails on numpy 2, and the tests resolved 2.4.
 * Pre-commit `ruff-check`; the weekly scan targets `-api`.
 * **Checks:** 1225 passed, 1 skipped, as before, with the pinned numpy; no INFO line under `LOG_LEVEL=WARNING`.
+
+## 2026-11-03 — v1.7.2-beta
+
+* **Version:** v1.7.1-beta → v1.7.2-beta in `para_config.txt`, `CITATION.cff`, `service/openapi.json`, the version examples in `docs/usage.md` and `docs/reference/paradata.md`. `CITATION.cff` `date-released` 2026-11-03.
+* **CONTRIBUTING.md:** the release row. It covers the 11-02 licence wording (atrium-project#6), the documentation
+  round (#79) and the 11-03 CI fixes, with the hub's workflows pinned to `6a10787` (the pin sweep, committed
+  before this one).
