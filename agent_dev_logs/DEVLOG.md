@@ -809,3 +809,11 @@ Documentation only; no code, test or configuration change.
 * **Map:** the hub's `agent_dev_logs/plans/79.F-relocation_map.md` § atrium-translator (every moved block, corrected facts,
   renamed anchors).
 * **Checks:** `docs_check` and `runbook_check` pass; 1225 passed, 1 skipped, as at the head.
+
+## 2026-11-03 — What the green CI runs on the 11-02 `test` head hid (atrium-project, CI audit)
+
+* **uvicorn gets the configured log level:** `uvicorn.run(…, log_level=…)` in `service/api.py`. Under `LOG_LEVEL=WARNING` uvicorn still logged its start-up lines and the access log, and the hub's probe, which read only the service's own format, reported none.
+* **fastText's load notice:** `processors/identifier.py` drops what fastText 0.9.2 prints to stderr on every `load_model()`; load errors still raise.
+* **`requirements-test.txt`** pins `numpy>=1.26.4,<2.0` and `huggingface-hub==2.2.0` as `requirements.txt` does: fastText 0.9.2's `predict` fails on numpy 2, and the tests resolved 2.4.
+* Pre-commit `ruff-check`; the weekly scan targets `-api`.
+* **Checks:** 1225 passed, 1 skipped, as before, with the pinned numpy; no INFO line under `LOG_LEVEL=WARNING`.

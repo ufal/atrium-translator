@@ -14,6 +14,8 @@ default source language. See that module for why.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import logging
 import os
 
@@ -75,7 +77,11 @@ class LanguageIdentifier:
         self._warned_unavailable = False
         try:
             model_path = lang_id_model_path()
-            self.model = fasttext.load_model(model_path)
+            # fasttext 0.9.2's load_model() prints a notice to stderr on every load ("`load_model`
+            # does not return WordVectorModel or SupervisedModel any more"), outside logging and
+            # LOG_LEVEL; it says nothing about this model. Load errors still raise.
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.model = fasttext.load_model(model_path)
         except Exception as e:
             self.load_error = f"{type(e).__name__}: {e}"
             logger.error(

@@ -26,4 +26,4 @@ jobs:
   trivy-scan:
     uses: ufal/atrium-project/.github/workflows/security.reusable.yml@439488bb285d48eec099195528f9d1772f3b1119  # v1
     with:
-      image-ref: ghcr.io/ufal/atrium-translator:latest
+      image-ref: ghcr.io/ufal/atrium-translator-api:latest
