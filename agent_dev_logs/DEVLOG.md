@@ -824,3 +824,9 @@ Documentation only; no code, test or configuration change.
 * **CONTRIBUTING.md:** the release row. It covers the 11-02 licence wording (atrium-project#6), the documentation
   round (#79) and the 11-03 CI fixes, with the hub's workflows pinned to `6a10787` (the pin sweep, committed
   before this one).
+
+## 2026-11-03 (evening) — The hub pin moves again
+
+* **Hub pin:** the callers move to the hub commit that turns the build cache off on tags (a tag run cannot read
+  the `test` caches, and its export took minutes) and lists each CRITICAL and HIGH finding in the scan summary.
+  No file of this repository changes otherwise.
