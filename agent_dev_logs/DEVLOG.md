@@ -850,3 +850,13 @@ Documentation only; no code, test or configuration change.
   `python3 scripts/pin_hub_reusables.py --sha <that commit>` from the hub so the pins and these copies land in one
   commit (para-drift compares them with the hub at the pin); then tag.
 * **Checks:** the suite on Python 3.11 with `requirements-test.txt` (the release lane, no torch): 1234 passed, 1 skipped; `tests/test_openapi_contract.py` 12 of 12 against the app; `check_version.py --tag` agrees; the shared selftests pass; ruff clean.
+
+## 2026-11-04 (after the push) — v1.7.3-beta: the release run failed on Trivy's download
+
+* **Release Bundle 41809705322** (tag `v1.7.3-beta` at `31cd016`) failed in `image / build-and-push (api)`. Trivy's
+  own download exited 6 (the host was not resolved) on the report-only scan, and again on its retry one second
+  later. The api image was pushed but not promoted to `1.7.3-beta`/`latest`, and no GitHub Release was created. The
+  base job installed the same Trivy 13 s later, and its tags were promoted.
+* **To publish:** re-run the failed jobs of 41809705322.
+* **Hub hardening (atrium-project#81):** a pause before that retry, reaching this repository at its next pin sweep.
+* Every push run on `31cd016` (`test` and `master`) is green, para-drift included.
