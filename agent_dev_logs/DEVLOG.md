@@ -1,8 +1,8 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
 > _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
-> #52 2026-10-13; Dependabot's #54 closed 2026-10-21. `test` = `b629c71` (2026-10-28) · **v1.6.1-beta**
-> (2026-10-28; an immutable GitHub release, atrium-project#72). Latest entry: 2026-10-28, v1.7.0-beta, one
-> behaviour from either entry point, the pilot candidate (atrium-project#77). Twelve-factor detail lives in the hub:
+> #52 2026-10-13; Dependabot's #54 closed 2026-10-21. **Pilot release: v1.7.5-beta** (`17e2832`, 2026-11-04;
+> immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
+> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-04 (afternoon). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -870,3 +870,9 @@ Documentation only; no code, test or configuration change.
   (atrium-project#81). Both reach this repository with the pin sweep committed with this version.
 * **Yours:** push the hub and move `v1`; here, `python3 scripts/pin_hub_reusables.py --sha <v1>` from the hub, committed
   with these files; push `test`; then push the tag `v1.7.4-beta` on its own.
+
+## 2026-11-04 (afternoon) — The pilot release out; records and comments aligned
+
+* **Released:** v1.7.5-beta (11:23Z, `17e2832`), the pilot release (atrium-project#77). v1.7.4-beta's tag push started no run; the dispatched dry run on it (41818655606) was green and published nothing, as designed. CodeQL 41819773270 on `master` failed while uploading (incremental analysis, disk space); the same commit passed on `test`; re-run it.
+* **Fixes:** `docs/usage.md` and `docs/reference/paradata.md` give 1.7.5 as the example; CONTRIBUTING's `.5` row gives each skipped tag its own cause, and the `.3` row says it was not released; a comment in `processors/translator.py` says "calculated licence label".
+* **Records:** the header names the pilot release.
