@@ -21,8 +21,9 @@ AMČR states the rights of the outputs it publishes (agreed on 22 October 2026,
 [atrium-project#6](https://github.com/ufal/atrium-project/issues/6)), and no tool makes an automatic or default
 licence assertion.
 
-The paradata and the record also carry an older calculated field, `license`, and a `notes` sentence that still says
-"Effective output license". Neither is a licence, and neither should be used. The hub explains it without code:
+The paradata and the record also carry an older calculated field, `license`. It is not a licence and should not
+be used; the record marks it `provenance.license_basis: "calculated"`, and the paradata's `notes` list the
+components and say that no output licence is asserted. The hub explains it without code:
 [Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/).
 
 ## The components

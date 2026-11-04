@@ -29,7 +29,7 @@ the component licences with [para_licenses.py](../../para_licenses.py). Every fi
 |-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `schema_version`                    | the paradata schema version, `"2.0"`                                                                                                                                                                                         |
 | `program`                           | always `"translator"`                                                                                                                                                                                                        |
-| `tool_version`                      | the tool's version tag, from `para_config.txt` (e.g. `v1.7.2-beta`)                                                                                                                                                          |
+| `tool_version`                      | the tool's version tag, from `para_config.txt` (e.g. `v1.7.3-beta`)                                                                                                                                                          |
 | `repository`                        | the runner repository (`ATRIUM_RUNNER_REPO` when set)                                                                                                                                                                        |
 | `runner_ref`                        | the git ref the running container was built from (`ATRIUM_RUNNER_REF`)                                                                                                                                                       |
 | `docker_image`                      | the running image (`ATRIUM_RUNNER_IMAGE`); empty if unset                                                                                                                                                                    |
@@ -69,7 +69,7 @@ Abridged, from a metadata run with LINDAT and the vocabulary:
 {
   "schema_version": "2.0",
   "program": "translator",
-  "tool_version": "v1.7.2-beta",
+  "tool_version": "v1.7.3-beta",
   "repository": "https://github.com/ufal/atrium-translator",
   "runner_ref": "",
   "docker_image": "",
@@ -115,8 +115,8 @@ Abridged, from a metadata run with LINDAT and the vocabulary:
 }
 ```
 
-The field `license_detail.effective_license` and the `notes` sentence still say "effective output license". They
-belong to the older calculation, are not a licence, and should not be used; the shared modules are being changed
+The field `license_detail.effective_license` belongs to the older calculation; it is not a licence and should not
+be used. The `notes` list the components and say that no output licence is asserted
 ([Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/)).
 
 ## The record schema
