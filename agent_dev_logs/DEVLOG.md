@@ -860,3 +860,13 @@ Documentation only; no code, test or configuration change.
 * **To publish:** re-run the failed jobs of 41809705322.
 * **Hub hardening (atrium-project#81):** a pause before that retry, reaching this repository at its next pin sweep.
 * Every push run on `31cd016` (`test` and `master`) is green, para-drift included.
+
+## 2026-11-04 (later) — v1.7.4-beta prepared: v1.7.3-beta released under the next number
+
+* **Why:** v1.7.3-beta was tagged but not released: Trivy's own download exited 6 twice in `build-and-push (api)` (run 41809705322). The maintainer's decision: release the same code as v1.7.4-beta
+  rather than repair the v1.7.3-beta tag (the `v*` ruleset lets only an admin move or delete it).
+* **Version v1.7.4-beta** (prepared, not tagged): `para_config.txt`, `CITATION.cff`, `service/openapi.json` (version only), `docs/usage.md`, `docs/reference/paradata.md`; the `CONTRIBUTING.md` row. No code changes against v1.7.3-beta.
+* **Hub:** the CVE gate now runs once more after a 30 s pause, and the report-only scan's retry waits 30 s
+  (atrium-project#81). Both reach this repository with the pin sweep committed with this version.
+* **Yours:** push the hub and move `v1`; here, `python3 scripts/pin_hub_reusables.py --sha <v1>` from the hub, committed
+  with these files; push `test`; then push the tag `v1.7.4-beta` on its own.

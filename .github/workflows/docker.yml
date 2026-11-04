@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   build-and-push:
-    uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@5c25d32e7a5e872213f21dc64aeae86491d603b6  # v1
+    uses: ufal/atrium-project/.github/workflows/docker-tool.reusable.yml@51aad6c9a657229a1d41f86ce7119bddbfcff9f5  # v1
     with:
       image-name: ${{ github.repository }}
       # issue #55: `api` is a new Dockerfile stage. Before it existed this repo's
