@@ -307,15 +307,21 @@ intermediate. `api.aiscr.cz` serves the same intermediate in its full chain
 Two images are published, one per entry point. Both are built from the same `Dockerfile` and run as a non-root user
 (`atrium`, uid 10001) by default:
 
-| Image                                          | Stage  | Entry point             | Purpose      |
-|------------------------------------------------|--------|-------------------------|--------------|
-| `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python main.py`        | batch CLI    |
-| `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api` | HTTP service |
+| Image                                          | Stage  | Entry point                                       | Purpose      |
+|------------------------------------------------|--------|---------------------------------------------------|--------------|
+| `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python /app/entrypoint.py`, which runs `main.py` | batch CLI    |
+| `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api`                           | HTTP service |
 
-`<version>` is the release without its leading `v` (`1.7.5-beta` for release `v1.7.5-beta`), or `latest`. The
-`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.7.5-beta`. A tag
+`<version>` is the release without its leading `v` (`1.7.6-beta` for release `v1.7.6-beta`), or `latest`. The
+`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.7.6-beta`. A tag
 such as `atrium-translator:1.6.1-beta-api` is never published. The images carry `data_samples/my_documents/` and
 the vocabulary, not the sample outputs, and neither includes the `ct2` dependencies.
+
+The batch image passes its arguments to `main.py` (`docker run IMAGE /data/input --alto …`). Since `v1.7.6-beta` a
+first argument that names a shell or Python runs that program instead (`docker run IMAGE /bin/sh job.sh`,
+`docker run IMAGE python3 /app/main.py --help`), which is how Galaxy starts a tool's container. Only those
+interpreters run: an input file that happens to be executable is still translated. `main.py` is found by its
+absolute path, so the container may start in any working directory.
 
 ### Batch translation
 

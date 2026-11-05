@@ -2,7 +2,7 @@
 > _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
 > #52 2026-10-13; Dependabot's #54 closed 2026-10-21. **Pilot release: v1.7.5-beta** (`17e2832`, 2026-11-04;
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
-> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-04 (afternoon). Twelve-factor detail lives in the hub:
+> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-05. Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -876,3 +876,17 @@ Documentation only; no code, test or configuration change.
 * **Released:** v1.7.5-beta (11:23Z, `17e2832`), the pilot release (atrium-project#77). v1.7.4-beta's tag push started no run; the dispatched dry run on it (41818655606) was green and published nothing, as designed. CodeQL 41819773270 on `master` failed while uploading (incremental analysis, disk space); the same commit passed on `test`; re-run it.
 * **Fixes:** `docs/usage.md` and `docs/reference/paradata.md` give 1.7.5 as the example; CONTRIBUTING's `.5` row gives each skipped tag its own cause, and the `.3` row says it was not released; a comment in `processors/translator.py` says "calculated licence label".
 * **Records:** the header names the pilot release.
+
+## 2026-11-05 — v1.7.6-beta prepared: the batch image starts Galaxy's job script (atrium-project#66)
+
+* **Why:** Galaxy starts a tool's container as `docker run … IMAGE /bin/sh tool_script.sh` in the job's working
+  directory. `ENTRYPOINT ["python", "main.py"]` made `/bin/sh` the input path (exit 2), and `main.py` resolved
+  against that working directory. The translator's Galaxy wrapper (hub `galaxy/tools/atrium_translator/`) pins this
+  release.
+* **Change:** a tracked `entrypoint.py`, modelled on page-classification's: arguments go to `/app/main.py`; a first
+  argument that names `sh`, `bash`, `dash`, `python` or `python3` runs as given. Only those run, so an executable
+  input file is still translated. `Dockerfile` `ENTRYPOINT ["python", "/app/entrypoint.py"]`, CMD unchanged; the hub's
+  E2E Stage 3 (a positional ALTO path) runs as before. `tests/test_container_entrypoint.py` (9 tests).
+* **Version v1.7.6-beta** (prepared, not tagged): `para_config.txt`, `CITATION.cff`, `service/openapi.json`,
+  `docs/usage.md` (plus a paragraph on the entry point), `docs/reference/paradata.md`; the `CONTRIBUTING.md` row.
+* **Yours:** push `test`; then the tag `v1.7.6-beta` on its own. The Galaxy wrapper's tests need its image.
