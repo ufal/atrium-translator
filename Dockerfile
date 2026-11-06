@@ -104,12 +104,12 @@ RUN useradd --create-home --uid 10001 atrium \
 ENV HOME=/home/atrium
 USER atrium
 
-# The ENTRYPOINT is entrypoint.py (since v1.7.6-beta). Arguments go to /app/main.py, as before; a
-# first argument that names a shell or Python (/bin/sh, python3) runs as given, which is how Galaxy
-# starts a tool's container: `docker run IMAGE /bin/sh tool_script.sh`, in the job's own working
-# directory (atrium-project#66). main.py is named by its absolute path for the same reason: `python
-# main.py` resolved it against the working directory. It ends in os.execv, so the program is PID 1.
-ENTRYPOINT ["python", "/app/entrypoint.py"]
+# container_entrypoint.py (hub-canonical, vendored; atrium-project#66) runs /app/main.py by its absolute path with
+# the arguments `docker run` passes, as before. A first argument that names a shell or Python
+# (`/bin/sh tool_script.sh`) runs as given: that is how Galaxy starts a tool's container, in the
+# job's own working directory, where the old relative `python main.py` failed. It ends in os.execv,
+# so the program is PID 1.
+ENTRYPOINT ["python", "/app/container_entrypoint.py", "/app/main.py"]
 CMD ["/data/input", "--alto", "--formats", "alto.xml", "--target_lang", "en", "-o", "/data/output"]
 
 

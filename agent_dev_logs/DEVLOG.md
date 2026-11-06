@@ -2,7 +2,7 @@
 > _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
 > #52 2026-10-13; Dependabot's #54 closed 2026-10-21. **Pilot release: v1.7.5-beta** (`17e2832`, 2026-11-04;
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
-> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-05. Twelve-factor detail lives in the hub:
+> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-06. Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -890,3 +890,19 @@ Documentation only; no code, test or configuration change.
 * **Version v1.7.6-beta** (prepared, not tagged): `para_config.txt`, `CITATION.cff`, `service/openapi.json`,
   `docs/usage.md` (plus a paragraph on the entry point), `docs/reference/paradata.md`; the `CONTRIBUTING.md` row.
 * **Yours:** push `test`; then the tag `v1.7.6-beta` on its own. The Galaxy wrapper's tests need its image.
+
+## 2026-11-06 — v1.7.7-beta prepared: v1.7.6-beta's tag on the wrong commit; the shared entry point (atrium-project#66)
+
+* **What happened:** K4TEL pushed `test` at `cb68c39` (the 1.7.6 bump and `entrypoint.py`) at 20:29:17 on 11-05 and
+  the tag `v1.7.6-beta` a second later, but the tag points at `5b25f83`, the commit before: it was created before the
+  bump was committed. Release Bundle 42103826703 stopped at the version gate (tag 1.7.6, CITATION 1.7.5), as designed;
+  nothing was published. A release tag is not moved (hub `release_trust.md`), so the next patch version carries it.
+* **Change:** `entrypoint.py` and `tests/test_container_entrypoint.py` are removed; the ENTRYPOINT is the hub-canonical
+  `container_entrypoint.py` given `/app/main.py` (same behaviour: interpreters run, everything else goes to main.py).
+  `tests/test_batch_entrypoint.py` pins the `base` stage; `ruff.toml` excludes the two vendored files.
+* **Version v1.7.7-beta** (prepared, not tagged): the version files, the `docs/usage.md` table and paragraph; the
+  `CONTRIBUTING.md` rows (`v1.7.6-beta`: tagged, not released).
+* **The hub's Galaxy wrapper** moves its pin to `1.7.7-beta`.
+* **Recovery for a tag push that starts no run** (`v1.7.4-beta`): *Actions → Release Bundle → Run workflow* on the tag,
+  or `gh workflow run release.yml --ref <tag>`; every publish condition reads `refs/tags/v`, so that run is the release.
+* **Yours:** push the hub commit with `container_entrypoint.py` and move `v1`; here, `python3 ../atrium-project/scripts/pin_hub_reusables.py --sha <v1>` committed with these files (para-drift checks the copy only at a pin that has it); push `test`; then `python3 ../atrium-project/scripts/tag_release.py v1.7.7-beta`, which tags the pushed HEAD only and pushes that one tag.

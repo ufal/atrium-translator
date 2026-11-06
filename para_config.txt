@@ -3,7 +3,7 @@
 # components or versions change.
 [tool]
 program = translator
-version = v1.7.6-beta
+version = v1.7.7-beta
 repository_fallback = https://github.com/ufal/atrium-translator
 
 [components]
