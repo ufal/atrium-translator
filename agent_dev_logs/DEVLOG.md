@@ -906,3 +906,15 @@ Documentation only; no code, test or configuration change.
 * **Recovery for a tag push that starts no run** (`v1.7.4-beta`): *Actions → Release Bundle → Run workflow* on the tag,
   or `gh workflow run release.yml --ref <tag>`; every publish condition reads `refs/tags/v`, so that run is the release.
 * **Yours:** push the hub commit with `container_entrypoint.py` and move `v1`; here, `python3 ../atrium-project/scripts/pin_hub_reusables.py --sha <v1>` committed with these files (para-drift checks the copy only at a pin that has it); push `test`; then `python3 ../atrium-project/scripts/tag_release.py v1.7.7-beta`, which tags the pushed HEAD only and pushes that one tag.
+
+## 2026-11-06 (afternoon) — v1.7.8-beta prepared: v1.7.7-beta tagged before its fix (atrium-project#66)
+
+* **What happened:** the tag `v1.7.7-beta` (10:08Z) is on `ec694d3`, where Docker Build & Push 42200410246 had failed
+  at 10:05: `entrypoint.py` and `tests/test_container_entrypoint.py` were still in the tree (applying files cannot
+  delete), and that test expects the old ENTRYPOINT. Release Bundle 42200410454 stopped in `image / test`; nothing was
+  published. The fix `5097da9` (the two files removed) is green.
+* **Version v1.7.8-beta** (prepared, not tagged): the version files, `docs/usage.md` and `docs/reference/paradata.md`;
+  the `CONTRIBUTING.md` rows (`v1.7.6-beta` and `v1.7.7-beta`: tagged, not released). No code change since `5097da9`.
+* **The hub's tag helper** now refuses a HEAD whose CI failed or is still running (with `gh`), which is what would
+  have stopped `v1.7.7-beta`. The hub's Galaxy wrapper moves its pin to `1.7.8-beta`.
+* **Yours:** push `test`; once its runs are green, `python3 ../atrium-project/scripts/tag_release.py v1.7.8-beta`.

@@ -312,12 +312,12 @@ Two images are published, one per entry point. Both are built from the same `Doc
 | `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python /app/container_entrypoint.py /app/main.py` | batch CLI    |
 | `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api`                            | HTTP service |
 
-`<version>` is the release without its leading `v` (`1.7.7-beta` for release `v1.7.7-beta`), or `latest`. The
-`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.7.7-beta`. A tag
+`<version>` is the release without its leading `v` (`1.7.8-beta` for release `v1.7.8-beta`), or `latest`. The
+`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.7.8-beta`. A tag
 such as `atrium-translator:1.6.1-beta-api` is never published. The images carry `data_samples/my_documents/` and
 the vocabulary, not the sample outputs, and neither includes the `ct2` dependencies.
 
-The batch image passes its arguments to `main.py` (`docker run IMAGE /data/input --alto …`). Since `v1.7.7-beta` its
+The batch image passes its arguments to `main.py` (`docker run IMAGE /data/input --alto …`). Since `v1.7.8-beta` its
 entry point is the hub-canonical `container_entrypoint.py`: a first argument that names a shell or Python runs that
 program instead (`docker run IMAGE /bin/sh job.sh`, `docker run IMAGE python3 /app/main.py --help`), which is how
 Galaxy starts a tool's container. Only those interpreters run: an input file that happens to be executable is still
