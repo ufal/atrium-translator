@@ -2,7 +2,7 @@
 > _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
 > #52 2026-10-13; Dependabot's #54 closed 2026-10-21. **Pilot release: v1.7.5-beta** (`17e2832`, 2026-11-04;
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
-> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-06. Twelve-factor detail lives in the hub:
+> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-08. Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -918,3 +918,13 @@ Documentation only; no code, test or configuration change.
 * **The hub's tag helper** now refuses a HEAD whose CI failed or is still running (with `gh`), which is what would
   have stopped `v1.7.7-beta`. The hub's Galaxy wrapper moves its pin to `1.7.8-beta`.
 * **Yours:** push `test`; once its runs are green, `python3 ../atrium-project/scripts/tag_release.py v1.7.8-beta`.
+
+## 2026-11-08 — review round 3: the target language in the CLI-and-service table
+
+* **Read:** `test` at `d6bfbc2`.
+* **Change:** `docs/usage.md`, "The command line and the service": the missing target-language row. The command line
+  takes `--target_lang`, else config.txt `target_lang`, else `en` (`main.py`); the service takes `target_lang`, a form
+  field or query parameter, else `en` (`service/api.py`). Both default to `en`; only the command line's default can be
+  changed. No code or version change.
+* **Checked:** the hub's `docs_check.py`; the test suite.
+* **Yours:** push with the hub re-pin (committed locally); nothing to tag for this alone.
