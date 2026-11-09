@@ -2,17 +2,16 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "ATRIUM translator"
 abstract: >-
-  The translator translates the text inside an XML document and writes it back into the same document:
-  every tag, namespace and attribute stays, and in an ALTO page every word box keeps its coordinates.
-  It reads ALTO pages (the OCR text of scanned documents) and the free-text fields of AMČR metadata
-  records, mainly Czech to English. Use it when the result must stay the same document in another
-  language. It reads XML only, not plain text or PDF.
+  The translator translates the text inside an XML document and writes it back into the same document,
+  so the document keeps its structure: every tag and attribute stays, and the text of a recognised
+  page keeps its position on the page. It is used on the text of scanned pages and on the free-text
+  fields of metadata records.
 keywords:
   - "machine translation"
-  - "ALTO XML"
+  - "XML documents"
   - "metadata translation"
-  - "AMCR"
   - "cross-language discovery"
+  - "digital archives"
 version: "1.7.8-beta"
 date-released: "2026-11-06"
 authors:
