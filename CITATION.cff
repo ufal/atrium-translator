@@ -1,6 +1,18 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "ATRIUM's XMLs translator: in-place translation of ALTO XMLs text contents and AMCR XMLs metadata fields."
+title: "ATRIUM translator: in-place machine translation of AMCR metadata fields and ALTO XML text, preserving document structure"
+abstract: >-
+  The translator translates the text inside an XML document and writes it back into the same document:
+  every tag, namespace and attribute stays, and in an ALTO page every word box keeps its coordinates.
+  It reads ALTO pages (the OCR text of scanned documents) and the free-text fields of AMČR metadata
+  records, mainly Czech to English. Use it when the result must stay the same document in another
+  language. It reads XML only, not plain text or PDF.
+keywords:
+  - "machine translation"
+  - "ALTO XML"
+  - "metadata translation"
+  - "AMCR"
+  - "cross-language discovery"
 version: "1.7.8-beta"
 date-released: "2026-11-06"
 authors:
