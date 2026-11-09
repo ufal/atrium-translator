@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "ATRIUM translator: in-place machine translation of AMCR metadata fields and ALTO XML text, preserving document structure"
+title: "ATRIUM translator"
 abstract: >-
   The translator translates the text inside an XML document and writes it back into the same document:
   every tag, namespace and attribute stays, and in an ALTO page every word box keeps its coordinates.
