@@ -2,7 +2,7 @@
 > _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
 > #52 2026-10-13; Dependabot's #54 closed 2026-10-21. **Starting set of the pilot phase: v1.7.5-beta** (`17e2832`, 2026-11-04;
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
-> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-11. Twelve-factor detail lives in the hub:
+> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-12 (this repository's part of atrium-project#84: `plans/84.plan.md`). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -933,7 +933,7 @@ Documentation only; no code, test or configuration change.
 
 * **Asked (K4TEL):** carry the meeting of 11 November (ARÚP's output contract) into this repository's logs: its
   slice of the consolidated record and paradata change. Anchor: [meeting digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/project_state_1111.md)
-  · [hub plan](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md).
+  · [hub plan](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md).
 * **Decided in session:** plans only this round; the schema issue is not opened yet (placeholder name
   `doc-schema-v2`); `categ` is ocr-postprocess's only (digital-convert's verdicts become `decode` markers), which
   this tool does not read.
@@ -955,4 +955,24 @@ Documentation only; no code, test or configuration change.
   * **`digests/4.digest.md`, `digests/52.digest.md`:** the title tag `open` → `closed`, nothing else;
   * **`DEVLOG.md`:** the header names the starting set of the pilot phase.
 * **Not posted:** nothing on GitHub; none of the hub's questions Q1–Q7 is this repository's.
+* Plans only; no code changed. Files delivered as full files.
+
+## 2026-11-12 — atrium-project#84: the field list per request, no default (D34)
+
+* **Asked (K4TEL):** align the logs with ARÚP's output contract of 12 November (the .docx of that day, replacing the
+  meeting document of 10 November) and with David Novák's comments of 11-12 (atrium-project#84 opened, #13, #16,
+  #78); `test` fetched first (all seven working branches = `test`).
+  Anchor: [contract digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/project_state_1211.md) · [hub plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md).
+* **Decided in session:** the tool slices are named `plans/84.plan.md`; the translator keeps `amcr-fields.txt` as a
+  documented example that nothing loads (no default list, D34); the hub's #84 plan carries a reply draft agreeing on
+  points 1 and 2.
+* **Found:** the service's 422 for a metadata request without targets exists (`service/api.py:791-800`) but is keyed
+  to the startup list (`AMCR_FIELDS_PATH`, 332, 472); the CLI falls back to `fields = amcr-fields.txt`
+  (`config.txt:34`, `main.py:563-564`); the release copies `amcr-fields.txt` into `dist/` (`release.yml:161`).
+* **Written here (not pushed):**
+  * **`plans/84.plan.md`** (was `plans/doc-schema-v2.plan.md`): the 11-12 section — the list per request, refusal
+    without one, `fields =` and `AMCR_FIELDS_PATH` gone, `amcr-fields.txt` an example only; D35, D36; #16 leaves this
+    repository's samples to the meeting;
+  * **`DEVLOG.md`:** the header and this entry.
+* **Not posted:** nothing on GitHub; questions stay on the hub's list for the next meeting.
 * Plans only; no code changed. Files delivered as full files.
