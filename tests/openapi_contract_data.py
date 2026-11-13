@@ -22,13 +22,11 @@ SERVICES = [
 
 #: Settings besides every [limit] variable (which the test perturbs from tool_limits.LIMITS)
 #: that a deployment changes and that must not change the spec: the backend and its host, the
-#: default output mode (resolved per request, never a declared default), the metadata-mode
-#: field list, and the CORS origins.
+#: default output mode (resolved per request, never a declared default) and the CORS origins.
 ENV_PERTURB = {
     "TRANSLATION_BACKEND": "llm",
     "TRANSLATION_URL": "https://translation.example.org/api/v2/",
     "OUTPUT_MODE": "append",
-    "AMCR_FIELDS_PATH": "/nonexistent/fields.txt",
     "ALLOWED_ORIGINS": "https://example.org",
 }
 

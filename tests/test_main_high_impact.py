@@ -36,6 +36,11 @@ class FakeParadataLogger:
         self.skipped: list[tuple[str, str]] = []
         self.finalized_with: int | None = None
         self.limits_applied: list[dict] = []
+        self.inputs: list[str] = []
+        self.outputs: list[str] = []
+        self._parameters: dict = {}
+        self.parameters = self._parameters
+        self.error: str | None = None
         Path(paradata_dir).mkdir(parents=True, exist_ok=True)
         type(self).instances.append(self)
 
@@ -45,8 +50,18 @@ class FakeParadataLogger:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-    def get_license_block(self) -> dict:
-        return {"effective_license": "CC BY-NC 4.0", "effective_license_url": "", "components": []}
+    def add_input(self, name: str, data=None, **kwargs) -> None:
+        """ParadataLogger.add_input (paradata 3.0): an input by distribution name."""
+        self.inputs.append(name)
+
+    def add_output(self, name: str, data=None, **kwargs) -> None:
+        self.outputs.append(name)
+
+    def set_parameter(self, key: str, value) -> None:
+        self.parameters[key] = value
+
+    def fail(self, error: str) -> None:
+        self.error = error
 
     def log_success(
         self,
@@ -374,7 +389,7 @@ def test_main_routes_to_alto_processor_and_writes_sidecars(
         "en",
     )
     assert call.kwargs["line_anchors"] is True
-    assert call.kwargs["doc"] is not None
+    assert isinstance(call.kwargs["facts"], dict)
 
     spies.get_backend.assert_called_once_with(
         "lindat",
@@ -384,10 +399,12 @@ def test_main_routes_to_alto_processor_and_writes_sidecars(
     spies.identifier_factory.assert_not_called()
 
     assert (output_dir / "sample_log.csv").exists()
-    assert (output_dir / "sample.document.json").exists()
+    # Record schema 2.0: no record without one sent; the paradata name the original read.
+    assert not (output_dir / "sample.document.json").exists()
 
     logger = FakeParadataLogger.instances[-1]
     assert logger.finalized_with == 1
+    assert logger.inputs == ["original"] and logger.outputs == []
 
 
 def test_main_routes_to_metadata_processor_with_vocab_xpaths_and_xsd(
@@ -476,7 +493,7 @@ def test_main_routes_to_metadata_processor_with_vocab_xpaths_and_xsd(
     )
     assert call.kwargs["xsd_schema"] is spies.load_xsd.return_value
     assert call.kwargs["identifier"] is spies.identifier
-    assert call.kwargs["doc"] is not None
+    assert isinstance(call.kwargs["facts"], dict)
 
     spies.load_xsd.assert_called_once_with(
         str(xsd),
@@ -487,17 +504,20 @@ def test_main_routes_to_metadata_processor_with_vocab_xpaths_and_xsd(
     )
     spies.identifier_factory.assert_called_once_with()
 
-    assert document_json_out.exists()
+    # No record was sent, so none comes back (record schema 2.0).
+    assert not document_json_out.exists()
     assert (output_dir / "metadata_log.csv").exists()
 
     logger = FakeParadataLogger.instances[-1]
+    assert logger.inputs == ["metadata"] and logger.outputs == ["metadata-en"]
+    assert logger.parameters["xpaths"] == ["//root/child"]
 
     assert "fasttext" in logger.components
     assert logger.config["vocabulary_protected_terms"] == {
         "metadata": 2,
     }
     assert logger.config["vocabulary_protected_terms_total"] == 2
-    assert "json" in logger.successes
+    assert "json" not in logger.successes
 
 
 def test_main_records_processor_failure_without_crashing(

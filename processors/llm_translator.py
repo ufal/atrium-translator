@@ -249,8 +249,8 @@ class LLMTranslator:
     def license_components(self, vocab_loaded: bool = False) -> list:
         """Paradata component names this backend contributes (see para_config.txt).
 
-        The LLM API itself maps to ``llm_api`` (provider ToS — deliberately
-        treated conservatively by para_licenses), unless ``LLM_LICENSE_COMPONENT``
+        The LLM API itself maps to ``llm_api`` (provider ToS, listed as an
+        unrecognised licence string), unless ``LLM_LICENSE_COMPONENT``
         names the component of a model the deployment serves itself.  A loaded
         glossary still derives from the AMCR/TEATER vocabulary, so those are
         recorded too.
@@ -296,11 +296,13 @@ class LLMTranslator:
         pairs.sort(key=lambda kv: len(kv[0]), reverse=True)
         cap = LLM_MAX_GLOSSARY_TERMS.get()
         if len(pairs) > cap:
+            # A prompt budget, not the document's text: the prompt gets a selection of the matched
+            # terms and the translation is complete, so it is recorded as `sampled` (atrium-project#84).
             note(
                 LLM_MAX_GLOSSARY_TERMS,
-                "trimmed",
+                "sampled",
                 1,
-                f"{len(pairs) - cap} matched vocabulary term(s) left out of a prompt; the {cap} longest were kept",
+                f"the {cap} longest of {len(pairs)} matched vocabulary terms went into a prompt",
             )
         pairs = pairs[:cap]
         limit = LLM_GLOSSARY_DESCRIPTION_CHARS.get()
@@ -314,11 +316,13 @@ class LLMTranslator:
             else:
                 lines.append(f"{src} = {tgt}")
         if cut:
+            # Prompt context, as above: the first characters of each description are what the
+            # prompt gets; the translated text is complete (`sampled`, atrium-project#84).
             note(
                 LLM_GLOSSARY_DESCRIPTION_CHARS,
-                "trimmed",
+                "sampled",
                 cut,
-                f"{cut} glossary description(s) cut to {limit} characters in a prompt",
+                f"the first {limit} characters of {cut} glossary description(s) went into a prompt",
             )
         return lines
 

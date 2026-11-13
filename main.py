@@ -29,8 +29,8 @@ except ImportError:
         print()
 
 
-from atrium_document import DocumentRecord, canonical_doc_id, load_document, validate_baseline, validate_document
-from atrium_limits import LimitExceeded
+from atrium_document import DocumentRecord, canonical_doc_id, load_document, validate_baseline
+from atrium_limits import ContentLimitError, LimitExceeded
 from atrium_paradata import ParadataLogger
 from processors.backend import TranslationBackend, get_backend
 from processors.identifier import LanguageIdentifier
@@ -82,7 +82,6 @@ def build_run_config(
     input_path: str = "",
     output_dir: str = "",
     formats: str = "",
-    xpaths_file: str = "",
     xsd: str = "",
     xsd_strict: bool = False,
     fast_align: bool = False,
@@ -110,7 +109,6 @@ def build_run_config(
         # the source-language text was kept beside the translation or overwritten.
         "output_mode": str(output_mode or DEFAULT_OUTPUT_MODE),
         "translation_backend": backend_name,
-        "xpaths_file": str(xpaths_file or ""),
         "xsd_url": str(xsd or ""),
         "xsd_strict": bool(xsd_strict),
         "fast_align": bool(fast_align),
@@ -209,7 +207,6 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         input_path=str(args.input_path),
         output_dir=str(args.output or config.get("DEFAULT", "output", fallback="")),
         formats=str(args.formats),
-        xpaths_file=str(args.xpaths or ""),
         xsd=str(args.xsd or ""),
         xsd_strict=bool(getattr(args, "xsd_strict", False)),
         fast_align=bool(getattr(args, "fast_align", False)),
@@ -304,8 +301,8 @@ def _baseline_is_invalid(baseline: Path | None) -> bool:
     except Exception as exc:
         _doc_warn(
             f"inherited baseline {Path(baseline).name} does not validate against "
-            f"atrium_document.schema.json — {exc}. Accreting onto it anyway; this stage's "
-            f"own output gate is downgraded to a warning as a result."
+            f"atrium_document.schema.json — {exc}. It is handed back anyway, with nothing "
+            f"added (the translator writes no block)."
         )
         return True
     return False
@@ -344,30 +341,6 @@ def record_doc_id(file_path: Path, baseline: Path | None) -> str:
     except Exception:
         return derived
     return inherited or derived
-
-
-def _validate_own_output(doc: DocumentRecord, baseline_was_invalid: bool) -> None:
-    """The Layer D gate on the translator's own output, called before ``finalize()`` (D4).
-
-    Raises on a schema failure so the record is never emitted — ``DocumentRecord``'s context
-    manager only finalises when the body leaves without an exception, so raising here is what
-    makes "no doc.json is emitted if validation fails" true. The one exception is an
-    already-invalid baseline: the failure is then almost certainly the inherited one, and
-    refusing to write would discard this stage's work along with the upstream stage's.
-    """
-    try:
-        validate_document(doc.to_dict())
-    except (RuntimeError, FileNotFoundError) as exc:
-        _warn_validation_unavailable(str(exc))
-    except Exception as exc:
-        if baseline_was_invalid:
-            _doc_warn(
-                f"translator output for {doc.doc_id} does not validate — {exc}. Emitting it "
-                f"anyway: the inherited baseline was already invalid, so this is very likely "
-                f"not our defect to refuse."
-            )
-            return
-        raise
 
 
 def fetch_xml_from_url(url: str, download_dir: Path) -> Path | None:
@@ -560,8 +533,8 @@ def parse_arguments():
             args.formats = "xml,txt"
     if args.backend is None:
         args.backend = defaults.get("translation_backend") or os.environ.get("TRANSLATION_BACKEND") or "lindat"
-    if args.xpaths is None and "fields" in defaults:
-        args.xpaths = Path(defaults["fields"])
+    # The field list comes with each job (D34): AMČR's list (aiscr-webamcr#3570) is passed per
+    # run with --xpaths. There is no default; amcr-fields.txt is a documented example only.
     if args.xsd_strict is None:
         args.xsd_strict = os.environ.get("XSD_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
     if args.output_mode is None:
@@ -598,21 +571,33 @@ def generate_output_path(input_file: Path, base_output: Path, args, is_batch: bo
     return input_file.with_name(new_filename)
 
 
+#: The AMČR distribution names this tool's paradata use (paradata 3.0, atrium-project#84): the
+#: record-level job reads `metadata` and writes `metadata-en`; full-text and ALTO translation
+#: read the document's original (a name AMČR has not settled yet, atrium-project#84 Q11).
+METADATA_DISTRIBUTION = "metadata"
+METADATA_EN_DISTRIBUTION = "metadata-en"
+ORIGINAL_DISTRIBUTION = "original"
+
+
+def _record_translation_facts(paradata_logger, doc_id: str, facts: dict) -> None:
+    """Add one document's translation facts (the language pair, the backend, the output mode,
+    the language detected, the unsupported languages met) to the run's `translations` parameter,
+    keyed by doc_id. Language codes and counts only: no field text (D34)."""
+    if not facts:
+        return
+    current = dict((getattr(paradata_logger, "_parameters", {}) or {}).get("translations") or {})
+    current[str(doc_id)] = dict(facts)
+    paradata_logger.set_parameter("translations", current)
+
+
 def log_backend_components(translator, paradata_logger, *, detected: bool = False) -> None:
-    """Record the licence components this run's translation uses, on *paradata_logger*.
+    """Record the components this run's translation uses, on *paradata_logger*.
 
     FastText when the source language was detected (*detected*), then the selected
     backend's own set: ``license_components(vocab_loaded)`` where the backend has
     one (issue #4), else the historical LINDAT set. ``log_component`` is a dict
-    write, so calling this again is a no-op.
-
-    It must run BEFORE a document record takes the licence block
-    (``doc.add_license_detail``). It used to run only after the first file had
-    finished, and the HTTP service called it after ``process_single_file`` had
-    returned, so the first record of every run — and therefore every record of a
-    one-file pipeline stage or ``/translate`` call — was written with no backend
-    component: ``CC BY-NC 4.0`` ("no components recorded") where the run actually
-    resolves to CC BY-NC-SA 4.0 (LINDAT's models), losing the share-alike duty.
+    write, so calling this again is a no-op. Each component is listed with its own
+    terms (paradata 3.0, atrium-project#84); no licence is computed from the list.
     """
     if detected:
         paradata_logger.log_component("fasttext")
@@ -679,10 +664,6 @@ def process_single_file(
     file_key = canonical_doc_id(file_path)
     doc_id = record_doc_id(file_path, args.document_json)
     csv_log_path = output_file.with_name(f"{file_key}_log.csv")
-    # The paradata file this run writes, or its run_uuid when it writes none (the service,
-    # atrium-project#71).
-    paradata_ref = _logger.paradata_ref
-
     doc_json_out = args.document_json_out or output_file.with_name(f"{doc_id}.document.json")
     success = False
 
@@ -719,82 +700,85 @@ def process_single_file(
         )
 
         try:
-            # D4: validate what we INHERITED before writing onto it. Warn-and-continue, but
-            # remember the verdict — it decides whether our own gate below raises or warns.
-            baseline_was_invalid = _baseline_is_invalid(args.document_json)
+            # Record schema 2.0 (atrium-project#84): the translator writes nothing into the
+            # record. A record given with the file is read for its doc_id and handed back
+            # unchanged; an invalid one is only reported.
+            _baseline_is_invalid(args.document_json)
+            # Opened before translating, so a record that cannot be read fails the file first.
+            sent = (
+                DocumentRecord.open(doc_id, "translator", baseline=args.document_json)
+                if args.document_json and Path(args.document_json).is_file()
+                else None
+            )
+            facts: dict = {}
+            if args.alto:
+                process_alto_xml(
+                    file_path,
+                    output_file,
+                    translator,
+                    args.source_lang,
+                    args.target_lang,
+                    csv_writer,
+                    identifier,
+                    line_anchors=not args.fast_align,
+                    facts=facts,
+                    backend=args.backend,
+                    doc_id=doc_id,
+                    output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
+                    lang_policy=lang_policy,
+                )
+                xml_written = True
+                # Full-text and ALTO translation is not a pipeline step: nothing it writes is a
+                # stored distribution, so the paradata name only what it read.
+                _logger.add_input(ORIGINAL_DISTRIBUTION, path=str(file_path), media_type="application/xml")
+            else:
+                xsd_valid = process_metadata_xml(
+                    file_path,
+                    output_file,
+                    xpaths_list,
+                    translator,
+                    args.source_lang,
+                    args.target_lang,
+                    xsd_schema=xsd_schema,
+                    csv_writer=csv_writer,
+                    identifier=identifier,
+                    facts=facts,
+                    backend=args.backend,
+                    doc_id=doc_id,
+                    output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
+                    lang_policy=lang_policy,
+                )
+                xml_written = True
+                if xsd_verdicts is not None and xsd_valid is not None:
+                    xsd_verdicts[file_path.name] = (doc_id, bool(xsd_valid))
+                # The record-level job (contract §6): `metadata` in, `metadata-en` out, each by
+                # SHA-512. The field list is a parameter; no field text enters the paradata.
+                _logger.add_input(METADATA_DISTRIBUTION, path=str(file_path), media_type="application/xml")
+                _logger.add_output(METADATA_EN_DISTRIBUTION, path=str(output_file), media_type="application/xml")
 
-            with DocumentRecord.open(
-                doc_id=doc_id,
-                program="translator",
-                baseline=args.document_json,
-                run_id=_logger.run_id,
-                run_uuid=_logger.run_uuid,
-                paradata_ref=paradata_ref,
-            ) as doc:
-                if args.alto:
-                    process_alto_xml(
-                        file_path,
-                        output_file,
-                        translator,
-                        args.source_lang,
-                        args.target_lang,
-                        csv_writer,
-                        identifier,
-                        line_anchors=not args.fast_align,
-                        doc=doc,
-                        backend=args.backend,
-                        doc_id=doc_id,
-                        output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
-                        lang_policy=lang_policy,
-                    )
-                    xml_written = True
-                else:
-                    xsd_valid = process_metadata_xml(
-                        file_path,
-                        output_file,
-                        xpaths_list,
-                        translator,
-                        args.source_lang,
-                        args.target_lang,
-                        xsd_schema=xsd_schema,
-                        csv_writer=csv_writer,
-                        identifier=identifier,
-                        doc=doc,
-                        backend=args.backend,
-                        doc_id=doc_id,
-                        output_mode=getattr(args, "output_mode", DEFAULT_OUTPUT_MODE),
-                        lang_policy=lang_policy,
-                    )
-                    xml_written = True
-                    if xsd_verdicts is not None and xsd_valid is not None:
-                        xsd_verdicts[file_path.name] = (doc_id, bool(xsd_valid))
+            # What shaped this document's translation (the language pair, the backend, the
+            # output mode, the language detected): parameters of the run, per document.
+            _record_translation_facts(_logger, doc_id, facts)
 
-                # The translation is done, so the components it used are known: record
-                # them BEFORE the record takes the licence block, or the first record
-                # of a run carries no backend component (see log_backend_components).
-                log_backend_components(translator, _logger, detected=identifier is not None)
+            # The components this translation used (see log_backend_components).
+            log_backend_components(translator, _logger, detected=identifier is not None)
 
-                # Append derived step outputs and licenses to the accretion model
-                doc.add_derived_from("translated_xml", output_file.name)
-                doc.add_license_detail(_logger.get_license_block())
-
-                # D4: the Layer D gate, at this repo's single document-write chokepoint.
-                # Raising here (rather than after finalize()) is what makes "no doc.json is
-                # emitted if validation fails" true: DocumentRecord.__exit__ only finalises a
-                # body that left without an exception.
-                _validate_own_output(doc, baseline_was_invalid)
-
-                doc.finalize(str(doc_json_out))
+            # A record sent with the file goes back with nothing added: the translator owns no
+            # block (`translations` and `entities[].translation_en` are reserved, not in the
+            # pilot). It is handed on as a 2.0 record — a seed gains `schema_version` and
+            # `record_type`, a 1.x record is migrated — and its content is unchanged.
+            if sent is not None:
+                sent.finalize(str(doc_json_out))
+                _logger.log_success("json")
 
             _logger.log_success("xml")
             _logger.log_success("csv")
-            # The record is written on every success, beside the XML when no path is given.
-            _logger.log_success("json")
             success = True
 
-        except LimitExceeded:
+        except (LimitExceeded, ContentLimitError):
             # A limit refusal is the caller's answer (413/422/504 `limit_exceeded`), not a
-            # per-file failure to log and skip (atrium-project#53).
+            # per-file failure to log and skip (atrium-project#53). A limit that trimmed,
+            # skipped or stopped content fails the job (D13): nothing of it is a result.
             _logger.note_limits(limit_notes)
             raise
         except Exception as e:
@@ -869,7 +853,7 @@ def _choose_mode(file_args, file_path: Path, xpaths_list: list[str], detected_ki
     file_args.alto = kind == XML_KIND_ALTO
     detected_kinds[canonical_doc_id(file_path)] = kind
     if not file_args.alto and not xpaths_list:
-        return "a metadata record, and no XPath targets are configured (--xpaths, or `fields` in config.txt)"
+        return "a metadata record, and no XPath targets were given (--xpaths FILE, one XPath per line)"
     return None
 
 
@@ -922,7 +906,7 @@ def main() -> int:
         config_dir=str(Path(__file__).resolve().parent),
     ) as _logger:
         if args.mode_explicit and not args.alto and not args.xpaths:
-            print("[ERROR] Specify either the --alto flag or provide --xpaths / 'fields' in config.")
+            print("[ERROR] Specify either the --alto flag or the field list with --xpaths FILE.")
             return EXIT_USAGE
 
         # A batch writes one record per document. One baseline file, or one --document-json-out
@@ -1020,6 +1004,9 @@ def main() -> int:
         if args.xpaths and args.xpaths.exists():
             with open(args.xpaths, "r", encoding="utf-8") as f:
                 xpaths_list = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+        if xpaths_list:
+            # The field list shaped every metadata translation of the run (D34): a parameter.
+            _logger.set_parameter("xpaths", xpaths_list)
 
         # M2: compile the XSD schema once before the batch loop.
         # The old design re-fetched from the network on every file, which is
@@ -1120,18 +1107,25 @@ def main() -> int:
                 continue
             output_file = output_file_override or generate_output_path(file_path, out_dir, args, is_batch=is_batch)
 
-            success, protected = process_single_file(
-                file_path=file_path,
-                output_file=output_file,
-                args=file_args,
-                translator=translator,
-                identifier=identifier,
-                xpaths_list=xpaths_list,
-                _logger=_logger,
-                xsd_schema=xsd_schema,
-                lang_policy=lang_policy,
-                xsd_verdicts=xsd_verdicts,
-            )
+            try:
+                success, protected = process_single_file(
+                    file_path=file_path,
+                    output_file=output_file,
+                    args=file_args,
+                    translator=translator,
+                    identifier=identifier,
+                    xpaths_list=xpaths_list,
+                    _logger=_logger,
+                    xsd_schema=xsd_schema,
+                    lang_policy=lang_policy,
+                    xsd_verdicts=xsd_verdicts,
+                )
+            except ContentLimitError as exc:
+                # D13: a limit trimmed, skipped or stopped content. The job fails; what the run
+                # produced is not a result, and the paradata say so (action_status: failed).
+                print(f"[ERROR] {file_path.name}: {exc}")
+                _logger.fail(str(exc))
+                return EXIT_FAILED
 
             if not success:
                 failed_files.append(file_path.name)

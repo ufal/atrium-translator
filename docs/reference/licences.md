@@ -10,9 +10,10 @@ On this page: [What a run records](#what-a-run-records) · [The components](#the
 ## What a run records
 
 The code is MIT ([LICENSE](../../LICENSE)). Each run records the components it used, the models, data and web
-services, each with its own licence or, for a web service, the terms of use it is offered under. The list is in the
-paradata's `license_detail.components` and in each document record's `provenance.license_detail`
-([paradata.md](paradata.md)).
+services, each with its own licence or, for a web service, the terms of use it is offered under. The list is the
+paradata's `components` ([paradata.md](paradata.md)); since paradata 3.0
+([atrium-project#84](https://github.com/ufal/atrium-project/issues/84)) nothing about licences is written into a
+document record.
 
 **None of these is the licence of the translation.** A licence covers what it is attached to, a program, a model or
 a dataset; a web service such as LINDAT has terms of use, not a licence for its output; and the rights in an output
@@ -21,10 +22,9 @@ AMČR states the rights of the outputs it publishes (agreed on 22 October 2026,
 [atrium-project#6](https://github.com/ufal/atrium-project/issues/6)), and no tool makes an automatic or default
 licence assertion.
 
-The paradata and the record also carry an older calculated field, `license`. It is not a licence and should not
-be used; the record marks it `provenance.license_basis: "calculated"`, and the paradata's `notes` list the
-components and say that no output licence is asserted. The hub explains it without code:
-[Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/).
+No licence is computed from the list: the calculated `license` field of earlier paradata is gone. The hub explains
+it without code: [Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/). Until
+atrium-project#78 is settled, a translation produced through LINDAT is not published by AMČR (D35).
 
 ## The components
 
@@ -88,7 +88,7 @@ A run whose components are all under permissive licences has to be assembled del
 
 The AMČR and TEATER vocabularies may stay: they are CC0. With `ct2` EuroLLM, a vocabulary and an explicit
 `--source_lang`, the run lists `ctranslate2` (MIT), `eurollm` (Apache-2.0) and the two CC0 vocabularies; the
-`license_detail` block of its paradata shows them. This chooses components; it does not decide the rights in the
+`components` of its paradata list them. This chooses components; it does not decide the rights in the
 translated documents, which depend on the source ([above](#what-a-run-records)).
 
 ## The candidate backends

@@ -269,15 +269,8 @@ def test_append_leaves_untargeted_controlled_vocabulary_alone(tmp_path):
 def test_output_mode_reaches_the_document_record(tmp_path):
     """A consumer holding the artifact must be able to tell which contract produced it."""
 
-    class _Doc:
-        def __init__(self):
-            self.blocks = {}
-
-        def set_block(self, name, value):
-            self.blocks[name] = value
-
     for mode in (OUTPUT_MODE_REPLACE, OUTPUT_MODE_APPEND):
-        doc = _Doc()
+        doc = {}
         src = _write(tmp_path, f"rec-{mode}.xml", _METADATA_XML)
         process_metadata_xml(
             src,
@@ -286,10 +279,10 @@ def test_output_mode_reaches_the_document_record(tmp_path):
             _StubTranslator(),
             "cs",
             "en",
-            doc=doc,
+            facts=doc,
             output_mode=mode,
         )
-        assert doc.blocks["translations"]["output_mode"] == mode
+        assert doc["output_mode"] == mode
 
 
 # ──────────────────────────────────────────────────────────────────────────────

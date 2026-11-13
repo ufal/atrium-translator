@@ -102,10 +102,14 @@ def stub(monkeypatch, tmp_path):
     monkeypatch.setattr(
         api_module,
         "models",
-        {"translator": backend, "identifier": None, "xpaths_list": [_XPATHS.strip()], "xsd_schema": None},
+        {"translator": backend, "identifier": None, "xsd_schema": None},
     )
     (tmp_path / "fields.txt").write_text(_XPATHS, encoding="utf-8")
     return backend
+
+
+#: An AMČR seed's source: what a sent record names the original by.
+_SOURCE = {"sha512": "a" * 128, "filename": "scan.pdf", "media_type": "application/pdf"}
 
 
 def _cli(monkeypatch, *argv) -> int:
@@ -121,26 +125,14 @@ def _rows(csv_text: str) -> list:
     return list(csv.reader(io.StringIO(csv_text)))
 
 
-def _translations(record: dict) -> dict:
-    """The record's `translations` block without what names the run (ids, times, the paradata)."""
-    block = json.loads(json.dumps(record.get("translations") or {}))
-
-    def strip(node):
-        if isinstance(node, dict):
-            return {
-                key: strip(value)
-                for key, value in node.items()
-                if not any(word in key for word in ("run", "paradata", "time", "generated", "created"))
-            }
-        if isinstance(node, list):
-            return [strip(item) for item in node]
-        return node
-
-    return strip(block)
+def _translations(paradata: dict) -> dict:
+    """The run's translation facts per document (its `translations` parameter, paradata 3.0)."""
+    return json.loads(json.dumps((paradata.get("parameters") or {}).get("translations") or {}))
 
 
 def _service(name: str, body: str, **data) -> dict:
-    form = {"source_lang": "cs", "response_format": "json", "include_log": "true", "include_record": "true"}
+    # The field list comes with the request (D34); it is ignored for ALTO.
+    form = {"source_lang": "cs", "response_format": "json", "include_log": "true", "xpaths": _XPATHS}
     form.update({key: str(value).lower() for key, value in data.items()})
     response = client.post("/translate", files={"file": (name, body.encode("utf-8"), "application/xml")}, data=form)
     assert response.status_code == 200, response.text[:600]
@@ -166,15 +158,16 @@ def test_the_same_input_gives_the_same_xml_log_and_record(stub, monkeypatch, tmp
     out = tmp_path / "out"
     cli_xml = (out / translated_filename(name, "en")).read_bytes()
     cli_log = next(out.glob("*_log.csv")).read_text(encoding="utf-8")
-    cli_record = json.loads(next(out.glob("*.document.json")).read_text(encoding="utf-8"))
+    cli_paradata = json.loads(next((out / "paradata").glob("*.json")).read_text(encoding="utf-8"))
+    assert not list(out.glob("*.document.json")), "no record without one sent (record schema 2.0)"
 
     answer = _service(name, body)
     assert answer["filename"] == translated_filename(name, "en")
     assert _canonical(answer["content"].encode("utf-8")) == _canonical(cli_xml)
     assert answer["log_filename"] == next(out.glob("*_log.csv")).name
     assert _rows(answer["log_csv"]) == _rows(cli_log)
-    assert answer["document_json"]["doc_id"] == cli_record["doc_id"]
-    assert _translations(answer["document_json"]) == _translations(cli_record)
+    assert "document_json" not in answer
+    assert _translations(answer["paradata"]["paradataRecord"]) == _translations(cli_paradata)
     assert "EN" in answer["content"]
 
 
@@ -190,14 +183,15 @@ def test_both_sides_detect_the_kind_from_the_root_element(stub, monkeypatch, tmp
         return True, 0
 
     monkeypatch.setattr(main_module, "process_single_file", fake)
-    # No mode flag: config.txt's `fields` supplies the XPath targets a record needs, as the shipped one does.
+    # No mode flag: each file's root decides. The field list comes with the job (D34), never from
+    # config.txt, so a record in a run without --xpaths is refused by name and the ALTO page runs.
     (tmp_path / "config.txt").write_text("[DEFAULT]\nformats = xml\nfields = fields.txt\n", encoding="utf-8")
     folder = tmp_path / "mixed"
     folder.mkdir()
     (folder / "record.xml").write_text(_AMCR, encoding="utf-8")
     (folder / "scan.xml").write_text(_ALTO, encoding="utf-8")
-    assert _cli(monkeypatch, str(folder), "--source_lang", "cs", "-o", str(tmp_path / "out")) == EXIT_OK
-    assert seen == {"record.xml": False, "scan.xml": True}
+    assert _cli(monkeypatch, str(folder), "--source_lang", "cs", "-o", str(tmp_path / "out")) == EXIT_FAILED
+    assert seen == {"scan.xml": True}
 
 
 def test_a_mode_the_caller_names_is_kept(stub, monkeypatch, tmp_path, capsys):
@@ -220,12 +214,17 @@ def test_an_upload_that_is_not_xml_is_refused_when_its_kind_is_asked(stub):
     assert response.json().get("cause") == "malformed_xml"
 
 
-def test_the_record_comes_back_only_when_sent_or_asked_for(stub):
+def test_the_record_comes_back_only_when_sent(stub):
+    """Record schema 2.0: the translator writes no record of its own, so `include_record` alone
+    brings none back; a record sent with the file comes back with nothing added."""
     form = {"source_lang": "cs", "response_format": "json"}
     files = {"file": ("CTX000000003-1.alto.xml", _ALTO.encode("utf-8"), "application/xml")}
     assert "document_json" not in client.post("/translate", files=files, data=form).json()
     asked = client.post("/translate", files=files, data={**form, "include_record": "true"}).json()
-    assert asked["document_json"]["doc_id"] == "CTX000000003-1"
+    assert "document_json" not in asked
+    sent = {"schema_version": "2.0", "record_type": "atrium-document", "doc_id": "CTX000000003", "source": _SOURCE}
+    files["document_json"] = ("CTX000000003.document.json", json.dumps(sent).encode(), "application/json")
+    assert client.post("/translate", files=files, data=form).json()["document_json"] == sent
 
 
 def test_include_log_makes_a_multipart_answer_without_a_record(stub):
@@ -269,7 +268,7 @@ def test_xsd_validation_with_a_deployment_schema(stub, tmp_path, schema, strict,
     response = client.post(
         "/translate",
         files={"file": ("record.xml", _AMCR.encode("utf-8"), "application/xml")},
-        data={"source_lang": "cs", "response_format": "json", "xsd_strict": str(strict).lower()},
+        data={"source_lang": "cs", "response_format": "json", "xsd_strict": str(strict).lower(), "xpaths": _XPATHS},
     )
     assert response.status_code == status, response.text[:400]
     if status == 200:
@@ -332,11 +331,17 @@ def test_a_txt_in_a_folder_is_a_url_list_not_xml(stub, monkeypatch, tmp_path):
     assert seen == ["C-TX-201750164.xml"]
 
 
-def test_a_batch_writes_one_record_per_document(stub, monkeypatch, tmp_path):
+def test_a_batch_hands_back_one_record_per_document(stub, monkeypatch, tmp_path):
+    """Each document's record goes back under its own name, with nothing added (record schema 2.0)."""
     folder = tmp_path / "in"
     folder.mkdir()
     (folder / "A-1.alto.xml").write_text(_ALTO, encoding="utf-8")
     (folder / "B-1.alto.xml").write_text(_ALTO, encoding="utf-8")
+    sent = tmp_path / "sent"
+    sent.mkdir()
+    for doc_id in ("A-1", "B-1"):
+        record = {"schema_version": "2.0", "record_type": "atrium-document", "doc_id": doc_id, "source": _SOURCE}
+        (sent / f"{doc_id}.document.json").write_text(json.dumps(record), encoding="utf-8")
     records = tmp_path / "records"
     code = _cli(
         monkeypatch,
@@ -348,11 +353,17 @@ def test_a_batch_writes_one_record_per_document(stub, monkeypatch, tmp_path):
         "cs",
         "-o",
         str(tmp_path / "out"),
+        "--document-json",
+        str(sent),
         "--document-json-out",
         str(records),
     )
     assert code == EXIT_OK
     assert sorted(p.name for p in records.glob("*.document.json")) == ["A-1.document.json", "B-1.document.json"]
+    for path in records.glob("*.document.json"):
+        assert json.loads(path.read_text(encoding="utf-8")) == json.loads(
+            (sent / path.name).read_text(encoding="utf-8")
+        )
 
 
 @pytest.mark.parametrize("flag", ["--document-json", "--document-json-out"])

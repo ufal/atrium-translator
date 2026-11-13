@@ -52,8 +52,8 @@ logger = logging.getLogger(__name__)
 # every glossary build. See `agent_dev_logs/digests/46.digest.md`.
 #
 # The two modes are a genuine fork in the OUTPUT CONTRACT, not a formatting
-# preference, which is why the choice is recorded in paradata and in the document
-# record's `translations` block rather than being left implicit.
+# preference, which is why the choice is recorded in the run's paradata (its
+# `translations` parameter, per document) rather than being left implicit.
 OUTPUT_MODE_REPLACE = "replace"
 OUTPUT_MODE_APPEND = "append"
 OUTPUT_MODES = (OUTPUT_MODE_REPLACE, OUTPUT_MODE_APPEND)
@@ -807,8 +807,9 @@ def _rerun_flagged_metadata(flagged, translator, tgt_lang, output_mode, log_doc_
         untranslated,
     )
     if untranslated:
-        # HTTP 200 with a field left in the source language used to be visible only in the
-        # *_log.csv, which the service discards (atrium-project#53).
+        # A field left in the source language is not a translation: the note raises
+        # ContentLimitError and the job fails (D13, atrium-project#84). It used to be an HTTP
+        # 200 with a `skipped` note (atrium-project#53).
         note(
             TRANSLATION_RERUN_ROUNDS,
             "skipped",
@@ -846,7 +847,7 @@ def process_metadata_xml(
     xsd_schema=None,
     csv_writer=None,
     identifier=None,
-    doc=None,
+    facts=None,
     backend=None,
     doc_id=None,
     output_mode=DEFAULT_OUTPUT_MODE,
@@ -938,30 +939,10 @@ def process_metadata_xml(
 
         languages.log(log_doc_id, "fields")
 
-        # ATRIUM Document JSON accretion update for metadata blocks.
-        #
-        # `translations` is metadata about the language pair/backend, per the
-        # schema (`{source_lang, target_lang, backend}`) — NOT the translated
-        # corpus text itself, which already persists via `derived_from.translated_xml`.
-        #
-        # Entity translation (`entities[].translation_en`) is RESERVED: declared for this
-        # repo (hub `docs/document_schema.md`, `BLOCK_FIELD_OWNERS["entities"]["translator"]`
-        # in atrium_document.py, `doc-schema-v1`) and written by no code path, on purpose until
-        # after the AMČR pilot — tracked in atrium-project#70 (was D7 of atrium-project#10).
-        #
-        # It cannot be written here: in the pipeline order (pc→alto→translate→nlp→llm),
-        # `entities[]` is produced by nlp-enrich, AFTER the translator, so it does not exist
-        # yet in any real run and a per-entity pass in this function would be dead code
-        # (issue #13 alignment audit, P0.6). #70 decided on 2026-09-30 for option 3: the
-        # AMČR pilot produces English only for free-text metadata, vocabulary fields take
-        # AMČR's own English labels, and entity facets go by the coarse types, so nothing
-        # asks for English entity names. The three options, kept for when something does:
-        #   1. a second translator pass over an enriched record — read `doc.get_block("entities")`,
-        #      translate each `surface`, `merge_block("entities", rows, own_fields=["translation_en"])`,
-        #      then `assert_fields_survived("entities", rows, ["translation_en"])`;
-        #   2. reassigning the field to nlp-enrich or llm-enrich (a shared-module round);
-        #   3. keeping it reserved and unwritten (the field stays: removing it would break the
-        #      frozen schema).
+        # Record schema 2.0 (atrium-project#84): the translator writes nothing into the document
+        # record. `translations` and `entities[].translation_en` stay declared and reserved, not in
+        # the pilot (atrium-project#70); what shaped this translation goes to the run's paradata
+        # through `facts` (main._record_translation_facts), with no field text.
         if output_mode == OUTPUT_MODE_APPEND:
             logger.info(
                 "%s: append mode wrote %d translated sibling(s); %d field(s) already carried one.",
@@ -972,22 +953,20 @@ def process_metadata_xml(
             if appended and _declares_amcr(root):
                 _warn_amcr_append_is_not_schema_valid()
 
-        if doc is not None:
-            doc.set_block(
-                "translations",
+        if facts is not None:
+            facts.update(
                 {
                     "source_lang": src_lang,
                     "target_lang": tgt_lang,
                     "backend": backend or "lindat",
-                    # #46: which shape this artifact actually has. `additionalProperties`
-                    # is true on this block, so recording it needs no schema change —
-                    # and a consumer that finds English in a field needs to know whether
-                    # the Czech was kept beside it or overwritten.
+                    # #46: which shape this artifact actually has: a consumer that finds
+                    # English in a field needs to know whether the Czech was kept beside it
+                    # or overwritten.
                     "output_mode": output_mode,
-                    # With --source_lang auto, "auto" says nothing about the record;
+                    # With --source_lang auto, "auto" says nothing about the document;
                     # the language it was resolved to does.
                     **languages.translations_fields(),
-                },
+                }
             )
 
         is_valid = None  # the XSD verdict, returned to the caller; None without a schema
@@ -1506,11 +1485,9 @@ def _rerun_flagged_alto(pending, translator, tgt_lang, line_anchors, counter, lo
 
 
 def _note_lines_kept_as_source(count: int) -> None:
-    """Record ALTO lines left in the source language (``limits_applied``, atrium-project#53).
-
-    HTTP 200 with lines left untranslated used to be visible only in the *_log.csv, which
-    the service discards. The limit is TRANSLATION_RERUN_ROUNDS: the last chance a flagged
-    segment had.
+    """ALTO lines left in the source language: the note raises ContentLimitError, and the job
+    fails (D13, atrium-project#84). The limit is TRANSLATION_RERUN_ROUNDS: the last chance a
+    flagged segment had.
     """
     note(
         TRANSLATION_RERUN_ROUNDS,
@@ -1614,7 +1591,7 @@ def process_alto_xml(
     csv_writer=None,
     identifier=None,
     line_anchors=True,
-    doc=None,
+    facts=None,
     backend=None,
     doc_id=None,
     output_mode=DEFAULT_OUTPUT_MODE,
@@ -1868,30 +1845,19 @@ def process_alto_xml(
                 skipped_existing,
             )
 
-        # ATRIUM Document JSON accretion update for ALTO blocks. See the metadata-path
-        # twin above for why `translations` carries language-pair metadata (not the
-        # translated corpus text), and for `entities[].translation_en` — reserved for this
-        # repo and written by no code path (atrium-project#70, decided 2026-09-30).
-        if doc is not None:
-            doc.set_block(
-                "translations",
+        # What shaped this translation, for the run's paradata (record schema 2.0 writes nothing
+        # into the record; see the metadata twin above). Batch-vs-fallback telemetry does not go
+        # here: it is reported on the log stream, where an operator running the #46 experiment
+        # reads it.
+        if facts is not None:
+            facts.update(
                 {
                     "source_lang": src_lang,
                     "target_lang": tgt_lang,
                     "backend": backend or "lindat",
-                    # Batch-vs-fallback telemetry deliberately does NOT go here.
-                    # `translations` is a schema-governed block in a record shared
-                    # across all six repos; per-run throughput counts are transient
-                    # diagnostics, not a durable fact about the document. They are
-                    # reported on the log stream instead (see the summary above),
-                    # which is where an operator running the #46 experiment reads
-                    # them. ParadataLogger has no per-document fact API to put them
-                    # in — only skips, successes and components.
                     "output_mode": output_mode,
-                    # With --source_lang auto, "auto" says nothing about the document;
-                    # the language it was resolved to does.
                     **languages.translations_fields(),
-                },
+                }
             )
 
         tree.write(str(output_path), encoding="utf-8", xml_declaration=True)

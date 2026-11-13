@@ -176,8 +176,8 @@ class TranslateResponse(BaseModel):
     document_json: Optional[AtriumDocument] = Field(
         None,
         description=(
-            "When a record was sent as `document_json`, or asked for with `include_record=true`: the record with "
-            "the translator's `translations` block and `derived_from.translated_xml` added."
+            "When a record was sent as `document_json`: that record, unchanged. The translator writes nothing into "
+            "the record (record schema 2.0, atrium-project#84)."
         ),
     )
     document_json_schema_error: Optional[str] = Field(
@@ -201,8 +201,9 @@ class TranslateResponse(BaseModel):
     xsd_errors: Optional[str] = Field(None, description="When `xsd_valid` is false: the validator's messages.")
     paradata: Optional[CreateAction] = Field(
         description=(
-            "The call's provenance: its Process Run Crate `CreateAction` (atrium-project#71), whose `@id` is the "
-            "`run_uuid` stamped into `document_json`."
+            "The call's paradata: its Process Run Crate `CreateAction` (paradata 3.0, atrium-project#84). For a "
+            "metadata record, `object` is `metadata` and `result` is `metadata-en`, each by SHA-512; the field list "
+            "and the language pair are parameters."
         ),
     )
 
@@ -322,14 +323,7 @@ models = {}
 _state = ServiceState()
 
 
-#: Where the metadata-mode XPath targets come from. The batch CLI reads the same
-#: list from config.txt's `fields =` key (main.py:345-346); the service reads an env
-#: var instead, because the service's whole config surface is environment-based
-#: (12-factor III) and config.txt is a CLI-local artifact. `COPY . .` in the
-#: Dockerfile already ships amcr-fields.txt to /app, so the default resolves inside
-#: the published image with nothing to mount.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-AMCR_FIELDS_PATH = os.getenv("AMCR_FIELDS_PATH", "amcr-fields.txt")
 #: The vocabulary CSV /translate applies (translator#4); empty: none, as before.
 VOCABULARY_PATH = os.getenv("VOCABULARY_PATH", "")
 #: A local XML Schema that metadata translations are validated against, loaded once at startup
@@ -375,9 +369,9 @@ def _resolve_xsd(path_value: str):
 def _resolve_vocabulary(path_value: str) -> tuple[Optional[Path], Optional[dict]]:
     """The vocabulary ``VOCABULARY_PATH`` names, checked: ``(path, /info entry)``, or ``(None, None)`` when unset.
 
-    Stricter than ``AMCR_FIELDS_PATH`` on purpose. A missing XPath file only refuses metadata
-    requests, each with a 422 that says why; a vocabulary someone set and that is silently
-    not applied would change every translation without a trace. So a value that does not
+    Stricter than a missing field list on purpose. A metadata request without one is refused
+    with a 422 that says why; a vocabulary someone set and that is silently not applied would
+    change every translation without a trace. So a value that does not
     name a usable CSV stops the service at startup, with the fix in the message.
     """
     if not path_value or not path_value.strip():
@@ -422,27 +416,11 @@ def _as_bool(raw, *, default: bool, field: str = "") -> bool:
     raise HTTPException(status_code=422, detail=f"{field or 'The query value'} must be true or false, not {raw!r}.")
 
 
-def _load_xpaths(path_value: str) -> list[str]:
-    """Parse the XPath targets file, using the same rule as the CLI.
-
-    Returns [] and logs rather than raising when the file is missing: the API image
-    also serves ALTO mode, which needs no XPaths at all, so an absent file must not
-    crash-loop a pod that is about to do perfectly valid work. Metadata requests are
-    refused individually instead — see `translate_document`.
-    """
-    candidate = Path(path_value)
-    if not candidate.is_absolute():
-        candidate = _REPO_ROOT / candidate
-    if not candidate.is_file():
-        logger.warning(
-            "AMCR_FIELDS_PATH=%r does not resolve to a file (looked at %s); "
-            "metadata-mode /translate requests will be refused.",
-            path_value,
-            candidate,
-        )
-        return []
-    with open(candidate, "r", encoding="utf-8") as fh:
-        return [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+def _parse_xpaths(value: Optional[str]) -> list[str]:
+    """The request's field list: one XPath per line, as the command line's --xpaths file holds
+    them (blank lines and lines starting with `#` are left out). The list comes with each job
+    (D34): AMČR passes its own (aiscr-webamcr#3570), and the service has no default."""
+    return [line.strip() for line in (value or "").splitlines() if line.strip() and not line.strip().startswith("#")]
 
 
 @asynccontextmanager
@@ -464,13 +442,6 @@ async def lifespan(app: FastAPI):
         logger.info("Loading the %s model", getattr(models["translator"], "name", backend))
         warm()
     models["identifier"] = LanguageIdentifier()
-    # Metadata-mode XPath targets, read once here rather than per request — the same
-    # warm-cache treatment the backend and identifier get. Before this existed the
-    # endpoint passed a hard-coded empty list to process_single_file, so every
-    # `is_alto=false` upload came back HTTP 200 with the document untranslated
-    # (issue #46).
-    models["xpaths_list"] = _load_xpaths(AMCR_FIELDS_PATH)
-    logger.info("Loaded %d metadata XPath target(s) from %r", len(models["xpaths_list"]), AMCR_FIELDS_PATH)
     # The schema metadata translations are validated against: compiled once, as the CLI's --xsd is.
     models["xsd_schema"], models["xsd_info"] = _resolve_xsd(XSD_PATH)
     if models["xsd_schema"] is not None:
@@ -636,13 +607,21 @@ async def translate_document(
     document_json: UploadFile = File(
         None,
         description=(
-            "Optional baseline ATRIUM Document JSON (accretion model), or an AMČR seed (`doc_id`, `source`). When "
-            "given, the record comes back with the translator's `translations` block added: as the second part of "
-            "the multipart/mixed response, or as `document_json` with `response_format=json`. A record that does "
-            "not validate against atrium_document.schema.json is still accepted (rule 6); one that cannot be "
-            "opened is refused (422 `invalid_record`). An empty part counts as none."
+            "Optional ATRIUM document record, or an AMČR seed (`doc_id`, `source`): its `doc_id` names the outputs. "
+            "Since record schema 2.0 (atrium-project#84) the translator writes nothing into it: it comes back "
+            "unchanged, as the second part of the multipart/mixed response, or as `document_json` with "
+            "`response_format=json`. One that cannot be opened is refused (422 `invalid_record`). An empty part "
+            "counts as none."
         ),
         json_schema_extra={"contentMediaType": "application/json"},
+    ),
+    xpaths: Optional[str] = Form(
+        None,
+        description=(
+            "For a metadata record, required: the fields to translate, one XPath per line (AMČR's list, "
+            "aiscr-webamcr#3570). The service has no default list; a metadata record without one is refused "
+            "(422). Ignored for ALTO."
+        ),
     ),
     # Declared as Form(None) and resolved against the query string below, because
     # callers are genuinely split and both shapes must keep working.
@@ -693,8 +672,8 @@ async def translate_document(
     include_record: Optional[bool] = Form(
         None,
         description=(
-            "`true`: return the document record even when none was sent: a new one, as the command line writes. "
-            "Default false: a record only when `document_json` was sent. Also read from the query."
+            "Kept for compatibility. Since record schema 2.0 the translator writes no record, so a record comes back "
+            "only when `document_json` was sent. Also read from the query."
         ),
     ),
     # An open string, not an enum: any case is accepted, and an unknown value falls back to
@@ -787,16 +766,15 @@ async def translate_document(
     # Metadata mode with no XPath targets cannot translate anything. It used to
     # return 200 and an unchanged document, which is the worst possible answer: the
     # caller has no way to tell a successful no-op from a successful translation.
-    # Refuse explicitly instead (issue #46).
-    xpaths_list = models.get("xpaths_list") or []
+    # Refuse explicitly instead (issue #46). The list comes with the request (D34).
+    xpaths_list = _parse_xpaths(xpaths)
     if not is_alto and not xpaths_list:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "Metadata mode requires XPath targets, and none are configured. "
-                f"Set AMCR_FIELDS_PATH (currently {AMCR_FIELDS_PATH!r}) to a readable "
-                "file listing one XPath per line, or send is_alto=true for ALTO input."
-            ),
+        raise AtriumHTTPError(
+            422,
+            "A metadata record needs the fields to translate: send `xpaths`, one XPath per line "
+            "(the service has no default list), or is_alto=true for ALTO input.",
+            reason=None,
+            cause="missing_xpaths",
         )
 
     # The record, read and opened before any translation, so one that cannot be opened is
@@ -849,7 +827,7 @@ async def translate_document(
         # the args Namespace and the paradata config below.
         #
         # `backend=` is not optional: process_single_file() passes `args.backend` down to
-        # process_alto_xml/process_metadata_xml, which stamp it into `translations.backend`.
+        # process_alto_xml/process_metadata_xml, which record it among the translation's facts.
         # Without the field, the very first REAL request raised AttributeError inside
         # process_single_file's catch-all, which logged a skip and returned success=False —
         # so the endpoint answered 500 for every upload. Nothing in CI could see it: all
@@ -890,7 +868,6 @@ async def translate_document(
             allowed_languages=allowed_source_languages(models["translator"], target_lang),
             input_path=upload_name,
             formats="xml",
-            xpaths_file="" if is_alto else AMCR_FIELDS_PATH,
             xsd=args.xsd or "",
             xsd_strict=bool(xsd_strict) if xsd_schema is not None else False,
             fast_align=fast_align,
@@ -900,10 +877,10 @@ async def translate_document(
         if detected_kind:
             para_config["detected_kind"] = {canonical_doc_id(input_path): detected_kind}
 
-        # The call's paradata (atrium-project#71). paradata_dir=None: a service writes no
-        # paradata file; the run goes back as the response's `paradata`, and its run_id /
-        # run_uuid stamp the record. config_dir: para_config.txt sits at the repo root, found
-        # from here rather than from whatever the working directory happens to be.
+        # The call's paradata (paradata 3.0, atrium-project#84). paradata_dir=None: a service
+        # writes no paradata file; the run goes back as the response's `paradata`. config_dir:
+        # para_config.txt sits at the repo root, found from here rather than from whatever the
+        # working directory happens to be.
         with ParadataLogger(
             program="translator-api",
             config=para_config,
@@ -911,6 +888,9 @@ async def translate_document(
             output_types=["xml", "csv", "json"],
             config_dir=_PARA_CONFIG_DIR,
         ) as logger:
+            if not is_alto:
+                # The field list shaped the translation (D34): a parameter, never field text.
+                logger.set_parameter("xpaths", xpaths_list)
             # Off the event loop (issue #55): process_single_file() chunks the document
             # and issues one RETRIED, blocking HTTP call to LINDAT per chunk — a single
             # request can legitimately run for minutes. Called inline in an `async def`
@@ -931,9 +911,8 @@ async def translate_document(
                 xsd_verdicts=xsd_verdicts,
             )
 
-            # API-path paradata component logging (the same helper as main.py, M1).
-            # process_single_file() already logged them before the returned record
-            # took its licence block; this keeps the run's own paradata complete.
+            # API-path paradata component logging (the same helper as main.py, M1);
+            # process_single_file() already logged them, so this is a no-op kept for safety.
             if success:
                 log_backend_components(models["translator"], logger, detected=source_lang == "auto")
 
@@ -984,8 +963,8 @@ async def translate_document(
             xml_bytes = fh.read()
 
         json_bytes = None
-        # The record goes back when one was sent, or when asked for (include_record): the command
-        # line writes one either way, and so did this endpoint, only to discard it.
+        # The record goes back when one was sent, unchanged: the translator writes nothing into
+        # it (record schema 2.0).
         if (baseline_bytes is not None or include_record) and doc_json_out_path.exists():
             with open(doc_json_out_path, "rb") as fh:
                 json_bytes = fh.read()
@@ -999,12 +978,10 @@ async def translate_document(
             if log_path.is_file():
                 log_name, log_bytes = log_path.name, log_path.read_bytes()
 
-    # The run as its CreateAction (atrium-project#71), in the two shapes that have a place for it.
+    # The run as its CreateAction (paradata 3.0), in the two shapes that have a place for it.
     action = None
     if response_format == "json" or json_bytes or log_bytes:
-        action = _run_action(
-            logger, upload_name, content, baseline_bytes is not None, json_bytes, out_filename, xml_bytes
-        )
+        action = _run_action(logger)
 
     # The limits echo (atrium-project#53). The response is XML, so the notes travel as an
     # ASCII header — `key=effect:count; …`, present only when a limit applied (header values
@@ -1110,28 +1087,14 @@ def _record_schema_error(record_bytes: bytes) -> Optional[str]:
     return None
 
 
-def _run_action(
-    run: ParadataLogger,
-    upload_name: str,
-    content: bytes,
-    baseline_sent: bool,
-    record_bytes: Optional[bytes],
-    out_filename: str,
-    xml_bytes: bytes,
-) -> Dict[str, Any]:
-    """The call's CreateAction (atrium-project#71): what it read and what it wrote.
+def _run_action(run: ParadataLogger) -> Dict[str, Any]:
+    """The call's CreateAction (paradata 3.0, atrium-project#84): what it read and what it wrote.
 
-    `object` is the upload and, when one was sent, the record; `result` is the record's blocks
-    this call stamped and the translated XML.
+    For a metadata record, `object` is `metadata` and `result` is `metadata-en`, each by SHA-512,
+    with the field list and the translation's facts as parameters and no field text. For ALTO
+    (research use, not a pipeline step) `object` is the original and nothing is a result.
     """
-    inputs = [atrium_rocrate.file_entity(upload_name, content, media_type="application/xml")]
-    outputs: List[Dict[str, Any]] = []
-    if baseline_sent:
-        record = json.loads(record_bytes) if record_bytes else {}
-        inputs.append(atrium_rocrate.record_entity(str(record.get("doc_id") or canonical_doc_id(upload_name))))
-        outputs = atrium_rocrate.block_entities(atrium_rocrate.blocks_written(record, run.run_uuid))
-    outputs.append(atrium_rocrate.file_entity(out_filename, xml_bytes, media_type="application/xml"))
-    return atrium_rocrate.create_action(run.record, inputs=inputs, outputs=outputs)
+    return atrium_rocrate.action_from_paradata(run.record)
 
 
 @app.get(

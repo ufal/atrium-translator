@@ -1,13 +1,15 @@
 # ATRIUM Translator API service
 
 The runbook of the translator's HTTP service, for whoever deploys and operates it or calls it from another stage.
-`POST /translate` takes one ALTO page or XML record and returns it translated, with its markup intact: it chunks the
-document and translates each chunk through the configured backend (LINDAT CUBBITT by default). The service version is
+`POST /translate` takes one XML record or ALTO page and returns it translated, with its markup intact: it chunks the
+document and translates each chunk through the configured backend (LINDAT CUBBITT by default). In the AMČR pipeline
+it is the record-level job that turns the `metadata` distribution into `metadata-en`, with the field list sent per
+request (atrium-project#84, D34); full-text and ALTO translation are research use, not a pipeline step. The service version is
 read from `para_config.txt` `[tool]` (single source of truth, never hard-coded). The command line is in
 [docs/usage.md](../docs/usage.md); how a translation is made, in [docs/how-it-works.md](../docs/how-it-works.md).
 
 On this page: [Start](#start) · [Models and caches](#models-and-caches) · [Endpoints](#endpoints) ·
-[Errors](#errors) · [Limits](#limits) · [Partial results](#partial-results) · [Known limits](#known-limits) ·
+[Errors](#errors) · [Limits](#limits) · [What a 200 carries](#what-a-200-carries) · [Known limits](#known-limits) ·
 [Configuration](#configuration-environment) · [How it works](#how-it-works) ·
 [Shutdown behaviour](#shutdown-behaviour) · [OpenAPI](#openapi-the-typed-contract) · [Tests](#tests)
 
@@ -97,14 +99,15 @@ attaches (see [OpenAPI](#openapi-the-typed-contract)); or `GET /openapi.json` an
 | Field             | In            | Type    | Default         | Meaning                                                                                                                                                                                                                                                          |
 |-------------------|---------------|---------|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `file`            | form          | file    | —               | **Required.** The XML document. Filename must end in `.xml`.                                                                                                                                                                                                     |
-| `document_json`   | form          | file    | —               | Optional baseline ATRIUM Document JSON to accrete onto, or an AMČR seed (`doc_id`, `source`). One that cannot be opened is a 422 `invalid_record`; an empty part counts as none.                                                                                 |
+| `document_json`   | form          | file    | —               | Optional ATRIUM document record, or an AMČR seed: its `doc_id` names the outputs, and it comes back with nothing added (record schema 2.0: the translator writes no block). One that cannot be opened is a 422 `invalid_record`; an empty part counts as none.   |
+| `xpaths`          | form          | string  | —               | **Required for a metadata record.** The fields to translate, one XPath per line (`#` comments allowed): AMČR's list, passed per job (aiscr-webamcr#3570). There is no default list; [`amcr-fields.txt`](../amcr-fields.txt) is an example. Ignored for ALTO.     |
 | `source_lang`     | form or query | string  | `auto`          | ISO 639-1 code, or `auto`: FastText per block/field, trusted only when confident and translatable, else the element's label, the document's language, `DEFAULT_SOURCE_LANG`. A confident guess the backend cannot translate is reported, not refused: see below. |
 | `target_lang`     | form or query | string  | `en`            | ISO 639-1 code.                                                                                                                                                                                                                                                  |
 | `is_alto`         | form or query | boolean | unset: detected | `true` → ALTO dual-pass reconstruction; `false` → XPath metadata mode. Unset: the upload's root element decides, `alto` or any other, as the command line decides without a mode flag.                                                                           |
 | `output_mode`     | form or query | string  | `OUTPUT_MODE`   | `replace` or `append`. Unset → the `OUTPUT_MODE` env var, then `replace`; an unknown value degrades to the default with a warning.                                                                                                                               |
 | `response_format` | form or query | string  | `xml`           | `xml`: the translated XML, or `multipart/mixed` with a record or a log (below). `json`: one JSON object instead. Anything else is a 422.                                                                                                                         |
 | `fast_align`      | form or query | boolean | `false`         | ALTO only: spread a block's translation over its lines by word counts instead of translating each line as an anchor (the CLI's `--fast-align`): far fewer calls, coarser line splits.                                                                            |
-| `include_record`  | form or query | boolean | `false`         | Return the document record even when none was sent: a new one, as the CLI writes. Without it, a record comes back only when `document_json` was sent.                                                                                                            |
+| `include_record`  | form or query | boolean | `false`         | Kept for compatibility. Since record schema 2.0 the translator writes no record, so a record comes back only when `document_json` was sent.                                                                                                                      |
 | `include_log`     | form or query | boolean | `false`         | Return the translation log, the CLI's `<doc>_log.csv`: `log_csv` in JSON, else a `text/csv` part of a `multipart/mixed` answer.                                                                                                                                  |
 | `xsd_strict`      | form or query | boolean | `XSD_STRICT`    | With `XSD_PATH` set, for a metadata record: `true` refuses a translation that does not validate (422), `false` returns it with `xsd_valid: false`.                                                                                                               |
 
@@ -124,20 +127,21 @@ curl -sf -F "file=@page.alto.xml" \
 the translated document, structurally identical to the input.
 
 When `document_json` is supplied, or `include_record` or `include_log` is true, the response is instead
-`multipart/mixed` (a uuid4 boundary). It holds the translated XML first, then the ATRIUM Document JSON (when sent or
-asked for), then `<doc>_log.csv` (`text/csv`, with `include_log`), then `limits_applied.json`
+`multipart/mixed` (a uuid4 boundary). It holds the translated XML first, then the record (when one was sent), then
+`<doc>_log.csv` (`text/csv`, with `include_log`), then `limits_applied.json`
 (see [Limits](#limits)), then `paradata.json` (`application/ld+json`, the call's
-provenance, below), each with its own `Content-Disposition` filename.
+paradata, below), each with its own `Content-Disposition` filename.
 
 **XSD verdict.** With `XSD_PATH` set, a metadata translation carries `X-Atrium-Xsd-Valid: true|false`, and the JSON
 answer `xsd_valid` and `xsd_errors`. `xsd_strict=true` (or `XSD_STRICT`) refuses an invalid one instead (422, below).
 
 **Limits applied.** When a limit shaped the translation without refusing it, the response carries an
-`X-Atrium-Limits-Applied` header. Examples are a segment split into chunks, a language decided on a sample, and a
-segment left in the source language after its retries. The header holds `<key>=<effect>:<count>` pairs joined by `; `
-(ASCII only; e.g. `lang_id_document_chars=sampled:1; translation_rerun_rounds=skipped:3`). No header means
-no limit applied. The full notes, with a sentence each, are the multipart response's
-`limits_applied.json` part and the run's paradata `limits_applied`.
+`X-Atrium-Limits-Applied` header: a segment split into chunks, a language decided on a sample, or a glossary that
+gave the prompt a selection of the matched terms. The header holds `<key>=<effect>:<count>` pairs joined by `; `
+(ASCII only; e.g. `lang_id_document_chars=sampled:1; translation_chunk_chars=split:2`). No header means no limit
+applied. The full notes, with a sentence each, are the multipart response's `limits_applied.json` part and the run's
+paradata `limits`. A segment left in the source language, or a vocabulary lookup that timed out, is not a note: the
+call fails (422 `limit_exceeded`, D13).
 
 By default the response carries no JSON envelope. The document is the payload, so
 the endpoint composes with `curl -o` and with the pipeline's other stages.
@@ -150,29 +154,30 @@ instead, typed in the spec as `TranslateResponse`. It is the shape a client gene
 {"type": "alto", "filename": "CTX000000003-1_en.alto.xml", "media_type": "application/xml",
  "content": "<?xml version='1.0' encoding='UTF-8'?>\n<alto …>…</alto>",
  "limits_applied": [],
- "document_json": {"doc_id": "CTX000000003", "translations": {"…": "…"}, "…": "…"},
+ "document_json": {"doc_id": "CTX000000003", "…": "…"},
  "paradata": {"@id": "urn:uuid:…", "@type": "CreateAction", "…": "…"}}
 ```
 
 `type` is `alto` or `metadata`; `content` is the translated XML as UTF-8 text. `document_json` is present when a
-record was sent or `include_record` asked for one. `document_json_schema_error` appears when that record does not
+record was sent, and holds it with nothing added. `document_json_schema_error` appears when that record does not
 validate: an invalid baseline is passed through and said so, but only this JSON answer says it, not the multipart one.
 `log_filename` and `log_csv` come with `include_log`; `xsd_valid` and `xsd_errors` with `XSD_PATH`.
 `limits_applied` is the full list (the header is still set).
 
 **An untranslatable source language.** With `source_lang=auto`, a segment
 identified with confidence as a language the backend cannot translate (Latin or Hungarian on
-LINDAT) is still translated from the fallback language. The record's
-`translations.unsupported_source_langs` counts such segments per language (e.g.
-`{"la": 1, "hu": 1}`), so a caller sees it in the `document_json` it gets back; a call without
-a record carries no such field. It is not a `limits_applied` note: nothing was cut, and none of
-the shared effects fits. In the CLI's `_log.csv` those rows have the status `unsupported_lang`.
+LINDAT) is still translated from the fallback language. The run's paradata count such segments
+per language and document (`parameters.translations.<doc_id>.unsupported_source_langs`, e.g.
+`{"la": 1, "hu": 1}`). It is not a limit note: nothing was cut, and none of the shared effects
+fits. In the CLI's `_log.csv` those rows have the status `unsupported_lang`.
 
-**`paradata`** is the call's provenance: one Process Run Crate `CreateAction`,
-built by `atrium_rocrate.create_action()`, in the JSON response and as the multipart form's
-`paradata.json`. Its `@id` is the call's `run_uuid`, which also stamps every block the call wrote
-into the record. `object` is the upload (by content hash) and the record sent, and `result` the blocks
-written and the translated XML. `agent` is `ATRIUM_RUN_AGENT` when set. A bare XML answer has no
+**`paradata`** is the call's paradata: one Process Run Crate `CreateAction` (paradata 3.0,
+atrium-project#84), built by `atrium_rocrate.action_from_paradata()`, in the JSON response and as the
+multipart form's `paradata.json`. Its `@id` is the call's `run_uuid`. For a metadata record, `object`
+is `metadata` and `result` is `metadata-en`, each by SHA-512; the field list, the language pair, the
+backend and the output mode are parameters, and no field text is recorded. An ALTO translation
+names the original it read and has no result. Each component is listed with its own terms; no
+licence is computed. `agent` is `ATRIUM_RUN_AGENT` when set. A bare XML answer has no
 place for it, and an error response carries none. The service writes no paradata file. Hub
 [`docs/rocrate_export.md`](https://github.com/ufal/atrium-project/blob/main/docs/rocrate_export.md) §5
 describes it.
@@ -187,7 +192,8 @@ a row from the left: the status and `reason` a caller sees, the cause, then what
 | `413`  | `limit_exceeded`         | A part exceeds `MAX_UPLOAD_MB`, or the declared request exceeds `max_request_mb` (2 × `MAX_UPLOAD_MB` + 1 MB). The declared size is checked before the body is read; a request without one is bounded part by part while it is read. | split the document, or raise `MAX_UPLOAD_MB`                                                                                                                  |
 | `415`  | `unsupported_media_type` | A filename not ending in `.xml` (`accepted: [".xml"]`), or a `Content-Type` that is neither `multipart/form-data` nor `application/json` (`accepted` lists both).                                                                    | send an `.xml` file as `multipart/form-data`                                                                                                                  |
 | `422`  | `invalid_record`         | The `document_json` part is not UTF-8 JSON, not a JSON object, or has a newer `schema_version` major than this tool reads.                                                                                                           | send the record the previous stage returned, or none; update this service if the record is newer                                                              |
-| `422`  | `null`                   | A missing or unusable filename, metadata mode with no XPath targets, an unknown `response_format`, or request validation (`errors` names the field).                                                                                 | fix the field `errors` or `detail` names; for metadata mode, point `AMCR_FIELDS_PATH` at the XPath list                                                       |
+| `422`  | `null`                   | A missing or unusable filename, a metadata record without `xpaths` (`cause: "missing_xpaths"`), an unknown `response_format`, or request validation (`errors` names the field).                                                      | fix the field `errors` or `detail` names; for a metadata record, send the field list as `xpaths`                                                              |
+| `422`  | `limit_exceeded`         | A limit would have left content untranslated: a segment still degenerate after the re-run rounds, or a vocabulary lookup that timed out (`limit.effect: "skipped"`). The call fails and returns nothing (D13).                       | retry later; raise `TRANSLATION_RERUN_ROUNDS` or `UDPIPE_TIMEOUT_S`                                                                                           |
 | `422`  | `null`                   | `cause: "malformed_xml"`: `is_alto` was not sent and the upload is not well-formed XML, so its kind cannot be told (with `is_alto` sent, such a file is still the 500 below).                                                        | fix the XML                                                                                                                                                   |
 | `422`  | `null`                   | `cause: "xsd_validation_failed"`: `xsd_strict` (or `XSD_STRICT`) and the translation does not validate against `XSD_PATH`; `detail` has the validator's messages.                                                                    | fix the record or the XPath targets; send `xsd_strict=false` to get the translation with `xsd_valid: false`                                                   |
 | `422`  | `null`                   | `cause: "unsupported_language_pair"`: the backend cannot translate `source_lang` → `target_lang` (with `auto`, the fallback language is checked). Nothing is translated, and nothing is rerouted.                                    | set `source_lang` to one of `errors[].supported_source_langs`, or use another `TRANSLATION_BACKEND`                                                           |
@@ -215,45 +221,45 @@ limit shaped the result (`X-Atrium-Limits-Applied`, `limits_applied`). The LLM a
 apply only when `TRANSLATION_BACKEND` selects that backend. `tests/test_limits_contract.py`
 checks this table against `tool_limits.py` and `.env.example`.
 
-| Key (`/info`)                    | Variable                                     | Default | Unit    | Over the limit                                                                                         |
-|----------------------------------|----------------------------------------------|---------|---------|--------------------------------------------------------------------------------------------------------|
-| `max_upload_mb`                  | `MAX_UPLOAD_MB`                              | 50      | MB      | 413 `limit_exceeded` — per part: the XML and the baseline document JSON                                |
-| `max_request_mb`                 | — (derived from `MAX_UPLOAD_MB`: 2 × it + 1) | —       | MB      | 413 `limit_exceeded`, from the declared `Content-Length`, before the body is read                      |
-| `translation_chunk_chars`        | `TRANSLATION_CHUNK_CHARS`                    | 4000    | chars   | translated in full, in pieces re-joined with a line break — `split` note                               |
-| `lang_id_segment_chars`          | `LANG_ID_SEGMENT_CHARS`                      | 2000    | chars   | `source_lang=auto`: the segment's language is decided on its first N characters — `sampled` note       |
-| `lang_id_document_chars`         | `LANG_ID_DOCUMENT_CHARS`                     | 20000   | chars   | `source_lang=auto`: the document's language is decided on its first N characters — `sampled` note      |
-| `lindat_timeout_s`               | `LINDAT_TIMEOUT_S`                           | 60      | s       | the call is retried (`LINDAT_MAX_RETRIES`)                                                             |
-| `lindat_max_retries`             | `LINDAT_MAX_RETRIES`                         | 4       | retries | the file fails → 500                                                                                   |
-| `lindat_guard_retries`           | `LINDAT_GUARD_RETRIES`                       | 2       | retries | the segment is flagged for the end-of-document re-run                                                  |
-| `translation_rerun_rounds`       | `TRANSLATION_RERUN_ROUNDS`                   | 1       | rounds  | the segment keeps its source text (logged `untranslated`) — `skipped` note with the count              |
-| `udpipe_timeout_s`               | `UDPIPE_TIMEOUT_S`                           | 30      | s       | with a vocabulary (LINDAT): the chunk is not lemmatised, its terms go unprotected — `skipped` note     |
-| `llm_timeout_s`                  | `LLM_TIMEOUT_S`                              | 120     | s       | the call is retried (`LLM_MAX_RETRIES`)                                                                |
-| `llm_max_tokens`                 | `LLM_MAX_TOKENS`                             | 2048    | tokens  | a reply cut at it (`finish_reason=length`) is degenerate: re-run, else kept as source — never used     |
-| `llm_max_retries`                | `LLM_MAX_RETRIES`                            | 4       | retries | the file fails → 500                                                                                   |
-| `llm_max_glossary_terms`         | `LLM_MAX_GLOSSARY_TERMS`                     | 40      | terms   | with a vocabulary: the longest terms are kept — `trimmed` note                                         |
-| `llm_glossary_description_chars` | `LLM_GLOSSARY_DESCRIPTION_CHARS`             | 0       | chars   | 0: no descriptions in the prompt; a longer description is cut at a word — `trimmed` note               |
-| `ct2_max_input_tokens`           | `CT2_MAX_INPUT_TOKENS`                       | 1024    | tokens  | the chunk is re-split and translated in full — `split` note                                            |
-| `ct2_max_decoding_tokens`        | `CT2_MAX_DECODING_TOKENS`                    | 2048    | tokens  | a reply that reaches it is degenerate: re-run, else kept as source — never used                        |
-| `ct2_max_glossary_terms`         | `CT2_MAX_GLOSSARY_TERMS`                     | 40      | terms   | with a vocabulary: the longest terms are kept — `trimmed` note                                         |
+| Key (`/info`)                    | Variable                                     | Default | Unit    | Over the limit                                                                                     |
+|----------------------------------|----------------------------------------------|---------|---------|----------------------------------------------------------------------------------------------------|
+| `max_upload_mb`                  | `MAX_UPLOAD_MB`                              | 50      | MB      | 413 `limit_exceeded` — per part: the XML and the baseline document JSON                            |
+| `max_request_mb`                 | — (derived from `MAX_UPLOAD_MB`: 2 × it + 1) | —       | MB      | 413 `limit_exceeded`, from the declared `Content-Length`, before the body is read                  |
+| `translation_chunk_chars`        | `TRANSLATION_CHUNK_CHARS`                    | 4000    | chars   | translated in full, in pieces re-joined with a line break — `split` note                           |
+| `lang_id_segment_chars`          | `LANG_ID_SEGMENT_CHARS`                      | 2000    | chars   | `source_lang=auto`: the segment's language is decided on its first N characters — `sampled` note   |
+| `lang_id_document_chars`         | `LANG_ID_DOCUMENT_CHARS`                     | 20000   | chars   | `source_lang=auto`: the document's language is decided on its first N characters — `sampled` note  |
+| `lindat_timeout_s`               | `LINDAT_TIMEOUT_S`                           | 60      | s       | the call is retried (`LINDAT_MAX_RETRIES`)                                                         |
+| `lindat_max_retries`             | `LINDAT_MAX_RETRIES`                         | 4       | retries | the file fails → 500                                                                               |
+| `lindat_guard_retries`           | `LINDAT_GUARD_RETRIES`                       | 2       | retries | the segment is flagged for the end-of-document re-run                                              |
+| `translation_rerun_rounds`       | `TRANSLATION_RERUN_ROUNDS`                   | 1       | rounds  | a segment still degenerate would keep its source text: the call fails (422 `limit_exceeded`, D13)  |
+| `udpipe_timeout_s`               | `UDPIPE_TIMEOUT_S`                           | 30      | s       | with a vocabulary (LINDAT): the chunk's terms would go unprotected: the call fails (D13)           |
+| `llm_timeout_s`                  | `LLM_TIMEOUT_S`                              | 120     | s       | the call is retried (`LLM_MAX_RETRIES`)                                                            |
+| `llm_max_tokens`                 | `LLM_MAX_TOKENS`                             | 2048    | tokens  | a reply cut at it (`finish_reason=length`) is degenerate: re-run, else kept as source — never used |
+| `llm_max_retries`                | `LLM_MAX_RETRIES`                            | 4       | retries | the file fails → 500                                                                               |
+| `llm_max_glossary_terms`         | `LLM_MAX_GLOSSARY_TERMS`                     | 40      | terms   | with a vocabulary: the longest terms go into the prompt — `sampled` note                           |
+| `llm_glossary_description_chars` | `LLM_GLOSSARY_DESCRIPTION_CHARS`             | 0       | chars   | 0: no descriptions in the prompt; a longer one gives the prompt its first part — `sampled` note    |
+| `ct2_max_input_tokens`           | `CT2_MAX_INPUT_TOKENS`                       | 1024    | tokens  | the chunk is re-split and translated in full — `split` note                                        |
+| `ct2_max_decoding_tokens`        | `CT2_MAX_DECODING_TOKENS`                    | 2048    | tokens  | a reply that reaches it is degenerate: re-run, else kept as source — never used                    |
+| `ct2_max_glossary_terms`         | `CT2_MAX_GLOSSARY_TERMS`                     | 40      | terms   | with a vocabulary: the longest terms go into the prompt — `sampled` note                           |
 
 Platform limits (not settings): libxml2's default limits (parsed without `huge_tree`: nesting
 depth, a 10 MB text node) — a document over them fails as malformed XML (500); Starlette's
 multipart defaults.
 
-## Partial results
+## What a 200 carries
 
 A 200 can still be a result a limit or a backend shaped. Two places say so:
 
 - **`limits_applied`** (JSON and multipart answers) and the `X-Atrium-Limits-Applied` header:
-  `split` (a long segment translated in pieces), `sampled` (the language decided on the first
-  characters), `trimmed` (a glossary cut to its limit) and `skipped` (segments the guard kept in the
-  source language after the re-run rounds, with their count). The table above says which limit
+  `split` (a long segment translated in pieces) and `sampled` (the language decided on the first
+  characters; a glossary's selection of terms in a prompt). The table above says which limit
   produces which note.
-- **`translations.unsupported_source_langs`** in the returned record: segments identified as a language
-  the backend cannot translate, translated from the fallback language instead, counted per language.
+- **`parameters.translations.<doc_id>.unsupported_source_langs`** in the paradata: segments identified as
+  a language the backend cannot translate, translated from the fallback language instead, counted per
+  language.
 
-The service has no `partial` status of its own; a caller that needs every segment translated checks
-for a `skipped` note.
+A partial translation is never a 200: a segment left in the source language fails the call with 422
+`limit_exceeded` (D13, atrium-project#84).
 
 ## Known limits
 
@@ -298,7 +304,6 @@ for a `skipped` note.
 | `LANG_ID_MIN_LETTERS`       | `20`              | texts with fewer letters are not sent to FastText; they inherit their label / the document language (`auto` only)                                                                                                                                                                                                                                                                                                          |
 | `LANG_ID_MODEL_PATH`        |                   | the FastText language-ID model file (`auto` only). The published images set it to `/opt/models/fasttext-lid.bin`; unset (a checkout), the pinned Hub revision is downloaded into `HF_HOME`. A path that is not a file: the service starts, `/health?deep=true` reports the identifier unavailable, and `auto` falls back (see Models and caches)                                                                           |
 | `TRANSLATION_RERUN_DELAY_S` | `10.0`            | cool-down before each re-run round — **added to the request's duration** whenever a document has a flagged segment                                                                                                                                                                                                                                                                                                         |
-| `AMCR_FIELDS_PATH`          | `amcr-fields.txt` | file of AMČR XPath targets for metadata mode, one per line; relative paths resolve against the repo root. Absent ⇒ metadata requests are refused 422, ALTO unaffected                                                                                                                                                                                                                                                      |
 | `XSD_PATH`                  |                   | a local XML Schema metadata translations are validated against, compiled at startup (the CLI's `--xsd`). A file that cannot be read or compiled: the service **refuses to start**. `/info` reports it under `xsd`. Only a local file: a request never makes the service fetch a schema                                                                                                                                     |
 | `XSD_STRICT`                |                   | with `XSD_PATH`: the default of `xsd_strict`; `1`/`true` refuses an invalid translation with 422, unset or anything else returns it with `xsd_valid: false`                                                                                                                                                                                                                                                                |
 | `VOCABULARY_PATH`           |                   | vocabulary CSV `/translate` applies: the LLM and `ct2` backends put the matching terms into the prompt, `lindat` protects them (Tag-and-Protect, which calls `UDPIPE_URL`). Relative paths resolve against the repo root. Empty: no vocabulary. Set to a missing file or one with no term pair: the service **refuses to start**, naming the file. `/info` reports the file, its term count and SHA-256 under `vocabulary` |

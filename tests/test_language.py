@@ -262,14 +262,6 @@ class _Translator:
         return "\n".join(f"EN:{line}" if line.strip() else line for line in text.split("\n"))
 
 
-class _Doc:
-    def __init__(self):
-        self.blocks = {}
-
-    def set_block(self, name, value):
-        self.blocks[name] = value
-
-
 ALTO_NS = "http://www.loc.gov/standards/alto/ns-v3#"
 
 
@@ -296,8 +288,8 @@ def _run_alto(tmp_path, identifier, **kwargs):
     src = tmp_path / "doc.alto.xml"
     src.write_bytes(_ALTO)
     out = tmp_path / "doc_en.alto.xml"
-    translator, doc = _Translator(), _Doc()
-    process_alto_xml(src, out, translator, "auto", "en", identifier=identifier, doc=doc, **kwargs)
+    translator, doc = _Translator(), {}
+    process_alto_xml(src, out, translator, "auto", "en", identifier=identifier, facts=doc, **kwargs)
     blocks = {b.get("ID"): b for b in etree.parse(str(out)).getroot().iter(f"{{{ALTO_NS}}}TextBlock")}
     return translator, doc, blocks
 
@@ -307,7 +299,7 @@ def test_alto_blocks_only_ever_get_a_translatable_language(tmp_path, caplog):
         translator, doc, _ = _run_alto(tmp_path, _OcrLikeIdentifier())
 
     assert set(translator.languages) == {"cs", "de"}, "no yue, no sk"
-    assert doc.blocks["translations"]["detected_source_lang"] == "cs"
+    assert doc["detected_source_lang"] == "cs"
     assert "document cs (detected" in caplog.text
     assert "FastText guesses not used: yue" in caplog.text
     assert any(r.levelno == logging.WARNING and "source language" in r.getMessage() for r in caplog.records)
@@ -326,13 +318,13 @@ def test_alto_with_no_identifier_or_no_model_falls_back_not_to_english(tmp_path)
         translator, doc, _ = _run_alto(tmp_path, identifier)
         assert "en" not in translator.languages
         assert set(translator.languages) == {"cs", "de"}
-        assert doc.blocks["translations"]["detected_source_lang"] == "cs"
+        assert doc["detected_source_lang"] == "cs"
 
 
 def test_alto_default_source_language_is_configurable(tmp_path):
     policy = SourceLanguagePolicy(default="pl", allowed=LINDAT_SOURCES)
     translator, doc, _ = _run_alto(tmp_path, _Candidates([]), lang_policy=policy)
-    assert doc.blocks["translations"]["detected_source_lang"] == "pl"
+    assert doc["detected_source_lang"] == "pl"
     # Blocks with a supported label keep it; the rest take the (default) document language.
     assert set(translator.languages) == {"pl", "de", "cs"}
 
@@ -341,10 +333,10 @@ def test_alto_explicit_source_language_detects_nothing(tmp_path):
     identifier = _OcrLikeIdentifier()
     src = tmp_path / "doc.alto.xml"
     src.write_bytes(_ALTO)
-    translator, doc = _Translator(), _Doc()
-    process_alto_xml(src, tmp_path / "out.xml", translator, "cs", "en", identifier=identifier, doc=doc)
+    translator, doc = _Translator(), {}
+    process_alto_xml(src, tmp_path / "out.xml", translator, "cs", "en", identifier=identifier, facts=doc)
     assert identifier.calls == [] and set(translator.languages) == {"cs"}
-    assert "detected_source_lang" not in doc.blocks["translations"]
+    assert "detected_source_lang" not in doc
 
 
 AMCR_NS = "https://api.aiscr.cz/schema/amcr/2.2/"
@@ -360,7 +352,7 @@ _META = f"""<?xml version="1.0" encoding="utf-8"?>
 def test_metadata_fields_resolve_through_the_record_language(tmp_path):
     src = tmp_path / "rec.xml"
     src.write_bytes(_META)
-    translator, doc, buffer = _Translator(), _Doc(), io.StringIO()
+    translator, doc, buffer = _Translator(), {}, io.StringIO()
     xpaths = ["//amcr:amcr/amcr:nazev", "//amcr:amcr/amcr:popis", "//amcr:amcr/amcr:poznamka"]
     process_metadata_xml(
         src,
@@ -371,8 +363,8 @@ def test_metadata_fields_resolve_through_the_record_language(tmp_path):
         "en",
         csv_writer=csv.writer(buffer),
         identifier=_OcrLikeIdentifier(),
-        doc=doc,
+        facts=doc,
     )
     # nazev: short → record language; popis: detected; poznamka: its own xml:lang.
     assert translator.languages == ["cs", "cs", "de"]
-    assert doc.blocks["translations"]["detected_source_lang"] == "cs"
+    assert doc["detected_source_lang"] == "cs"

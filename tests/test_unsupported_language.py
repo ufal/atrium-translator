@@ -11,7 +11,7 @@ nothing. The segment is still translated from the fallback (that was decided: re
 refuse), and now:
 
 * its ``_log.csv`` rows say ``unsupported_lang`` (an ``untranslated`` row stays ``untranslated``);
-* the record's ``translations`` block counts the languages in ``unsupported_source_langs``;
+* the run's paradata count the languages in ``unsupported_source_langs`` (a parameter per document);
 * the log line lists them.
 
 A German segment is translated as before, and an untrustworthy guess (a low score, an exotic
@@ -76,14 +76,6 @@ class _Lindat:
         return "\n".join(f"EN[{src_lang}]:{line}" if line.strip() else line for line in text.split("\n"))
 
 
-class _Doc:
-    def __init__(self):
-        self.blocks = {}
-
-    def set_block(self, name, value):
-        self.blocks[name] = value
-
-
 AMCR_NS = "https://api.aiscr.cz/schema/amcr/2.2/"
 _META = f"""<?xml version="1.0" encoding="utf-8"?>
 <amcr:amcr xmlns:amcr="{AMCR_NS}">
@@ -103,7 +95,7 @@ def _rows(buffer):
 def _metadata(tmp_path, translator=None):
     src = tmp_path / "rec.xml"
     src.write_bytes(_META)
-    translator, doc, buffer = translator or _Lindat(), _Doc(), io.StringIO()
+    translator, doc, buffer = translator or _Lindat(), {}, io.StringIO()
     process_metadata_xml(
         src,
         tmp_path / "out.xml",
@@ -113,7 +105,7 @@ def _metadata(tmp_path, translator=None):
         "en",
         csv_writer=csv.writer(buffer),
         identifier=_Identifier(),
-        doc=doc,
+        facts=doc,
     )
     return translator, doc, _rows(buffer)
 
@@ -129,7 +121,7 @@ def test_metadata_fields_in_latin_and_hungarian_are_reported_and_still_translate
     }
     # Translated from the fallback (the record's language) as before; German keeps its own model.
     assert dict(translator.calls) == {CZECH: "cs", LATIN: "cs", HUNGARIAN: "cs", GERMAN: "de"}
-    block = doc.blocks["translations"]
+    block = doc
     assert block["detected_source_lang"] == "cs"
     assert block["unsupported_source_langs"] == {"hu": 1, "la": 1}
     assert "cannot translate, translated from the fallback: " in caplog.text
@@ -141,18 +133,18 @@ def test_a_field_kept_as_source_stays_untranslated(tmp_path, monkeypatch):
     monkeypatch.setenv("TRANSLATION_RERUN_ROUNDS", "0")
     _, doc, rows = _metadata(tmp_path, _Lindat(degenerate={LATIN}))
     assert rows[LATIN] == STATUS_UNTRANSLATED and rows[HUNGARIAN] == STATUS_UNSUPPORTED_LANG
-    assert doc.blocks["translations"]["unsupported_source_langs"] == {"hu": 1, "la": 1}
+    assert doc["unsupported_source_langs"] == {"hu": 1, "la": 1}
 
 
 def test_an_explicit_source_language_reports_nothing(tmp_path):
     src = tmp_path / "rec.xml"
     src.write_bytes(_META)
-    doc, buffer = _Doc(), io.StringIO()
+    doc, buffer = {}, io.StringIO()
     process_metadata_xml(
-        src, tmp_path / "o.xml", _XPATHS, _Lindat(), "cs", "en", csv_writer=csv.writer(buffer), doc=doc
+        src, tmp_path / "o.xml", _XPATHS, _Lindat(), "cs", "en", csv_writer=csv.writer(buffer), facts=doc
     )
     assert set(_rows(buffer).values()) == {STATUS_OK}
-    assert "unsupported_source_langs" not in doc.blocks["translations"]
+    assert "unsupported_source_langs" not in doc
 
 
 def test_a_backend_that_translates_latin_reports_nothing(tmp_path):
@@ -163,7 +155,7 @@ def test_a_backend_that_translates_latin_reports_nothing(tmp_path):
     _, doc, rows = _metadata(tmp_path, translator)
     assert set(rows.values()) == {STATUS_OK}
     assert dict(translator.calls)[LATIN] == "la" and dict(translator.calls)[HUNGARIAN] == "hu"
-    assert "unsupported_source_langs" not in doc.blocks["translations"]
+    assert "unsupported_source_langs" not in doc
 
 
 ALTO_NS = "http://www.loc.gov/standards/alto/ns-v3#"
@@ -184,7 +176,7 @@ _ALTO = f"""<?xml version="1.0" encoding="UTF-8"?>
 def test_alto_blocks_in_latin_and_hungarian_are_reported_line_by_line(tmp_path):
     src = tmp_path / "doc.alto.xml"
     src.write_bytes(_ALTO)
-    translator, doc, buffer = _Lindat(), _Doc(), io.StringIO()
+    translator, doc, buffer = _Lindat(), {}, io.StringIO()
     process_alto_xml(
         src,
         tmp_path / "out.xml",
@@ -193,7 +185,7 @@ def test_alto_blocks_in_latin_and_hungarian_are_reported_line_by_line(tmp_path):
         "en",
         csv_writer=csv.writer(buffer),
         identifier=_Identifier(),
-        doc=doc,
+        facts=doc,
     )
     statuses = {row[2]: row[5] for row in csv.reader(io.StringIO(buffer.getvalue()))}
     assert statuses == {
@@ -202,7 +194,7 @@ def test_alto_blocks_in_latin_and_hungarian_are_reported_line_by_line(tmp_path):
         "B3L1": STATUS_UNSUPPORTED_LANG,
         "B4L1": STATUS_OK,
     }
-    assert doc.blocks["translations"]["unsupported_source_langs"] == {"hu": 1, "la": 1}
+    assert doc["unsupported_source_langs"] == {"hu": 1, "la": 1}
     out = etree.parse(str(tmp_path / "out.xml")).getroot()
     latin = [s.get("CONTENT") for s in out.iter(f"{{{ALTO_NS}}}String") if s.getparent().get("ID") == "B2L1"]
     assert latin[0].startswith("EN[cs]:"), "translated from the fallback, as before"
@@ -232,7 +224,7 @@ def test_an_untrustworthy_guess_is_not_reported(tmp_path):
 # ── the service ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_the_service_returns_the_count_in_the_record(monkeypatch):
+def test_the_service_records_the_count_in_its_paradata(monkeypatch):
     from fastapi.testclient import TestClient
 
     from service.api import app
@@ -240,7 +232,7 @@ def test_the_service_returns_the_count_in_the_record(monkeypatch):
     translator = _Lindat()
     translator.license_components = MagicMock(return_value=["lindat_cubbitt"])
     seed = {"doc_id": "C-TEST", "source": {"sha512": "c" * 128, "filename": "rec.xml", "media_type": "application/xml"}}
-    models = {"translator": translator, "identifier": _Identifier(), "xpaths_list": _XPATHS}
+    models = {"translator": translator, "identifier": _Identifier()}
     with patch("service.api.models", models):
         response = TestClient(app).post(
             "/translate?source_lang=auto&target_lang=en",
@@ -248,9 +240,12 @@ def test_the_service_returns_the_count_in_the_record(monkeypatch):
                 "file": ("rec.xml", _META, "application/xml"),
                 "document_json": ("seed.document.json", json.dumps(seed).encode(), "application/json"),
             },
-            data={"is_alto": "false", "response_format": "json"},
+            data={"is_alto": "false", "response_format": "json", "xpaths": "\n".join(_XPATHS)},
         )
     assert response.status_code == 200, response.text[:400]
-    translations = response.json()["document_json"]["translations"]
-    assert translations["unsupported_source_langs"] == {"hu": 1, "la": 1}
-    assert translations["detected_source_lang"] == "cs"
+    body = response.json()
+    # Record schema 2.0: the record comes back unchanged; the facts are the run's parameters.
+    assert body["document_json"] == {**seed, "schema_version": "2.0", "record_type": "atrium-document"}
+    facts = body["paradata"]["paradataRecord"]["parameters"]["translations"]["C-TEST"]
+    assert facts["unsupported_source_langs"] == {"hu": 1, "la": 1}
+    assert facts["detected_source_lang"] == "cs"

@@ -201,7 +201,8 @@ class LindatLemmatizer:
                 yield resp.json().get("result", "")
 
             except requests.exceptions.Timeout:
-                # A limit that changed the result without refusing it (atrium-project#53).
+                # The chunk's vocabulary terms would go unprotected: the note raises
+                # ContentLimitError and the job fails (D13, atrium-project#84).
                 note(
                     UDPIPE_TIMEOUT_S,
                     "skipped",

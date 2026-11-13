@@ -188,18 +188,20 @@ class TestUdpipeRequest:
         assert items == [("zámku", "zámek", "Sing")]
 
 
-def test_a_udpipe_timeout_is_a_limit_and_is_recorded(monkeypatch):
-    """(atrium-project#53) UDPIPE_TIMEOUT_S is read per call; a timed-out chunk goes unprotected,
-    which is a result the limit shaped — so it leaves a `skipped` note instead of a bare print."""
+def test_a_udpipe_timeout_fails_the_job(monkeypatch):
+    """UDPIPE_TIMEOUT_S is read per call. A timed-out chunk would go unprotected, so the note
+    raises ContentLimitError and the job fails (D13, atrium-project#84): no partial result."""
+    import pytest
     import requests
 
+    from atrium_limits import ContentLimitError
     from processors.limit_notes import collecting
 
     monkeypatch.setenv("UDPIPE_TIMEOUT_S", "2.5")
     lem = LindatLemmatizer(url="https://udpipe.example.test/process")
     with patch("processors.lemmatizer.requests.post", side_effect=requests.exceptions.Timeout()) as post:
-        with collecting() as notes:
-            assert list(lem._request_conllu_chunks("Hrad stojí na kopci.", "czech")) == []
+        with collecting():
+            with pytest.raises(ContentLimitError) as raised:
+                list(lem._request_conllu_chunks("Hrad stojí na kopci.", "czech"))
     assert post.call_args.kwargs["timeout"] == 2.5
-    [entry] = notes.as_list()
-    assert (entry["limit"], entry["effect"], entry["value"]) == ("udpipe_timeout_s", "skipped", 2.5)
+    assert (raised.value.limit, raised.value.effect) == ("udpipe_timeout_s", "skipped")

@@ -16,16 +16,20 @@ the result must stay the same document in another language. It reads XML only, n
 | ALTO XML pages (an `<alto>` root, or `--alto`)                                               | the same pages, each word box's text translated, or given an `<ALTERNATIVE>` with the translation       |
 | any other XML, with a list of XPaths (`--xpaths`): AMČR records, OAI-PMH responses, TEI      | the same documents, the named fields translated, or followed by an `xml:lang`-marked translated sibling |
 | a file, a folder, or a `.txt` list of URLs (such as OAI-PMH `GetRecord` requests)            | per document, `<name>_log.csv`: the source and the translation side by side, with a `status` each       |
-| optionally, an ATRIUM document record to add to, and a vocabulary of Czech–English terms     | per document, the record with its `translations` block; per run, the paradata                           |
+| optionally, an ATRIUM document record, and a vocabulary of Czech–English terms               | per document, the record handed back with nothing added; per run, the paradata                          |
 
-ALTO mode translates the full text of OCR pages. Metadata mode translates the fields that a list of XPaths names, in
-AMČR records (bare or inside OAI-PMH envelopes) or in any other XML. The pilot use is Czech to English: the free-text
-fields of AMČR metadata records, translated in `replace` mode and checked against the AMČR 2.2 schema. The target
+Metadata mode translates the fields that a list of XPaths names, in AMČR records (bare or inside OAI-PMH envelopes) or
+in any other XML. The pilot use is Czech to English: the free-text fields of AMČR metadata records, translated in
+`replace` mode and checked against the AMČR 2.2 schema. The field list comes with each job (`--xpaths`, or the
+service's `xpaths` field): AMČR passes its own list ([aiscr-webamcr#3570](https://github.com/ARUP-CAS/aiscr-webamcr/issues/3570)),
+and [`amcr-fields.txt`](amcr-fields.txt) is only an example of one. ALTO mode, which translates the full text of OCR
+pages, stays for research and batch use; it is not part of the pipeline. The target
 language is English by default; any other language the backend offers can be chosen.
 
 Two output modes: `replace`, the default, overwrites the source text; `append` keeps it and adds the translation
-beside it. The record follows the hub's
-[document contract](https://ufal.github.io/atrium-project/ecosystem/document-contract/). Every file a run writes:
+beside it. Under the hub's [document contract](https://ufal.github.io/atrium-project/ecosystem/document-contract/)
+(record schema 2.0) the translator writes nothing into the document record: a record sent with a file is handed
+back unchanged. Every file a run writes:
 [docs/reference/outputs.md](docs/reference/outputs.md).
 
 ## Quick start
@@ -98,9 +102,10 @@ fluent translation is then divided among the original lines and word boxes. Deta
 
 ## Where it fits in ATRIUM
 
-In the AMČR pilot the translator gives AMČR records their English free-text fields. In the scanned-document
-pipeline it reads the per-page ALTO that ocr-postprocess writes. Its output is an end product, an edition for
-readers: no later stage reads it, and the document record refers to it as `derived_from.translated_xml`. The whole
+In the AMČR pilot the translator is a record-level job, run on archiving: it turns an AMČR record's `metadata`
+distribution into `metadata-en`, with the field list AMČR sends (atrium-project#84, D34). It is not a step of the
+document pipeline, and it writes nothing into the document record. Until atrium-project#78 is settled, a
+`metadata-en` produced through LINDAT is not published by AMČR (D35). The whole
 workflow: the [hub's workflow page](https://ufal.github.io/atrium-project/workflows/translator/).
 
 ## Limits and maturity

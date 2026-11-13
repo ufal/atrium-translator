@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from atrium_document import DocumentRecord, canonical_doc_id, validate_document
+from atrium_document import DocumentRecord, canonical_doc_id
 from atrium_paradata import ParadataLogger
 
 
@@ -79,47 +79,35 @@ def test_rule_1_and_2_baseline_in_record_out_and_own_block_only(tmp_path, baseli
     assert result["pages"][0]["quality_score"] == 0.98
 
 
-def test_rule_3_no_baseline_own_part_only(tmp_path, mock_paradata):
-    """Rule 3: Standalone runs work and produce own part plus identity fields."""
-    run_id, paradata_ref = mock_paradata
-    out_path = tmp_path / "out_standalone.json"
+def test_the_translator_writes_no_block_into_the_record(tmp_path, mock_translator):
+    """Record schema 2.0 (atrium-project#84): the translator leaves the document chain. A record
+    sent with the file comes back with nothing added: the same blocks, under its own doc_id."""
+    input_file = tmp_path / "CTX08.alto.xml"
+    input_file.write_text(_alto_xml_source(), encoding="utf-8")
+    baseline = tmp_path / "CTX08.document.json"
+    sent = {
+        "schema_version": "2.0",
+        "record_type": "atrium-document",
+        "doc_id": "CTX08",
+        "pages": [{"page": "1", "page_index": 1, "quality_score": 0.98}],
+    }
+    baseline.write_text(json.dumps(sent), encoding="utf-8")
 
-    with DocumentRecord.open(
-        doc_id="CTX000000001",
-        program="translator",
-        baseline=None,
-        run_id=run_id,
-        paradata_ref=paradata_ref,
-    ) as doc:
-        doc.set_block("translations", {"en": "Standalone translation."})
-        doc.finalize(str(out_path))
+    success, out_dir = _run_process_single_file(tmp_path, input_file, mock_translator, baseline=baseline)
 
-    result = json.loads(out_path.read_text(encoding="utf-8"))
-
-    assert result["schema_version"] == "1.0"
-    assert result["doc_id"] == "CTX000000001"
-    assert result["translations"]["en"] == "Standalone translation."
-    assert "pages" not in result
+    assert success
+    assert json.loads((out_dir / "CTX08.document.json").read_text(encoding="utf-8")) == sent
 
 
-def test_rule_4_per_block_provenance(tmp_path, baseline_json, mock_paradata):
-    """Rule 4: Every write stamps assembled.blocks[<block>] with the writer's info."""
-    run_id, paradata_ref = mock_paradata
-    out_path = tmp_path / "out_prov.json"
+def test_no_record_is_written_when_none_was_sent(tmp_path, mock_translator):
+    """Rule 3 no longer applies: a standalone translation has no block to write, so no record."""
+    input_file = tmp_path / "CTX09.alto.xml"
+    input_file.write_text(_alto_xml_source(), encoding="utf-8")
 
-    with DocumentRecord.open(
-        doc_id="CTX000000001",
-        program="translator",
-        baseline=baseline_json,
-        run_id=run_id,
-        paradata_ref=paradata_ref,
-    ) as doc:
-        doc.set_block("translations", {"en": "Text."})
-        doc.finalize(str(out_path))
+    success, out_dir = _run_process_single_file(tmp_path, input_file, mock_translator)
 
-    result = json.loads(out_path.read_text(encoding="utf-8"))
-    # Schema defines per-block provenance at assembled.blocks.<block_name>.run_id
-    assert result["assembled"]["blocks"]["translations"]["run_id"] == run_id
+    assert success
+    assert not (out_dir / "CTX09.document.json").exists()
 
 
 def test_rule_6_unknown_blocks_preserved(tmp_path, baseline_json, mock_paradata):
@@ -145,98 +133,53 @@ def test_rule_6_unknown_blocks_preserved(tmp_path, baseline_json, mock_paradata)
 # shape, not just the generic DocumentRecord primitive above ──────────────────────
 
 
-def test_process_metadata_xml_writes_schema_shaped_translations(
-    amcr_xml_file, tmp_path, mock_translator, mock_paradata
-):
-    """
-    The previous implementation wrote `{tgt_lang: "<entire translated corpus text>"}`,
-    which contradicts the schema (`{source_lang, target_lang, backend}`) and duplicates
-    text that already persists via `derived_from.translated_xml`. Also asserts entity
-    translation is NOT attempted — entities[] doesn't exist yet when the translator
-    runs (pc→alto→translate→nlp→llm), so that pass was unreachable dead code.
-    """
+def test_process_metadata_xml_reports_its_facts(amcr_xml_file, tmp_path, mock_translator):
+    """What shaped the translation goes to the run's paradata through `facts` — the language
+    pair, the backend and the output mode — never the translated text (D34)."""
     from utils import process_metadata_xml
 
-    run_id, paradata_ref = mock_paradata
-    out_xml = tmp_path / "out.xml"
-
-    with DocumentRecord.open(
-        doc_id="CTX01", program="translator", baseline=None, run_id=run_id, paradata_ref=paradata_ref
-    ) as doc:
-        process_metadata_xml(
-            amcr_xml_file,
-            out_xml,
-            ["//amcr:amcr/amcr:dokument/amcr:popis"],
-            mock_translator,
-            "cs",
-            "en",
-            doc=doc,
-            backend="lindat",
-        )
-        doc.finalize(str(tmp_path / "CTX01.document.json"))
-
-    result = json.loads((tmp_path / "CTX01.document.json").read_text(encoding="utf-8"))
-    assert result["translations"] == {
-        "source_lang": "cs",
-        "target_lang": "en",
-        "backend": "lindat",
-        # issue #46: which output contract produced this artifact. Asserted by
-        # exact equality on purpose — a silent extra key in a block shared across
-        # six repos is exactly what this test exists to catch.
-        "output_mode": "replace",
-    }
+    facts = {}
+    process_metadata_xml(
+        amcr_xml_file,
+        tmp_path / "out.xml",
+        ["//amcr:amcr/amcr:dokument/amcr:popis"],
+        mock_translator,
+        "cs",
+        "en",
+        facts=facts,
+        backend="lindat",
+    )
+    # Exact equality on purpose: a silent extra key here is what this test exists to catch.
+    assert facts == {"source_lang": "cs", "target_lang": "en", "backend": "lindat", "output_mode": "replace"}
 
 
-def test_process_alto_xml_writes_schema_shaped_translations(alto_xml_file, tmp_path, mock_translator, mock_paradata):
+def test_process_alto_xml_reports_its_facts(alto_xml_file, tmp_path, mock_translator):
     from utils import process_alto_xml
 
-    run_id, paradata_ref = mock_paradata
-    out_xml = tmp_path / "out.alto.xml"
-
-    with DocumentRecord.open(
-        doc_id="CTX02", program="translator", baseline=None, run_id=run_id, paradata_ref=paradata_ref
-    ) as doc:
-        process_alto_xml(alto_xml_file, out_xml, mock_translator, "cs", "en", doc=doc, backend="ctranslate2")
-        doc.finalize(str(tmp_path / "CTX02.document.json"))
-
-    result = json.loads((tmp_path / "CTX02.document.json").read_text(encoding="utf-8"))
-    assert result["translations"] == {
-        "source_lang": "cs",
-        "target_lang": "en",
-        "backend": "ctranslate2",
-        "output_mode": "replace",
-    }
+    facts = {}
+    process_alto_xml(
+        alto_xml_file, tmp_path / "out.alto.xml", mock_translator, "cs", "en", facts=facts, backend="ctranslate2"
+    )
+    assert facts == {"source_lang": "cs", "target_lang": "en", "backend": "ctranslate2", "output_mode": "replace"}
 
 
-def test_translations_output_validates_against_schema(amcr_xml_file, tmp_path, mock_translator, mock_paradata):
-    """
-    D4 (atrium-project#10): validated through the module's own ``validate_document()``, not a
-    hand-rolled ``Draft202012Validator`` + a hand-rolled schema path. This test and
-    main.py's production gate now run the SAME code path, so the test cannot pass while the
-    gate the pipeline actually uses is broken (schema-locating included). `jsonschema` is a
-    declared dependency in both requirements files, so this no longer skips itself either.
-    """
+def test_the_facts_carry_no_field_text(amcr_xml_file, tmp_path, mock_translator):
+    """D34: `paradata/metadata-en` carries no field text, so neither do the facts it is built from."""
     from utils import process_metadata_xml
 
-    run_id, paradata_ref = mock_paradata
-    out_xml = tmp_path / "out.xml"
-
-    with DocumentRecord.open(
-        doc_id="CTX03", program="translator", baseline=None, run_id=run_id, paradata_ref=paradata_ref
-    ) as doc:
-        process_metadata_xml(
-            amcr_xml_file,
-            out_xml,
-            ["//amcr:amcr/amcr:dokument/amcr:popis"],
-            mock_translator,
-            "cs",
-            "en",
-            doc=doc,
-        )
-        doc.finalize(str(tmp_path / "CTX03.document.json"))
-
-    result = json.loads((tmp_path / "CTX03.document.json").read_text(encoding="utf-8"))
-    validate_document(result)
+    facts = {}
+    process_metadata_xml(
+        amcr_xml_file,
+        tmp_path / "out.xml",
+        ["//amcr:amcr/amcr:dokument/amcr:popis"],
+        mock_translator,
+        "cs",
+        "en",
+        facts=facts,
+    )
+    source_text = amcr_xml_file.read_text(encoding="utf-8")
+    assert all(not isinstance(v, str) or len(v) < 20 for v in facts.values())
+    assert not any(isinstance(v, str) and v and v in source_text and len(v) > 3 for v in facts.values())
 
 
 # ── D3 (atrium-project#10): one doc_id derivation, for a doc_id with an embedded dot ──
@@ -403,11 +346,11 @@ def _page_split_baseline(tmp_path):
     baseline.write_text(
         json.dumps(
             {
-                "schema_version": "1.0",
+                "schema_version": "2.0",
                 "record_type": "atrium-document",
                 "doc_id": PAGE_SPLIT_DOC_ID,
-                "pages": [{"page": "1", "quality_score": 0.98}],
-                "page_categories": [{"page": "1", "category": "TEXT"}],
+                "pages": [{"page": "1", "page_index": 1, "quality_score": 0.98, "category": "TEXT"}],
+                "page_categories": {"1": "TEXT"},
             }
         ),
         encoding="utf-8",
@@ -416,7 +359,7 @@ def _page_split_baseline(tmp_path):
 
 
 def test_page_split_input_inherits_the_documents_doc_id(tmp_path, mock_translator):
-    """A page of a document accretes onto the DOCUMENT's record, under the document's key."""
+    """A page of a document is filed under the DOCUMENT's key, and the record goes back under it."""
     input_file = tmp_path / f"{PAGE_SPLIT_FILE_KEY}.alto.xml"
     input_file.write_text(_alto_xml_source(), encoding="utf-8")
 
@@ -429,9 +372,9 @@ def test_page_split_input_inherits_the_documents_doc_id(tmp_path, mock_translato
     assert record_path.exists(), f"record written under a forked doc_id: {sorted(p.name for p in out_dir.iterdir())}"
     record = json.loads(record_path.read_text(encoding="utf-8"))
     assert record["doc_id"] == PAGE_SPLIT_DOC_ID
-    # Upstream blocks accreted under the same key, which is the whole point of not re-keying.
-    assert record["page_categories"][0]["category"] == "TEXT"
-    assert record["translations"]["target_lang"] == "en"
+    # Upstream blocks kept under the same key, which is the whole point of not re-keying.
+    assert record["page_categories"] == {"1": "TEXT"}
+    assert "translations" not in record
 
     # The CSV log stays per-FILE — it holds per-line rows, so page 2 of a batch must not
     # truncate page 1's log — while its `file` column names the document the record does.
@@ -454,8 +397,9 @@ def test_page_split_input_without_a_baseline_keeps_the_file_key(tmp_path, mock_t
     success, out_dir = _run_process_single_file(tmp_path, input_file, mock_translator)
     assert success
 
-    record = json.loads((out_dir / f"{PAGE_SPLIT_FILE_KEY}.document.json").read_text(encoding="utf-8"))
-    assert record["doc_id"] == PAGE_SPLIT_FILE_KEY
+    # No record without a baseline (record schema 2.0); the file key names the log.
+    assert (out_dir / f"{PAGE_SPLIT_FILE_KEY}_log.csv").exists()
+    assert not (out_dir / f"{PAGE_SPLIT_FILE_KEY}.document.json").exists()
 
 
 def test_documentrecord_refuses_to_rekey_an_inherited_record(tmp_path, capsys):
@@ -482,37 +426,32 @@ def test_documentrecord_refuses_to_rekey_an_inherited_record(tmp_path, capsys):
 # ── D4 (atrium-project#10): the Layer D validation gate, wired at main.py's chokepoint ──
 
 
-def test_invalid_own_output_is_never_emitted(tmp_path, mock_translator, monkeypatch):
-    """
-    Own output failing the schema RAISES, so no record is written. The invalid block is
-    injected at this repo's own write site (a `translations.source_lang` that is not a
-    string), which is exactly the code bug the gate exists to stop from reaching disk.
-    """
+def test_a_content_limit_fails_the_file_and_writes_no_record(tmp_path, mock_translator, monkeypatch):
+    """D13: a limit that skipped content raises out of process_single_file (the job fails),
+    and nothing is handed on — not even the record that was sent."""
     import main
+    from atrium_limits import ContentLimitError
 
-    def _write_invalid_block(*_args, doc=None, **_kwargs):
-        doc.set_block("translations", {"source_lang": 42, "target_lang": "en", "backend": "lindat"})
+    def _skip(*_args, **_kwargs):
+        raise ContentLimitError("translation_rerun_rounds", "skipped", 1)
 
-    monkeypatch.setattr(main, "process_alto_xml", _write_invalid_block)
-
+    monkeypatch.setattr(main, "process_alto_xml", _skip)
     input_file = tmp_path / "CTX04.alto.xml"
     input_file.write_text(_alto_xml_source(), encoding="utf-8")
+    baseline = tmp_path / "CTX04.document.json"
+    baseline.write_text(json.dumps({"schema_version": "2.0", "doc_id": "CTX04", "source": {}}), encoding="utf-8")
 
-    success, out_dir = _run_process_single_file(tmp_path, input_file, mock_translator)
-
-    assert success is False
-    assert not (out_dir / "CTX04.document.json").exists()
-    # Write-then-rename: a refused record must not leave the .tmp behind either.
-    assert not (out_dir / "CTX04.document.json.tmp").exists()
+    with pytest.raises(ContentLimitError):
+        _run_process_single_file(tmp_path, input_file, mock_translator, baseline=baseline)
+    assert not (tmp_path / "out" / "CTX04.document.json").exists()
 
 
 def test_invalid_inherited_baseline_warns_and_still_emits(tmp_path, mock_translator, capsys):
     """
     An invalid INHERITED baseline is warned about and passed through, never refused: the
     defect belongs to the upstream tool, and refusing would turn one bad record into a
-    stalled pipeline (rule 6 already commits to carrying unknown content forward). Because
-    the baseline is copied into our output, our own gate is downgraded to a warning too —
-    otherwise this repo would be blamed for a defect it inherited.
+    stalled pipeline (rule 6 already commits to carrying unknown content forward). The record
+    goes back as it came: the translator writes nothing into it (record schema 2.0).
     """
     input_file = tmp_path / "CTX05.alto.xml"
     input_file.write_text(_alto_xml_source(), encoding="utf-8")
@@ -522,10 +461,10 @@ def test_invalid_inherited_baseline_warns_and_still_emits(tmp_path, mock_transla
         # `pages[]` requires `page`, and `quality_score` is capped at 1 — two violations.
         json.dumps(
             {
-                "schema_version": "1.0",
+                "schema_version": "2.0",
                 "record_type": "atrium-document",
                 "doc_id": "CTX05",
-                "pages": [{"quality_score": 5}],
+                "pages": [{"page_index": 1, "quality_score": 5}],
             }
         ),
         encoding="utf-8",
@@ -537,7 +476,7 @@ def test_invalid_inherited_baseline_warns_and_still_emits(tmp_path, mock_transla
     record_path = out_dir / "CTX05.document.json"
     assert record_path.exists()
     record = json.loads(record_path.read_text(encoding="utf-8"))
-    assert record["translations"]["backend"] == "lindat"  # our own contribution still landed
+    assert record["pages"] == [{"page_index": 1, "quality_score": 5}]  # passed through untouched
 
     err = capsys.readouterr().err
     assert "inherited baseline" in err
@@ -550,9 +489,8 @@ def test_missing_jsonschema_degrades_loudly_instead_of_silently(tmp_path, mock_t
     that quietly becomes a no-op is indistinguishable from a passing one. The gate must then
     say so ONCE, loudly, and let the run finish — rule 3's standalone safety.
 
-    A baseline is supplied so BOTH gate calls (inherited baseline, own output) hit the
-    unavailable branch: the warning must still appear exactly once, which is the whole point
-    of the latch on a batch run.
+    The baseline check hits the unavailable branch twice in a two-file batch; the warning
+    must still appear exactly once, which is the whole point of the latch.
     """
     import main
 
@@ -561,21 +499,22 @@ def test_missing_jsonschema_degrades_loudly_instead_of_silently(tmp_path, mock_t
     def _no_jsonschema(_record):
         raise RuntimeError("jsonschema is not installed, so the record cannot be validated.")
 
-    monkeypatch.setattr(main, "validate_document", _no_jsonschema)
+    monkeypatch.setattr(main, "validate_baseline", _no_jsonschema)
 
     input_file = tmp_path / "CTX06.alto.xml"
     input_file.write_text(_alto_xml_source(), encoding="utf-8")
 
     baseline = tmp_path / "CTX06.document.json"
     baseline.write_text(
-        json.dumps({"schema_version": "1.0", "record_type": "atrium-document", "doc_id": "CTX06"}),
+        json.dumps({"schema_version": "2.0", "record_type": "atrium-document", "doc_id": "CTX06", "source": {}}),
         encoding="utf-8",
     )
 
     success, out_dir = _run_process_single_file(tmp_path, input_file, mock_translator, baseline=baseline)
-
     assert success is True
     assert (out_dir / "CTX06.document.json").exists()
+    success, _ = _run_process_single_file(tmp_path, input_file, mock_translator, baseline=baseline)
+    assert success is True
 
     err = capsys.readouterr().err
     assert "DISABLED" in err

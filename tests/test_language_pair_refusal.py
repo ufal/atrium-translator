@@ -193,7 +193,7 @@ def _post(source_lang=None, target_lang=None):
     [("hu", "en", "source_lang", "hu"), ("cs", "it", "source_lang", "cs")],
 )
 def test_translate_refuses_an_untranslatable_pair_with_422(source_lang, target_lang, field, value):
-    with patch("service.api.models", {"translator": _lindat(), "identifier": MagicMock(), "xpaths_list": []}):
+    with patch("service.api.models", {"translator": _lindat(), "identifier": MagicMock()}):
         response = _post(source_lang, target_lang)
     assert response.status_code == 422
     body = response.json()
@@ -204,7 +204,7 @@ def test_translate_refuses_an_untranslatable_pair_with_422(source_lang, target_l
 
 def test_auto_mode_checks_the_fallback_language(monkeypatch):
     monkeypatch.setenv("DEFAULT_SOURCE_LANG", "la")
-    with patch("service.api.models", {"translator": _lindat(), "identifier": MagicMock(), "xpaths_list": []}):
+    with patch("service.api.models", {"translator": _lindat(), "identifier": MagicMock()}):
         response = _post("auto")
     assert response.status_code == 422
     error = response.json()["errors"][0]

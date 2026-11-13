@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 from lxml import etree
 
-from atrium_limits import LimitNotes
+from atrium_limits import ContentLimitError, LimitNotes
 from processors.chunking import chunk_for_translation
 from processors.ct2_translator import CT2Translator
 from processors.limit_notes import collecting, note
@@ -125,7 +125,8 @@ def test_a_long_metadata_record_is_recorded_as_sampled(monkeypatch):
 # ── a segment left in the source language ────────────────────────────────────────────────
 
 
-def test_a_field_kept_as_source_after_the_rerun_is_recorded(monkeypatch):
+def test_a_field_kept_as_source_after_the_rerun_fails_the_job(monkeypatch):
+    """D13 (atrium-project#84): a field left in the source language is not a translation."""
     monkeypatch.setenv("TRANSLATION_RERUN_ROUNDS", "0")
     flagged = [
         {
@@ -136,11 +137,10 @@ def test_a_field_kept_as_source_after_the_rerun_is_recorded(monkeypatch):
             "reason": "repetition loop",
         }
     ]
-    with collecting() as notes:
+    with collecting(), pytest.raises(ContentLimitError) as raised:
         _rerun_flagged_metadata(flagged, MagicMock(), "en", "replace", "doc")
     assert flagged[0]["row"][5] == "untranslated"
-    [entry] = notes.as_list()
-    assert (entry["limit"], entry["effect"], entry["count"]) == ("translation_rerun_rounds", "skipped", 1)
+    assert (raised.value.limit, raised.value.effect, raised.value.count) == ("translation_rerun_rounds", "skipped", 1)
 
 
 # ── backends ─────────────────────────────────────────────────────────────────────────────
@@ -223,12 +223,13 @@ def test_a_split_field_reaches_the_response_header_through_the_real_pipeline(mon
 
     import service.api as api
     from processors.translator import LindatTranslator
-    from service.api import _load_xpaths
 
     monkeypatch.setenv("TRANSLATION_CHUNK_CHARS", "100")
     with patch("processors.translator.requests.get", side_effect=OSError("offline")):
         translator = LindatTranslator(vocab_path=None)
-    models = {"translator": translator, "identifier": None, "xpaths_list": _load_xpaths("amcr-fields.txt")}
+    models = {"translator": translator, "identifier": None}
+    # The field list comes with the request (D34); amcr-fields.txt serves as the example list.
+    xpaths = Path("amcr-fields.txt").read_text(encoding="utf-8")
     source = Path("data_samples/my_documents/C-TX-195304352.xml").read_text(encoding="utf-8")
     long_popis = "\n".join(["Hrad stojí na kopci nad řekou."] * 12)
     body = re.sub(
@@ -248,7 +249,7 @@ def test_a_split_field_reaches_the_response_header_through_the_real_pipeline(mon
         response = TestClient(api.app).post(
             "/translate",
             files={"file": ("record.xml", body.encode(), "application/xml")},
-            data={"is_alto": "false", "source_lang": "cs", "output_mode": "replace"},
+            data={"is_alto": "false", "source_lang": "cs", "output_mode": "replace", "xpaths": xpaths},
         )
     assert response.status_code == 200, response.content[:300]
     assert "translation_chunk_chars=split:" in response.headers["x-atrium-limits-applied"]
@@ -354,7 +355,7 @@ def _fake_models():
     translator.name = "lindat"
     translator.vocabulary = {}
     translator.license_components.return_value = ["lindat_cubbitt"]
-    return {"translator": translator, "identifier": MagicMock(), "xpaths_list": ["//a"]}
+    return {"translator": translator, "identifier": MagicMock()}
 
 
 def _process_noting_a_sample(file_path=None, output_file=None, _logger=None, **kwargs):

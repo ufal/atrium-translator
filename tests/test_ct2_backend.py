@@ -13,7 +13,6 @@ import pytest
 
 from atrium_paradata import _load_para_config
 from atrium_test_support import REPO_ROOT
-from para_licenses import resolve_effective_license
 from processors import ct2_translator
 from processors.backend import TranslationBackend
 from processors.ct2_translator import CT2Translator
@@ -62,26 +61,27 @@ def test_license_components_permissive_stack():
     assert madlad.license_components(True) == ["ctranslate2", "madlad400"]
 
 
-def _resolve(components):
+def _terms(components):
+    """Each component of a run with the licence para_config.txt declares for it: the facts the
+    paradata list (paradata 3.0, atrium-project#84). Nothing is combined into one licence."""
     declared = {c["name"]: c["license"] for c in _load_para_config(str(REPO_ROOT))["components"]}
-    return resolve_effective_license([(c, declared[c]) for c in components])
+    return {c: declared[c] for c in components}
 
 
 def test_the_amcr_and_teater_vocabularies_are_cc0():
-    """(atrium-project#6, AMCR 2026-09-28) the heslo set and TEATER are CC0: a glossary keeps
-    a EuroLLM run permissive, and a LINDAT run is CC BY-NC-SA because of LINDAT/UDPipe alone."""
+    """(atrium-project#6, AMCR 2026-09-28) the heslo set and TEATER are CC0: a EuroLLM run with a
+    glossary lists only permissive terms, and a LINDAT run lists LINDAT's and UDPipe's own."""
     declared = {c["name"]: c["license"] for c in _load_para_config(str(REPO_ROOT))["components"]}
     assert declared["amcr_vocab"] == declared["teater_data"] == "CC0"
 
-    eurollm = _resolve(CT2Translator(model_dir="/x", family="eurollm").license_components(True))
-    assert eurollm["is_non_commercial"] is False
-    assert eurollm["unknown_licenses"] == []
+    eurollm = _terms(CT2Translator(model_dir="/x", family="eurollm").license_components(True))
+    assert eurollm == {"ctranslate2": "MIT", "eurollm": "Apache-2.0", "amcr_vocab": "CC0", "teater_data": "CC0"}
 
     from processors.translator import LindatTranslator
 
-    lindat = _resolve(LindatTranslator.license_components(object(), True))
-    assert lindat["effective_license"] == "CC BY-NC-SA 4.0"
-    assert "amcr_vocab" not in lindat["determined_by"]
+    lindat = _terms(LindatTranslator.license_components(object(), True))
+    assert lindat["lindat_cubbitt"] == "CC BY-NC-SA 4.0"
+    assert lindat["amcr_vocab"] == "CC0"
 
 
 def test_supported_languages_from_kwarg_and_env(monkeypatch):
@@ -215,22 +215,12 @@ def test_every_family_component_is_declared_in_para_config():
     assert "ctranslate2" in declared
 
 
-def test_nllb_run_resolves_to_non_commercial():
-    declared = {c["name"]: c["license"] for c in _load_para_config(str(REPO_ROOT))["components"]}
+def test_an_nllb_run_lists_its_non_commercial_model():
     comps = CT2Translator(model_dir="/x", family="nllb").license_components(False)
-    result = resolve_effective_license([(c, declared[c]) for c in comps])
-    assert result["effective_license"] == "CC BY-NC 4.0"
-    assert result["is_non_commercial"] is True
+    assert _terms(comps) == {"ctranslate2": "MIT", "nllb200": "CC BY-NC 4.0"}
 
 
-def test_opus_run_stays_permissive():
-    """CC BY 4.0 ranks with the MIT engine; both determine the result and the
-    catalogue keeps the attribution-bearing licence of the model."""
-    declared = {c["name"]: c["license"] for c in _load_para_config(str(REPO_ROOT))["components"]}
+def test_an_opus_run_lists_the_attribution_bearing_model_licence():
+    """The model's CC BY 4.0 is listed beside the MIT engine, each as declared."""
     comps = CT2Translator(model_dir="/x", family="opus").license_components(False)
-    result = resolve_effective_license([(c, declared[c]) for c in comps])
-    assert result["is_non_commercial"] is False
-    assert result["is_share_alike"] is False
-    assert result["unknown_licenses"] == []
-    assert set(result["determined_by"]) == {"ctranslate2", "opus_mt"}
-    assert {c["name"]: c["license"] for c in result["components"]}["opus_mt"] == "CC BY 4.0"
+    assert _terms(comps) == {"ctranslate2": "MIT", "opus_mt": "CC BY 4.0"}

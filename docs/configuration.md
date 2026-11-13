@@ -48,7 +48,6 @@ target_lang = en
 default_source_lang = cs
 formats = alto.xml
 output = ./data_samples/in-place_translated_files/alto
-fields = amcr-fields.txt
 
 # Optional: path to a vocabulary CSV file (source_lemma,target_translation).
 # Leave blank or comment out to disable.
@@ -66,10 +65,12 @@ output_mode = replace
 | `target_lang`         | `en`                                            | `--target_lang`         | `en`                                                                  |
 | `default_source_lang` | `cs`                                            | `--default-source-lang` | `DEFAULT_SOURCE_LANG`, then `cs`                                      |
 | `formats`             | `alto.xml`                                      | `--formats`             | `xml`; with `--xpaths` and `alto.xml` here, `xml,txt`                 |
-| `fields`              | `amcr-fields.txt`                               | `--xpaths`              | no XPath targets: each record fails (exit 3); `--formats xml`, exit 1 |
 | `vocabulary`          | `data_samples/vocabulary.csv`                   | `--vocabulary`          | no vocabulary (a key naming a missing file is ignored)                |
 | `translation_backend` | `lindat`                                        | `--backend`             | `TRANSLATION_BACKEND`, then `lindat`                                  |
 | `output_mode`         | `replace`                                       | `--output-mode`         | `OUTPUT_MODE`, then `replace`                                         |
+
+The metadata field list is not a key: it comes with each job, `--xpaths FILE` on the command line (D34). An older
+config.txt's `fields =` key is ignored.
 
 **`formats` says which files a folder scan picks up,** and nothing more: the shipped `alto.xml` takes only
 `*.alto.xml`, and each file's root element then decides ALTO or metadata. `--formats` on the command line also
@@ -99,7 +100,7 @@ set -a; . ./.env; set +a
 ```
 
 The service's own settings (`PORT`, `HOST`, `MAX_UPLOAD_MB`, `ALLOWED_ORIGINS`, `GRACEFUL_SHUTDOWN_S`,
-`AMCR_FIELDS_PATH`, `VOCABULARY_PATH`, `LOG_LEVEL`, `RELOAD`) are described in
+`VOCABULARY_PATH`, `LOG_LEVEL`, `RELOAD`) are described in
 [service/README.md](../service/README.md#configuration-environment), and every limit (`TRANSLATION_CHUNK_CHARS`,
 `LINDAT_TIMEOUT_S`, `LINDAT_MAX_RETRIES`, `LINDAT_GUARD_RETRIES`, `TRANSLATION_RERUN_ROUNDS`, `UDPIPE_TIMEOUT_S`,
 the `LLM_*` and `CT2_*` caps, …) in its [Limits](../service/README.md#limits) table. The batch CLI reads the same

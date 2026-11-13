@@ -31,7 +31,9 @@ formats = alto.xml
 # data_samples/README.md). This default matches formats = alto.xml + output_mode = replace.
 output = ./data_samples/in-place_translated_files/alto
 
-fields = amcr-fields.txt
+# The metadata field list is not configured here: it comes with each job (--xpaths FILE on the
+# command line, the `xpaths` form field of /translate), as AMČR passes it (aiscr-webamcr#3570).
+# amcr-fields.txt is a documented example of such a list, never loaded by default (D34).
 
 # Optional: path to a vocabulary CSV file (source_lemma,target_translation).
 # When provided, the Tag-and-Protect strategy is activated:

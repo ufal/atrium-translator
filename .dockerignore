@@ -38,3 +38,6 @@ TEMP/
 *.log
 *.png
 *.html
+
+# The metadata field list comes with each job (D34): the example list is not shipped.
+amcr-fields.txt

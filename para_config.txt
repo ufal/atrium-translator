@@ -9,7 +9,7 @@ repository_fallback = https://github.com/ufal/atrium-translator
 [components]
 # name = <license> ; <always|conditional> ; <role>
 # "always"      -> component is part of every run (worst-case baseline)
-# "conditional" -> only counts toward the license when log_component() is called
+# "conditional" -> only listed when log_component() is called
 #
 # fasttext is now CONDITIONAL: the language-ID model is only loaded in auto-detect
 # mode, so main.py logs it via log_component() only when an identifier is built
@@ -27,14 +27,14 @@ amcr_vocab     = CC0             ; conditional ; AMCR vocabulary data (heslo set
 teater_data    = CC0             ; conditional ; TEATER thesaurus data
 
 # Issue #4 — alternative translation backends. These are CONDITIONAL: a run only
-# inherits a backend's licence when that backend is actually selected and
-# main.py logs its components via license_components().
+# lists a backend's components when that backend is actually selected and
+# main.py logs them via license_components().
 #
 # llm_api intentionally carries an unrecognised licence string ("LLM provider
 # ToS"): the output terms of an arbitrary free LLM API are provider-specific and
-# NOT a CC/OSS licence, so para_licenses treats it as maximally restrictive and
-# emits a warning. That is the safe default for a prototype backend — the
-# licensing owner should pin the real terms before any non-experimental use.
+# NOT a CC/OSS licence, and it is listed as such: the paradata record facts, never a
+# combined licence (paradata 3.0). The licensing owner should pin the real terms
+# before any non-experimental use.
 llm_api        = LLM provider ToS ; conditional ; OpenAI-compatible LLM API output (provider terms govern reuse)
 # A model this deployment serves itself, named by LLM_LICENSE_COMPONENT instead of llm_api.
 # Qwen3.8-27B and Qwen3.8-27B-FP8: `license: apache-2.0` in both model cards, read by the
@@ -48,10 +48,8 @@ ctranslate2    = MIT             ; conditional ; CTranslate2 inference engine
 eurollm        = Apache-2.0      ; conditional ; EuroLLM instruction-tuned MT model
 madlad400      = Apache-2.0      ; conditional ; MADLAD-400 multilingual NMT model
 # One component per CT2_MODEL_FAMILY (ct2_translator._FAMILY_COMPONENTS); a family
-# without one is logged as "UNKNOWN". NLLB-200 is NON-COMMERCIAL: selecting it
-# makes the output CC BY-NC whatever else the run does. Opus-MT is recorded at the
-# conservative end of its split: the tc-big checkpoints are CC BY 4.0, older ones
-# Apache-2.0 (same rank), so CC BY 4.0 adds the attribution duty without
-# overstating restrictions.
+# without one is logged as "UNKNOWN". NLLB-200 is NON-COMMERCIAL. Opus-MT is
+# recorded at the conservative end of its split: the tc-big checkpoints are
+# CC BY 4.0, older ones Apache-2.0, so CC BY 4.0 records the attribution duty.
 nllb200        = CC BY-NC 4.0    ; conditional ; NLLB-200 multilingual NMT model
 opus_mt        = CC BY 4.0       ; conditional ; Opus-MT (Helsinki-NLP) NMT model

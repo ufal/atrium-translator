@@ -1,7 +1,7 @@
 # Outputs
 
 For users and reviewers who read what a run produced. It answers which files a run writes, what each column and
-`status` of the translation log means, and what the translator writes into the document record. The paradata is in
+`status` of the translation log means, and what the run records about each document. The paradata is in
 [paradata.md](paradata.md). The service returns the same document and provenance in its response instead of writing
 files, and the same record and log when the request sends a record or asks for them (`include_record`, `include_log`,
 since v1.6.0-beta; [service/README.md](../../service/README.md#response)).
@@ -64,33 +64,29 @@ target cell is empty.
 
 ## The document record
 
-The per-document record this tool reads and writes, `<doc_id>.document.json`, follows the hub's
-[document contract](https://ufal.github.io/atrium-project/ecosystem/document-contract/); its schema is described in
-[paradata.md](paradata.md#the-record-schema). This tool writes:
+Under record schema 2.0 ([atrium-project#84](https://github.com/ufal/atrium-project/issues/84)) the translator
+writes nothing into the document record. A record given with the input (`--document-json`, or `document_json` of
+`/translate`) is read for its `doc_id` and handed back with nothing added, as a 2.0 record (a seed gains
+`schema_version` and `record_type`; a 1.x record is migrated). Without one, no record is written. What used to be
+the record's `translations` block is now the run's paradata, per document (`parameters.translations.<doc_id>`):
 
 ```json
 "translations": {
-  "source_lang": "auto",
-  "target_lang": "en",
-  "backend": "lindat",
-  "output_mode": "replace",
-  "detected_source_lang": "cs",
-  "unsupported_source_langs": {"la": 1, "hu": 1}
+  "CTX000000003": {
+    "source_lang": "auto",
+    "target_lang": "en",
+    "backend": "lindat",
+    "output_mode": "replace",
+    "detected_source_lang": "cs",
+    "unsupported_source_langs": {"la": 1, "hu": 1}
+  }
 }
 ```
 
-- **`translations`**: `source_lang`, `target_lang`, `backend` and `output_mode`; `detected_source_lang`, the language
-  the document resolved to, only when detection ran (with `source_lang: "auto"` the literal says nothing about the
-  record); and `unsupported_source_langs`, only when an `auto` run met a language it identified with confidence but
-  could not translate (those segments were translated from the fallback language, and their log rows say
-  `unsupported_lang`). `output_mode` is there because a consumer that finds English in a field needs to know whether
-  the Czech was kept beside it or overwritten. The extra keys are allowed because `additionalProperties` is true on
-  this block.
-- **`derived_from.translated_xml`**: the name of the translated file. The translated **text** is not stored in the
-  record.
-- **The licence block** (`provenance.license_detail`): the components of the run, each with its licence
-  ([licences.md](licences.md)); `provenance.license` and `license_url` beside it are an older calculated field. The backend's components are recorded before the record takes it, so a one-file run
-  (one pipeline stage, one `/translate` call) states the same as a batch.
+`detected_source_lang` appears only when detection ran, and `unsupported_source_langs` only when an `auto` run met a
+language it identified with confidence but could not translate (those segments were translated from the fallback
+language, and their log rows say `unsupported_lang`). `output_mode` is there because a consumer that finds English in
+a field needs to know whether the Czech was kept beside it or overwritten. No field text is recorded.
 
 **`entities[].translation_en` is reserved:** the schema assigns it to the translator, but `entities[]` is written by
 nlp-enrich, which runs after the translator, so no code path here writes it. It stays reserved
@@ -100,5 +96,4 @@ English only for free-text metadata, so nothing asks for English entity names.
 **The `doc_id` is inherited** from the baseline (`--document-json`) and never re-derived from the input's file name,
 because in the pipeline the input is a page (`<doc>-1.alto.xml`), not the document. The record, the log's `file`
 column, the default record file name and the paradata key all take the document's id; the translated file and the
-log keep the per-file name. A standalone run derives the id from the file name. The record is validated before it is
-written, so an invalid record is never emitted.
+log keep the per-file name. A standalone run derives the id from the file name.

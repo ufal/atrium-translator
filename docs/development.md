@@ -33,7 +33,7 @@ atrium-translator/
 ├── load_vocab.py              # vocabulary builder (keyword-extract release, or AMČR OAI-PMH + TEATER GraphQL → CSV)
 ├── config.txt                 # per-run configuration (paths, languages, formats, backend)
 ├── para_config.txt            # the tool version (single source of truth) and the component → licence table
-├── amcr-fields.txt            # the XPath list for AMČR metadata translation
+├── amcr-fields.txt            # an example XPath list for AMČR metadata (the list comes with each job)
 ├── amcr-inputs.txt            # AMČR OAI-PMH GetRecord URLs, a sample URL-list input
 ├── .env.example               # the environment contract; copy to .env
 ├── Dockerfile                 # two stages: `base` (batch CLI) and `api` (HTTP service)

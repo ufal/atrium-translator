@@ -199,7 +199,7 @@ _ALTO_XML = (
 )
 _SEED_ID = "C-202000543A-DT-27"
 #: A #67 R1 seed: the AMČR file id and the source, nothing else.
-_SEED = {"doc_id": _SEED_ID, "source": {"sha256": "a" * 64, "filename": "scan.alto.xml"}}
+_SEED = {"doc_id": _SEED_ID, "source": {"sha512": "a" * 128, "filename": "scan.pdf", "media_type": "application/pdf"}}
 
 
 def _models():
@@ -209,7 +209,7 @@ def _models():
     translator.protected_count = 0
     translator.translate.side_effect = lambda text, *a, **k: f"EN:{text}"
     translator.license_components.return_value = ["lindat_cubbitt"]
-    return {"translator": translator, "identifier": MagicMock(), "xpaths_list": ["//a"]}
+    return {"translator": translator, "identifier": MagicMock()}
 
 
 def _conforms(status, response, path="/translate", method="post"):
@@ -235,8 +235,9 @@ def test_response_format_json_conforms_including_the_record():
     assert response.headers["content-type"].startswith("application/json")
     assert (body["type"], body["filename"], body["media_type"]) == ("alto", "scan_en.alto.xml", "application/xml")
     assert "EN:" in body["content"] and body["content"].startswith("<?xml")
-    assert body["document_json"]["doc_id"] == _SEED_ID
-    assert body["document_json"]["translations"]["backend"] == "lindat"
+    # Record schema 2.0: the translator writes nothing into the record; it comes back as a 2.0
+    # record with the seed's content and nothing added.
+    assert body["document_json"] == {**_SEED, "schema_version": "2.0", "record_type": "atrium-document"}
 
 
 def test_response_format_json_without_a_record_has_none():

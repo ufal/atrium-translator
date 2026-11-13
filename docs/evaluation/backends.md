@@ -143,8 +143,8 @@ search:
    Tag-and-Protect workaround: UDPipe lemmatisation (`processors/lemmatizer.py`) finds vocabulary terms, replaces them
    with placeholders (`Xtermzzz<N>z`), sends the tagged text to CUBBITT, and restores the vocabulary translations
    afterwards. That is brittle: a model can mangle, reorder or split placeholders.
-2. **The licences.** `para_licenses.py` computes the most restrictive component licence as the run's summary, and
-   CUBBITT (CC BY-NC-SA 4.0) with the UDPipe models (CC BY-NC-SA 4.0) make it CC BY-NC-SA 4.0 for every run
+2. **The licences.** CUBBITT (CC BY-NC-SA 4.0) and the UDPipe models (CC BY-NC-SA 4.0) are non-commercial
+   share-alike components of every LINDAT run; the paradata list them as they are
    ([licences](../reference/licences.md)).
 
 ### At a glance

@@ -8,8 +8,9 @@ setting; a malformed value stops the process at startup, naming the variable
 they agree. Values are read on every use, so a changed variable takes effect without a
 restart of a long-running process and a test can set one.
 
-What happens over each limit — refused, or processed in full with a ``limits_applied``
-note — is said beside it. The LLM and CT2 limits apply only when that backend is the one
+What happens over each limit — refused, processed in full with a ``sampled``/``split``
+note, or the job failed because content would be skipped (D13, atrium-project#84) — is
+said beside it. The LLM and CT2 limits apply only when that backend is the one
 ``TRANSLATION_BACKEND`` selects; they are declared (and reported) regardless, so ``/info``
 does not depend on which backend happens to be imported.
 
@@ -50,12 +51,13 @@ LINDAT_MAX_RETRIES = limit("LINDAT_MAX_RETRIES", 4, unit="retries")
 LINDAT_GUARD_RETRIES = limit("LINDAT_GUARD_RETRIES", 2, unit="retries")
 
 #: End-of-document re-run rounds for flagged segments (0 disables the re-run). A segment
-#: still degenerate after them keeps its source text → ``skipped`` note.
+#: still degenerate after them would keep its source text → the job fails (D13): a field
+#: or line left untranslated is not a translation.
 TRANSLATION_RERUN_ROUNDS = limit("TRANSLATION_RERUN_ROUNDS", 1, unit="rounds")
 
 #: Per-request timeout of one UDPipe call — the lemma matching of Tag-and-Protect (LINDAT
 #: backend with a vocabulary). A chunk whose request times out is not lemmatised, so its
-#: vocabulary terms are translated unprotected → ``skipped`` note.
+#: vocabulary terms would go unprotected → the job fails (D13).
 UDPIPE_TIMEOUT_S = limit("UDPIPE_TIMEOUT_S", 30, unit="s", kind=float, minimum=1)
 #: Per-request timeout of one LLM call (``TRANSLATION_BACKEND=openai_compatible``).
 LLM_TIMEOUT_S = limit("LLM_TIMEOUT_S", 120, unit="s", kind=float, minimum=1)
@@ -68,13 +70,14 @@ LLM_MAX_TOKENS = limit("LLM_MAX_TOKENS", 2048, unit="tokens", minimum=1)
 LLM_MAX_RETRIES = limit("LLM_MAX_RETRIES", 4, unit="retries")
 
 #: Vocabulary terms injected into one LLM prompt (with ``--vocabulary`` or ``VOCABULARY_PATH``). More matches than
-#: this → the longest ones are kept → ``trimmed`` note.
+#: this → the longest ones go into the prompt → ``sampled`` note (a prompt budget; the
+#: translated text is complete).
 LLM_MAX_GLOSSARY_TERMS = limit("LLM_MAX_GLOSSARY_TERMS", 40, unit="terms")
 
 #: Longest concept description given to the LLM beside a glossary term, as context for
 #: choosing the term's sense (the vocabulary CSV's ``description`` column, translator#4).
 #: 0, the default, gives the model no descriptions. A longer one is cut at a word
-#: → ``trimmed`` note.
+#: → ``sampled`` note (prompt context only).
 LLM_GLOSSARY_DESCRIPTION_CHARS = limit("LLM_GLOSSARY_DESCRIPTION_CHARS", 0, unit="chars", minimum=0)
 
 #: Longest input one CTranslate2 NMT request may have. A longer chunk is re-split and
@@ -86,7 +89,7 @@ CT2_MAX_INPUT_TOKENS = limit("CT2_MAX_INPUT_TOKENS", 1024, unit="tokens", minimu
 CT2_MAX_DECODING_TOKENS = limit("CT2_MAX_DECODING_TOKENS", 2048, unit="tokens", minimum=1)
 
 #: Vocabulary terms injected into one CTranslate2 EuroLLM prompt (with ``--vocabulary`` or ``VOCABULARY_PATH``).
-#: More matches → the longest are kept → ``trimmed`` note.
+#: More matches → the longest go into the prompt → ``sampled`` note.
 CT2_MAX_GLOSSARY_TERMS = limit("CT2_MAX_GLOSSARY_TERMS", 40, unit="terms")
 
 LIMITS = LimitSet(

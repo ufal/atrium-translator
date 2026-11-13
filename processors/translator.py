@@ -300,10 +300,9 @@ class LindatTranslator:
         CUBBITT maps to ``lindat_cubbitt``.  When a vocabulary is loaded the
         Tag-and-Protect path also exercises UDPipe and the AMCR/TEATER vocab
         data, so those components are recorded too.  ``main.py`` calls this so
-        the listed components, and the calculated licence label over them,
-        reflect the backend actually used rather than a hard-coded LINDAT
-        assumption (issue #4 — keeps paradata correct once the backend can be
-        swapped). The label is not the output's licence (atrium-project#6).
+        the listed components reflect the backend actually used rather than a
+        hard-coded LINDAT assumption (issue #4). Each is listed with its own
+        terms; none of them is the output's licence (atrium-project#6, #84).
         """
         comps = ["lindat_cubbitt"]
         if vocab_loaded:

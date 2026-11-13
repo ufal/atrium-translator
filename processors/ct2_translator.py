@@ -390,17 +390,15 @@ class CT2Translator:
         """Permissive component stack (see para_config.txt).
         The CTranslate2 engine is MIT; the model component follows the family
         (:data:`_FAMILY_COMPONENTS`). EuroLLM and MADLAD-400 are Apache-2.0, so
-        such a run is permissive *as long as* FastText langid (CC-BY-NC) is
-        avoided via an explicit ``--source_lang``; the AMCR/TEATER glossary is
-        CC0 (atrium-project#6). NLLB-200 is CC BY-NC 4.0, so choosing it makes the
-        output non-commercial whatever else the run does. Opus-MT is recorded
-        as CC BY 4.0 (the tc-big line; older checkpoints are Apache-2.0, which
-        ranks the same), so it stays permissive but requires attribution.
+        such a run lists only permissive components *as long as* FastText langid
+        (CC-BY-NC) is avoided via an explicit ``--source_lang``; the AMCR/TEATER
+        glossary is CC0 (atrium-project#6). NLLB-200 is CC BY-NC 4.0. Opus-MT is
+        recorded as CC BY 4.0 (the tc-big line; older checkpoints are
+        Apache-2.0), permissive but with attribution.
         """
         # An unknown family never gets this far in a real run (_ensure_loaded
         # refuses it); passing the raw name through makes paradata report an
-        # unrecognised licence, which para_licenses treats as maximally
-        # restrictive, rather than silently claiming a permissive one.
+        # unrecognised licence, rather than silently claiming a permissive one.
         model_comp = _FAMILY_COMPONENTS.get(self.family, self.family)
         comps = ["ctranslate2", model_comp]
         if vocab_loaded and self.supports_glossary:
@@ -745,11 +743,13 @@ class CT2Translator:
         pairs.sort(key=lambda kv: len(kv[0]), reverse=True)
         cap = CT2_MAX_GLOSSARY_TERMS.get()
         if len(pairs) > cap:
+            # A prompt budget, not the document's text: the prompt gets a selection of the matched
+            # terms and the translation is complete, so it is recorded as `sampled` (atrium-project#84).
             note(
                 CT2_MAX_GLOSSARY_TERMS,
-                "trimmed",
+                "sampled",
                 1,
-                f"{len(pairs) - cap} matched vocabulary term(s) left out of a prompt; the {cap} longest were kept",
+                f"the {cap} longest of {len(pairs)} matched vocabulary terms went into a prompt",
             )
         return [f"{s} = {t}" for s, t in pairs[:cap]]
 

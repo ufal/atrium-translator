@@ -44,8 +44,8 @@ The repository is not a pip-installable package: every command runs from the rep
 ## Choose ALTO or metadata mode
 
 A file's **root element** decides when the command line names no mode. An `<alto>` root (any ALTO version) is
-translated as an ALTO page. Any other root is a metadata record, and its XPath targets come from config.txt's
-`fields =` key. Naming `--alto`, `--xpaths` or `--formats` decides for the whole run instead; a file whose root
+translated as an ALTO page. Any other root is a metadata record, and its XPath targets come with the job: `--xpaths
+FILE` on the command line, `xpaths` in a `/translate` request. There is no default list (D34). Naming `--alto`, `--xpaths` or `--formats` decides for the whole run instead; a file whose root
 says otherwise is still translated in the named mode, with a warning. `/translate` decides the same way, by the
 same function (`utils.xml_kind`), when `is_alto` is not sent.
 
@@ -113,7 +113,8 @@ python main.py ./data_samples/my_documents --xpaths amcr-fields.txt --formats xm
   failed document (exit 3; the XML is still written). The service validates against a local `XSD_PATH` set by its
   deployment.
 
-[amcr-fields.txt](../amcr-fields.txt) holds ten XPaths: `popis`, `poznamka`, `lokalizace`,
+[amcr-fields.txt](../amcr-fields.txt) is an example list, not a default: AMČR passes its own list with each job
+([aiscr-webamcr#3570](https://github.com/ARUP-CAS/aiscr-webamcr/issues/3570)). It holds ten XPaths: `popis`, `poznamka`, `lokalizace`,
 `lokalizace_okolnosti`, `souhrn_upresneni`, two `nalez_*/poznamka`, and the three `lokalita/chranene_udaje/*`
 fields. For example:
 
@@ -222,7 +223,7 @@ unlabelled input stays unlabelled.
 fields, and ALTO blocks that already carry a translation `ALTERNATIVE`, instead of translating English into English.
 `replace` output carries no such marker.
 
-The mode is recorded in the paradata and in the document record's `translations` block, so an output always says
+The mode is recorded in the run's paradata (the `translations` parameter, per document), so an output always says
 which contract produced it.
 
 ## Use a vocabulary
@@ -394,11 +395,12 @@ replicas scale horizontally. It has no authentication or rate limiting. `/transl
 against a translation backend for any caller, so deploy it behind your own gateway or on a trusted network, not
 directly on the public internet.
 
-## As one stage of the pipeline
+## With a document record
 
-Each pipeline stage runs as its own container, and the document record passed between them with
-`--document-json` / `--document-json-out` is the hand-off. This is the translator stage of the hub's end-to-end
-smoke workflow:
+Under record schema 2.0 (atrium-project#84) the translator is not a stage of the document pipeline and writes
+nothing into the record: the pilot's job is `metadata` → `metadata-en` with the field list AMČR sends. The record
+options stay: a record given with `--document-json` names the outputs by its `doc_id` and is handed back with
+nothing added. The hub's end-to-end smoke still passes one:
 
 ```bash
 docker run --rm \
@@ -412,9 +414,8 @@ docker run --rm \
   --document-json-out /workspace/work/doc_json/3_translate.json
 ```
 
-The baseline record comes in, only the `translations` block (and `derived_from.translated_xml`) is written, and
-everything else is carried through. The record's `doc_id` is **inherited from the baseline**, never re-derived from
-the page's file name, because the input is a page (`…-1.alto.xml`), not the document. The stages before and after,
+The record comes in and goes out with nothing added. Its `doc_id` is **inherited**, never re-derived from the
+page's file name, because the input is a page (`…-1.alto.xml`), not the document. The stages before and after,
 and how the AMČR deployment chains them: the
 [hub's workflow page](https://ufal.github.io/atrium-project/workflows/translator/).
 
@@ -447,13 +448,13 @@ every case but the strict-XSD one in the table.
 | Fallback language    | `--default-source-lang`, config.txt, `DEFAULT_SOURCE_LANG`, `cs` | `DEFAULT_SOURCE_LANG`, `cs`                                                                      | the same rule, set per deployment                                                            |
 | Output mode          | `--output-mode`, config.txt, `OUTPUT_MODE`, `replace`            | `output_mode`, `OUTPUT_MODE`, `replace`                                                          | the same; an unknown value: `--output-mode` refuses it, the service warns and uses `replace` |
 | `--fast-align`       | a flag                                                           | `fast_align=true`                                                                                | the same                                                                                     |
-| XPath targets        | `--xpaths`, or config.txt `fields`                               | `AMCR_FIELDS_PATH`; without it a metadata request is refused (422)                               | differs: set per deployment                                                                  |
+| XPath targets        | `--xpaths FILE`, per run; no default                             | `xpaths`, per request; without it a metadata request is refused (422)                            | the same list, sent with each job (D34)                                                      |
 | Backend, vocabulary  | `--backend`, `--vocabulary` or config.txt                        | `TRANSLATION_BACKEND`, `VOCABULARY_PATH`                                                         | differs: set per deployment                                                                  |
 | XSD validation       | `--xsd` (a URL or a path), `--xsd-strict`                        | `XSD_PATH` (a local file, loaded at startup), `xsd_strict`; the verdict in the answer            | the same verdict; the service never fetches a schema                                         |
 | A strict XSD failure | the XML is written, the document counts as failed (exit 3)       | 422 `xsd_validation_failed`, no XML                                                              | differs: an answer is all or nothing                                                         |
-| The record           | always written (`<doc_id>.document.json`)                        | returned when `document_json` is sent, or with `include_record=true`                             | the same record                                                                              |
+| The record           | handed back when `--document-json` was given, nothing added      | returned when `document_json` was sent, nothing added                                            | the same record                                                                              |
 | The log              | `<doc>_log.csv` beside the XML                                   | with `include_log=true`: `log_csv`, or a part of the multipart answer                            | the same rows                                                                                |
-| An invalid baseline  | a warning on stderr; the record is still written                 | passed through; `document_json_schema_error` in the JSON answer (the multipart one has none)     | the same record                                                                              |
+| An invalid record    | a warning on stderr; the record is still handed back             | passed through; `document_json_schema_error` in the JSON answer (the multipart one has none)     | the same record                                                                              |
 | Paradata             | a file in `<output>/paradata/`, program `translator`             | the `CreateAction` of the JSON and multipart answers, program `translator-api`; none in bare XML | the same keys and values; a path on the command line is a file name in the service           |
 
 ## Troubleshooting
@@ -466,10 +467,10 @@ every case but the strict-XSD one in the table.
 | The run exits 1 before translating                   | a refused language pair, a missing vocabulary file, an XSD that cannot be loaded, or a backend that cannot start; the `[ERROR]` line names which                                                                                                    | fix what the line names                                                                                 |
 | Container reports healthy, nothing can reach it      | `HOST=127.0.0.1` binds inside the container only                                                                                                                                                                                                    | leave `HOST` unset (it defaults to `0.0.0.0`)                                                           |
 | Every block is translated as the default language    | the FastText model could not be downloaded or loaded, so nothing is detected and the fallbacks decide                                                                                                                                               | check `GET /health?deep=true`, which reports it; or pass `--source_lang`, which skips detection         |
-| `/translate` answers 422 for a metadata file         | no readable `AMCR_FIELDS_PATH`, so there are no fields to translate                                                                                                                                                                                 | point `AMCR_FIELDS_PATH` at `amcr-fields.txt` or your own XPath list                                    |
+| `/translate` answers 422 for a metadata file         | no `xpaths` sent with the request (`cause: "missing_xpaths"`): the field list comes with each job (D34)                                                                                                                                             | send the list as `xpaths`, one XPath per line                                                           |
 | A translation run is slow, with no error             | page batches fell back to one request per item, after a line-count mismatch, an implausible reply or a transport error                                                                                                                              | read the per-document `WARNING` summary, which counts each cause                                        |
 | `LINDAT: N degenerate reply(ies) re-requested`       | the translation service answered some requests with a looping or empty reply; each was asked again                                                                                                                                                  | nothing, if the log has no `untranslated` rows: the guard recovered them, at the cost of time           |
-| Rows marked `untranslated` in `_log.csv`             | a segment stayed degenerate after the end-of-document re-run; its source text was kept                                                                                                                                                              | re-run that document later; raise `LINDAT_GUARD_RETRIES` / `TRANSLATION_RERUN_ROUNDS` if it recurs      |
+| The run fails with `limit_exceeded` (exit 3, or 422) | a segment stayed degenerate after the end-of-document re-run; an untranslated field is not a result (D13), so the job fails                                                                                                                         | re-run that document later; raise `LINDAT_GUARD_RETRIES` / `TRANSLATION_RERUN_ROUNDS` if it recurs      |
 | Rows marked `unsupported_lang` in `_log.csv`         | with `--source_lang auto`, FastText was confident the segment is a language the backend cannot translate (Latin, Hungarian on LINDAT); it was translated from the fallback language, as the record's `translations.unsupported_source_langs` counts | review those rows; translate them with a backend that has the language (`ct2`), or pass `--source_lang` |
 | `XSD validation failed` on an `append` AMČR record   | AMČR 2.2 accepts neither `xml:lang` on the translated field nor its repeated sibling                                                                                                                                                                | expected for `append`; use `replace` where the record must validate                                     |
 | The TEATER harvest yields nothing, with an SSL error | `teater.aiscr.cz` serves an incomplete certificate chain                                                                                                                                                                                            | point `REQUESTS_CA_BUNDLE` at a bundle with the missing intermediate ([above](#build-the-vocabulary))   |

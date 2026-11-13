@@ -10,13 +10,19 @@ The batch CLI writes a **run-level** JSON provenance record after every run, nam
 into `paradata/` in the run's output directory, beside the translated files. The `paradata/` folders under
 [data_samples/](../../data_samples/README.md) hold the records of the sample runs. The `/translate` service writes no
 such file: it returns each call's run as a Process Run Crate `CreateAction`, the response's `paradata`
-(atrium-project#71, [service/README.md](../../service/README.md#response)).
+([service/README.md](../../service/README.md#response)). The format is paradata 3.0
+([atrium-project#84](https://github.com/ufal/atrium-project/issues/84)): no licence is computed, and what a run read
+and wrote is named by AMČR distribution name and SHA-512.
 
 Paradata is separate from the translation logs: a log records what was translated, line by line; the paradata
 records *how the run was configured, what it used and what it produced* in aggregate.
 
 Where one input passes through several tools, the per-tool records can be fused into one per input file with
 `merge_paradata_files()`; the merged record lists the union of the components every tool used.
+
+In the AMČR pilot the record is the paradata of the `metadata-en` distribution (`paradata/metadata-en`): it names
+`metadata` and `metadata-en` by SHA-512, records the field list as a parameter, and holds no field text and no
+per-field log (D34).
 
 The logger is [atrium_paradata.py](../../atrium_paradata.py), shared across the ATRIUM tools, which reads this
 repository's [para_config.txt](../../para_config.txt) for the tool version and the component table, and normalises
@@ -27,7 +33,7 @@ the component licences with [para_licenses.py](../../para_licenses.py). Every fi
 
 | Key                                 | Description                                                                                                                                                                                                                  |
 |-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `schema_version`                    | the paradata schema version, `"2.0"`                                                                                                                                                                                         |
+| `schema_version`                    | the paradata schema version, `"3.0"`                                                                                                                                                                                         |
 | `program`                           | always `"translator"`                                                                                                                                                                                                        |
 | `tool_version`                      | the tool's version tag, from `para_config.txt` (e.g. `v1.7.8-beta`)                                                                                                                                                          |
 | `repository`                        | the runner repository (`ATRIUM_RUNNER_REPO` when set)                                                                                                                                                                        |
@@ -35,10 +41,12 @@ the component licences with [para_licenses.py](../../para_licenses.py). Every fi
 | `docker_image`                      | the running image (`ATRIUM_RUNNER_IMAGE`); empty if unset                                                                                                                                                                    |
 | `python_version`                    | the Python that ran                                                                                                                                                                                                          |
 | `run_id`                            | the timestamp identifier of the run, also the file's name                                                                                                                                                                    |
-| `run_uuid`                          | `urn:uuid:…`, minted when the run starts; it also stamps every block the run writes into a record                                                                                                                            |
+| `run_uuid`                          | `urn:uuid:…`, minted when the run starts: the `@id` of the run's `CreateAction`                                                                                                                                              |
 | `run_agent`                         | the operating organisation's IRI (`ATRIUM_RUN_AGENT`), or empty                                                                                                                                                              |
-| `license`, `license_url`            | an older calculated field, not a licence and not to be used ([licences.md](licences.md))                                                                                                                                     |
-| `license_detail`                    | the components with their licences (`components`); beside them, fields of the older calculation (`determined_by`, `is_non_commercial`, `is_share_alike`, `unknown_licenses`) and a `notes` sentence                          |
+| `action_status`                     | `completed`, or `failed` with `error` when a limit left content untranslated (D13) or the run raised                                                                                                                         |
+| `inputs`, `outputs`                 | by AMČR distribution name and SHA-512: `metadata` in and `metadata-en` out for a metadata record; `original` in for ALTO (research use, no stored output)                                                                    |
+| `parameters`                        | what shaped the output: `xpaths` (the field list), and `translations` per document (the language pair, the backend, the output mode, the language detected)                                                                 |
+| `components`                        | each component the run used with its own licence or terms, as facts ([licences.md](licences.md)); nothing is combined into one licence                                                                                     |
 | `start_time`, `end_time`            | ISO 8601 UTC timestamps                                                                                                                                                                                                      |
 | `duration_seconds`                  | wall-clock run time                                                                                                                                                                                                          |
 | `config`                            | the run's settings (below)                                                                                                                                                                                                   |
@@ -48,10 +56,10 @@ the component licences with [para_licenses.py](../../para_licenses.py). Every fi
 | `statistics.output_counts_by_type`  | file counts per output type (`xml`, `csv`, `json`)                                                                                                                                                                           |
 | `statistics.performance_per_minute` | files produced per minute, per output type                                                                                                                                                                                   |
 | `skipped_files_detail`              | `{file, reason, timestamp}` for every skipped file                                                                                                                                                                           |
-| `limits_applied`                    | every limit that shaped a result without refusing it (`limit`, `effect`, `value`, count, detail), e.g. a segment split at `TRANSLATION_CHUNK_CHARS`, fields kept in the source language after the re-run (atrium-project#53) |
+| `limits`                            | the sampling and splitting notes (`limit`, `effect`, `value`, count, detail): a segment split at `TRANSLATION_CHUNK_CHARS`, a language decided on a sample, a glossary's selection of terms in a prompt                    |
 
 `config` holds the run's settings (`input_path`, `output_dir`, `source_lang`, `target_lang`, `formats`, `mode`:
-`alto`, `metadata` or `detect`, `output_mode`, `translation_backend`, `xpaths_file`, `xsd_url`, `xsd_strict`,
+`alto`, `metadata` or `detect`, `output_mode`, `translation_backend`, `xsd_url`, `xsd_strict`,
 `fast_align`, `vocabulary`, `vocabulary_sha256`, `chunk_limit`), the language-ID model and the translation endpoint
 actually resolved (`lang_id_model`, `translation_api`), the source-language policy (`default_source_lang`,
 `fasttext_confidence_threshold`, `lang_id_min_letters`, `lang_id_languages`: the languages the backend translates
@@ -67,64 +75,41 @@ Abridged, from a metadata run with LINDAT and the vocabulary:
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "program": "translator",
-  "tool_version": "v1.7.8-beta",
-  "repository": "https://github.com/ufal/atrium-translator",
-  "runner_ref": "",
-  "docker_image": "",
-  "run_id": "261019-101714",
+  "tool_version": "v1.8.0-beta",
+  "run_id": "261113-101714",
   "run_uuid": "urn:uuid:a0e8bec6-f6c3-4c37-b489-2921e6a5e4c8",
-  "run_agent": "",
-  "license": "CC BY-NC-SA 4.0",
-  "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
-  "license_detail": {
-    "effective_license": "CC BY-NC-SA 4.0",
-    "is_non_commercial": true,
-    "is_share_alike": true,
-    "determined_by": ["lindat_cubbitt", "udpipe2_models"],
-    "components": [
-      { "name": "lindat_cubbitt", "license": "CC BY-NC-SA 4.0" },
-      { "name": "udpipe2_engine", "license": "MPL 2.0" },
-      { "name": "udpipe2_models", "license": "CC BY-NC-SA 4.0" },
-      { "name": "amcr_vocab",     "license": "CC0" },
-      { "name": "teater_data",    "license": "CC0" }
-    ]
+  "action_status": "completed",
+  "inputs": [{ "name": "metadata", "sha512": "5c1f…", "media_type": "application/xml", "stored": true }],
+  "outputs": [{ "name": "metadata-en", "sha512": "9a07…", "media_type": "application/xml", "stored": true }],
+  "parameters": {
+    "xpaths": ["//amcr:amcr/amcr:dokument/amcr:popis", "…"],
+    "translations": { "C-TX-201750164": { "source_lang": "cs", "target_lang": "en", "backend": "lindat", "output_mode": "replace" } }
   },
-  "duration_seconds": 111.0,
-  "config": {
-    "source_lang": "cs",
-    "target_lang": "en",
-    "mode": "metadata",
-    "output_mode": "replace",
-    "translation_backend": "lindat",
-    "vocabulary": "data_samples/vocabulary.csv",
-    "vocabulary_protected_terms_total": 102,
-    "lindat_degenerate_replies_total": 35,
-    "xsd_validation": { "valid": 15, "invalid": [], "strict": false }
-  },
-  "statistics": {
-    "input_files_total": 15,
-    "successfully_processed": 15,
-    "skipped_files": 0,
-    "output_counts_by_type": { "xml": 15, "csv": 15, "json": 0 },
-    "performance_per_minute": { "xml": 8.11, "csv": 8.11, "json": 0.0 }
-  },
-  "skipped_files_detail": [],
-  "limits_applied": []
+  "components": [
+    { "name": "lindat_cubbitt", "license": "CC BY-NC-SA 4.0" },
+    { "name": "udpipe2_engine", "license": "MPL 2.0" },
+    { "name": "udpipe2_models", "license": "CC BY-NC-SA 4.0" },
+    { "name": "amcr_vocab",     "license": "CC0" },
+    { "name": "teater_data",    "license": "CC0" }
+  ],
+  "config": { "mode": "metadata", "translation_backend": "lindat", "vocabulary_protected_terms_total": 102 },
+  "limits": []
 }
 ```
 
-The field `license_detail.effective_license` belongs to the older calculation; it is not a licence and should not
-be used. The `notes` list the components and say that no output licence is asserted
-([Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/)).
+The records committed under `data_samples/*/paradata/` predate paradata 3.0: they carry the calculated `license`
+fields and `limits_applied`.
 
 ## The record schema
 
-The per-document record this tool reads and writes, `<doc_id>.document.json`, follows
-[atrium_document.schema.json](../../atrium_document.schema.json), schema version **`1.0`**. That version is frozen as
-the hub tag [`doc-schema-v1`](https://github.com/ufal/atrium-project/releases/tag/doc-schema-v1)
-(ufal/atrium-project@`544298b`), and it is the baseline this tool implements:
+A document record this tool is given, `<doc_id>.document.json`, follows
+[atrium_document.schema.json](../../atrium_document.schema.json), schema version **`2.0`**
+([atrium-project#84](https://github.com/ufal/atrium-project/issues/84)); the translator writes nothing into it. A
+1.x record is read and migrated. `doc-schema-v2` is tagged only after the end-to-end proof; until then the published
+reference is `doc-schema-v1`, frozen as the hub tag
+[`doc-schema-v1`](https://github.com/ufal/atrium-project/releases/tag/doc-schema-v1) (ufal/atrium-project@`544298b`):
 
 - [tests/test_schema_freeze.py](../../tests/test_schema_freeze.py) checks this repository's schema against the frozen
   copy beside it, [atrium_document.schema.doc-schema-v1.json](../../atrium_document.schema.doc-schema-v1.json): the
@@ -134,7 +119,7 @@ the hub tag [`doc-schema-v1`](https://github.com/ufal/atrium-project/releases/ta
   `para-drift` CI check, so they are never edited in this repository. The hub also checks that every record shape the
   tools write validates under both the frozen and the current schema.
 
-What this tool writes into the record: [outputs.md](outputs.md#the-document-record). What may change after the
+What the run records about each document: [outputs.md](outputs.md#the-document-record). What may change after the
 freeze, and what a new major version takes, is in the hub's
 [Freeze & conformance](https://github.com/ufal/atrium-project/blob/main/docs/document_schema.md#freeze--conformance).
 [CITATION.cff](../../CITATION.cff) carries the same reference under `references`.

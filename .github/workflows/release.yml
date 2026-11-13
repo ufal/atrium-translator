@@ -156,9 +156,9 @@ jobs:
           cp service/openapi.json dist/service/
 
           # Install manifest and the run configuration main.py reads by default
-          # (--config defaults to config.txt; config.txt's `fields` points at
-          # amcr-fields.txt; atrium_paradata.py looks for para_config.txt).
-          cp requirements.txt config.txt para_config.txt amcr-fields.txt dist/
+          # (--config defaults to config.txt; atrium_paradata.py looks for para_config.txt).
+          # amcr-fields.txt is not shipped: the field list comes with each job (D34).
+          cp requirements.txt config.txt para_config.txt dist/
 
           cd dist
           zip -r ../atrium-translator-release.zip .

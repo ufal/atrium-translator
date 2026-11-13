@@ -1,5 +1,9 @@
 ## Sample outputs
 
+> These samples predate record schema 2.0 and paradata 3.0 (atrium-project#84): their `.document.json` files carry
+> a `translations` block and their paradata a calculated licence. A run of this version writes no record of its own
+> and lists components as facts.
+
 The same inputs (`my_documents/`) translated in both output modes of issue #46, one folder per mode and per
 input kind, and the AMCR records once more through the self-hosted `ct2` backend (issue #4), in a folder of their own:
 

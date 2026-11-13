@@ -49,20 +49,17 @@ The translator runs as a batch command line and as an HTTP service, with the sam
    ([ALTO dual-pass reconstruction](#alto-dual-pass-reconstruction)). Metadata: each field is replaced, or followed
    by its translation ([Metadata mode](#metadata-mode)).
 7. **Output.** The translated `.xml` keeps every original tag and namespace. A per-document `_log.csv` pairs source
-   and translation for review, the document record gets its `translations` block, and the run's paradata records
-   what it used. Metadata output can be validated against an XSD ([outputs](reference/outputs.md)).
+   and translation for review, and the run's paradata record what it read, what it wrote and what it used. The
+   document record gets nothing (record schema 2.0). Metadata output can be validated against an XSD ([outputs](reference/outputs.md)).
 
 ## Where the output goes
 
-The translator is a terminal branch. It reads the per-page ALTO that ocr-postprocess writes
-(`PAGE_ALTO/<doc>/<doc>-N.alto.xml`), and its output is an end product: an English edition of the page or record,
-for readers and for publication. The later stages work on the original text (nlp-enrich reads `DOC_LINE_CATEG/` and
-the original `ALTO/`), so no stage reads `TRANSLATED/`.
-
-What persists in the pipeline is a reference: the document record names the translated file as
-`derived_from.translated_xml`, and its `translations` block records how it was made. The files fan out from
-ocr-postprocess and stop here, while the record runs on through every stage. The hub's
-[pipelines page](https://ufal.github.io/atrium-project/pipelines/) draws both layers.
+In the AMČR pilot the translator is not a stage of the document pipeline. It is a record-level job, run on
+archiving: AMČR sends a record's `metadata` distribution with the list of fields to translate, and the translator
+answers with `metadata-en` (atrium-project#84, D34). Its paradata name the two by SHA-512, record the field list as a
+parameter and carry no field text. Full-text and ALTO translation stay for research and batch use; no pipeline step
+reads their output, and nothing of them is stored by AMČR. The hub's
+[pipelines page](https://ufal.github.io/atrium-project/pipelines/) shows where the job sits.
 
 ## Source-language identification
 
@@ -302,7 +299,7 @@ Used for any XML that is not ALTO; in practice AMČR records, bare or inside an 
 2. **Find the namespaces.** The whole tree is scanned, recursively, for the namespace URIs; the AMČR and OAI-PMH
    ones are bound to the prefixes `amcr:` and `oai:` whatever prefixes the file itself uses, so the same XPaths
    work on a bare record and on one wrapped in an envelope.
-3. **Select the fields.** Each XPath from `amcr-fields.txt` (or `--xpaths`) is evaluated; every matching element with
+3. **Select the fields.** Each XPath of the job's field list (`--xpaths`, or `xpaths` in the request) is evaluated; every matching element with
    non-empty text is one unit of translation.
 4. **Resolve the language, per field.** With `auto`, the record's language is resolved once from all of its
    targeted fields, and each field on its own under the same rules; a field too short or too ambiguous inherits the

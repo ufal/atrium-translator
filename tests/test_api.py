@@ -168,10 +168,10 @@ def test_translate_real_pipeline_keeps_the_multi_dot_doc_id():
     """
     baseline = json.dumps(
         {
-            "schema_version": "1.0",
+            "schema_version": "2.0",
             "record_type": "atrium-document",
             "doc_id": MULTI_DOT_DOC_ID,
-            "pages": [{"page": "1", "quality_score": 0.98}],
+            "pages": [{"page": "1", "page_index": 1, "quality_score": 0.98}],
         }
     ).encode()
 
@@ -197,31 +197,26 @@ def test_translate_real_pipeline_keeps_the_multi_dot_doc_id():
     assert f'filename="{MULTI_DOT_DOC_ID}.document.json"'.encode() in response.content
 
     record = _json_part(response)
+    # Record schema 2.0: the translator writes nothing into the record; it comes back as sent.
+    assert record == json.loads(baseline)
     assert record["doc_id"] == MULTI_DOT_DOC_ID
-    assert record["pages"][0]["quality_score"] == 0.98  # baseline accreted, not orphaned
-    assert record["translations"] == {
-        "source_lang": "cs",
-        "target_lang": "en",
-        "backend": "lindat",
-        "output_mode": "replace",
-    }
 
 
 def test_translate_real_pipeline_accretes_onto_a_seed_keyed_unlike_the_upload():
     """
     (atrium-project#68) An AMČR seed is keyed by the AMČR file id, not by the upload's name.
     alto-postprocess and llm-enrich returned the untouched seed in that case; this endpoint
-    names the record after the id it inherits (`record_doc_id`) and writes it to that explicit
-    path, so the returned record carries `translations` and the seed's doc_id. The test keeps
-    it that way.
+    names the record after the id it inherits (`record_doc_id`) and hands it back under that
+    name. Since record schema 2.0 the record is returned unchanged: the translator writes
+    nothing into it.
     """
     seed_id = "C-202000543A-DT-27"
     seed = json.dumps(
         {
-            "schema_version": "1.0",
+            "schema_version": "2.0",
             "record_type": "atrium-document",
             "doc_id": seed_id,
-            "pages": [{"page": "1", "quality_score": 0.98}],
+            "pages": [{"page": "1", "page_index": 1, "quality_score": 0.98}],
         }
     ).encode()
 
@@ -246,9 +241,7 @@ def test_translate_real_pipeline_accretes_onto_a_seed_keyed_unlike_the_upload():
     assert f'filename="{seed_id}.document.json"'.encode() in response.content
 
     record = _json_part(response)
-    assert record["doc_id"] == seed_id
-    assert record["pages"][0]["quality_score"] == 0.98
-    assert record["translations"]["backend"] == "lindat"
+    assert record == json.loads(seed)
 
 
 def _fake_models():
@@ -278,16 +271,15 @@ def _translate(response_format=None, seed=_AMCR_SEED):
 
 
 def _assert_the_run_of(record, action):
-    """The action passes the shared contract check, and its @id is the run_uuid on the blocks
-    this call wrote (atrium-project#71)."""
+    """The action passes the shared contract check (paradata 3.0, atrium-project#84). An ALTO
+    translation is research use, not a pipeline step: it read the original and stored nothing,
+    and the record it was sent comes back unchanged."""
     from atrium_rocrate import action_problems
 
     assert action_problems(action) == []
-    stamps = record["assembled"]["blocks"]
-    assert {stamps[block]["run_uuid"] for block in ("translations", "derived_from")} == {action["@id"]}
-    assert record["provenance"]["contributors"][-1]["paradata_ref"] == action["@id"]
-    assert {"#block-translations", "#block-derived_from"} <= {entity["@id"] for entity in action["result"]}
-    assert "scan_en.alto.xml" in {entity["name"] for entity in action["result"]}
+    assert record == {**_AMCR_SEED, "schema_version": "2.0", "record_type": "atrium-document"}
+    assert [entity["name"] for entity in action["object"]] == ["original"]
+    assert "result" not in action
 
 
 def test_an_amcr_seed_keeps_its_identity_and_the_multipart_form_carries_the_run():
@@ -314,7 +306,7 @@ def test_a_json_response_carries_the_run_and_a_bare_xml_one_does_not():
 
     body = _translate("json", seed=None).json()
     assert "document_json" not in body
-    assert [entity["name"] for entity in body["paradata"]["result"]] == ["scan_en.alto.xml"]
+    assert "result" not in body["paradata"]
 
     response = _translate(seed=None)
     assert response.headers["content-type"].startswith("application/xml")
@@ -363,16 +355,12 @@ def test_translate_metadata_mode_actually_translates():
     `is_alto` is sent in the BODY, the way every other caller in this file sends it,
     and the response must come back with the field translated rather than echoed.
     """
-    models_patch = {
-        "translator": _metadata_translator(),
-        "identifier": MagicMock(),
-        "xpaths_list": [_AMCR_XPATH],
-    }
+    models_patch = {"translator": _metadata_translator(), "identifier": MagicMock()}
     with patch("service.api.models", models_patch):
         response = client.post(
             "/translate",
             files={"file": ("C-N1000019.xml", _AMCR_XML, "application/xml")},
-            data={"is_alto": "false", "source_lang": "cs"},
+            data={"is_alto": "false", "source_lang": "cs", "xpaths": _AMCR_XPATH},
         )
 
     assert response.status_code == 200, response.content[:400]
@@ -380,28 +368,56 @@ def test_translate_metadata_mode_actually_translates():
     assert b"<amcr:nazev>Davle" not in response.content, "replace mode must not keep the source"
 
 
-def test_translate_metadata_mode_refuses_when_no_xpaths_are_configured():
-    """An empty target list must be a 422, never a 200 with an unchanged document."""
-    models_patch = {
-        "translator": _metadata_translator(),
-        "identifier": MagicMock(),
-        "xpaths_list": [],
-    }
+@pytest.mark.parametrize("xpaths", [None, "", "  \n# a comment only\n"])
+def test_translate_metadata_mode_refuses_without_a_field_list(xpaths):
+    """The field list comes with the request (D34): without one, a 422 that names the field,
+    never a 200 with an unchanged document, and never a default list."""
+    models_patch = {"translator": _metadata_translator(), "identifier": MagicMock()}
+    data = {"is_alto": "false", **({"xpaths": xpaths} if xpaths is not None else {})}
     with patch("service.api.models", models_patch):
         response = client.post(
             "/translate",
             files={"file": ("C-N1000019.xml", _AMCR_XML, "application/xml")},
-            data={"is_alto": "false"},
+            data=data,
         )
 
     assert response.status_code == 422
-    assert "AMCR_FIELDS_PATH" in response.json()["detail"], "the error must name the knob to set"
+    assert "`xpaths`" in response.json()["detail"], "the error must name the field to send"
+    assert response.json()["cause"] == "missing_xpaths"
+
+
+def test_the_field_list_and_the_distributions_are_in_the_paradata():
+    """The record-level job (contract §6): `metadata` in, `metadata-en` out, by SHA-512; the field
+    list is a parameter, and no field text reaches the paradata (D34)."""
+    import hashlib
+
+    from atrium_rocrate import action_problems
+
+    with patch("service.api.models", {"translator": _metadata_translator(), "identifier": MagicMock()}):
+        response = client.post(
+            "/translate",
+            files={"file": ("C-N1000019.xml", _AMCR_XML, "application/xml")},
+            data={"is_alto": "false", "source_lang": "cs", "xpaths": _AMCR_XPATH, "response_format": "json"},
+        )
+    assert response.status_code == 200, response.text[:400]
+    body = response.json()
+    action = body["paradata"]
+    assert action_problems(action) == []
+    (read,) = action["object"]
+    (written,) = action["result"]
+    assert (read["name"], read["sha512"]) == ("metadata", hashlib.sha512(_AMCR_XML).hexdigest())
+    assert (written["name"], written["sha512"]) == (
+        "metadata-en",
+        hashlib.sha512(body["content"].encode("utf-8")).hexdigest(),
+    )
+    assert action["paradataRecord"]["parameters"]["xpaths"] == [_AMCR_XPATH]
+    assert "Davle" not in json.dumps(action), "no field text in the paradata"
 
 
 def test_translate_alto_mode_is_unaffected_by_missing_xpaths():
     """ALTO needs no XPaths, so a missing fields file must not refuse ALTO work."""
     translator = _metadata_translator()
-    with patch("service.api.models", {"translator": translator, "identifier": MagicMock(), "xpaths_list": []}):
+    with patch("service.api.models", {"translator": translator, "identifier": MagicMock()}):
         response = client.post(
             "/translate?source_lang=cs",
             files={"file": ("page.alto.xml", _ALTO_XML, "application/xml")},
@@ -412,16 +428,12 @@ def test_translate_alto_mode_is_unaffected_by_missing_xpaths():
 
 def test_translate_append_mode_keeps_the_source_field():
     """The #46 switch, end to end through the service."""
-    models_patch = {
-        "translator": _metadata_translator(),
-        "identifier": MagicMock(),
-        "xpaths_list": [_AMCR_XPATH],
-    }
+    models_patch = {"translator": _metadata_translator(), "identifier": MagicMock()}
     with patch("service.api.models", models_patch):
         response = client.post(
             "/translate",
             files={"file": ("C-N1000019.xml", _AMCR_XML, "application/xml")},
-            data={"is_alto": "false", "source_lang": "cs", "output_mode": "append"},
+            data={"is_alto": "false", "source_lang": "cs", "output_mode": "append", "xpaths": _AMCR_XPATH},
         )
 
     assert response.status_code == 200, response.content[:400]
@@ -433,32 +445,20 @@ def test_translate_append_mode_keeps_the_source_field():
 
 def test_is_alto_is_honoured_from_the_query_string_too():
     """Both call shapes must keep working — callers in this repo are split between them."""
-    models_patch = {
-        "translator": _metadata_translator(),
-        "identifier": MagicMock(),
-        "xpaths_list": [_AMCR_XPATH],
-    }
+    models_patch = {"translator": _metadata_translator(), "identifier": MagicMock()}
     with patch("service.api.models", models_patch):
         response = client.post(
             "/translate?is_alto=false&source_lang=cs",
             files={"file": ("C-N1000019.xml", _AMCR_XML, "application/xml")},
+            data={"xpaths": _AMCR_XPATH},
         )
     assert response.status_code == 200, response.content[:400]
     assert b"EN:Davle - kultovni areal" in response.content
 
 
-def test_translate_record_carries_the_backend_licence():
-    """The record /translate returns is written inside process_single_file — the backend's
-    licence components must be on the logger by then, not logged after the call returned
-    (every service record used to say "CC BY-NC 4.0, no components recorded")."""
-    import atrium_document
-
-    captured = []
-    original = atrium_document.DocumentRecord.add_license_detail
-
-    def _spy(self, detail):
-        captured.append(detail)
-        return original(self, detail)
+def test_the_backend_components_are_in_the_paradata():
+    """The backend's components are on the logger when the call's paradata are built, each with
+    its own terms (paradata 3.0, atrium-project#84): no licence is computed from them."""
 
     def _write_output(input_path, output_path, *args, **kwargs):
         output_path.write_bytes(b"<alto/>")
@@ -472,18 +472,19 @@ def test_translate_record_carries_the_backend_licence():
     with (
         patch("service.api.models", {"translator": translator, "identifier": None}),
         patch("main.process_alto_xml", side_effect=_write_output),
-        patch.object(atrium_document.DocumentRecord, "add_license_detail", _spy),
     ):
         response = client.post(
             "/translate?source_lang=cs&target_lang=en",
             files={"file": ("page.alto.xml", b"<alto/>", "application/xml")},
-            data={"is_alto": "true"},
+            data={"is_alto": "true", "response_format": "json"},
         )
 
     assert response.status_code == 200, response.text
-    assert captured, "the record took no licence block"
-    assert "lindat_cubbitt" in [c["name"] for c in captured[0]["components"]]
-    assert captured[0]["effective_license"] == "CC BY-NC-SA 4.0"
+    record = response.json()["paradata"]["paradataRecord"]
+    assert {"name": "lindat_cubbitt", "license": "CC BY-NC-SA 4.0"}.items() <= next(
+        c for c in record["components"] if c["name"] == "lindat_cubbitt"
+    ).items()
+    assert not {"license", "license_url", "license_detail"} & set(record)
 
 
 # ── VOCABULARY_PATH (translator#4) ────────────────────────────────────────────
