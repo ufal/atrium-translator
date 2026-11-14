@@ -1,5 +1,6 @@
 # Strategy — [atrium-project#84](https://github.com/ufal/atrium-project/issues/84) (doc-schema-v2): the translator's metadata-en job
 
+> _**Refreshed 2026-11-14 (afternoon)**: "Status — round 6 (11-14)": the hub merged, the pins moved, round 6._
 > _**Refreshed 2026-11-14**: "Status — PR (11-14)": the PR's checks and round 5's fixes._
 > _**Refreshed 2026-11-13**: "Status — round 2" (the code, pushed 11-13 to `test`) and round 4's notes. The file keeps
 > the name `doc-schema-v2.plan.md` (it was `84.plan.md` on 11-12 and 11-13)._
@@ -11,9 +12,13 @@
 > This file is this repository's slice only; the repository has no open issue. Its 11-11 version
 > (written before the issue existed) is superseded; the section "2026-11-12" is the current reading._
 
+**Status (2026-11-14, afternoon)**: 🟡 **The hub's PR is merged and this repository is pinned to it: drift is green.
+Round 6 completes this repository's part where no answer is pending; see "Status — round 6". The release (v2.0.0-beta)
+is cut at K4TEL's cadence.**
+
 **Status (2026-11-14)**: 🟡 **[atrium-translator#60](https://github.com/ufal/atrium-translator/pull/60) is open
 (`doc-schema-v2` into `test`); see "Status — PR". Drift clears once the hub's PR merges and the pins move; the
-record-major check clears at this tool's next release, which raises its major version.**
+record-major check clears at this tool's next release, which raises its major version.** _(superseded 11-14 afternoon)_
 
 **Status (2026-11-13)**: 🟡 **Implemented, pushed 11-13 to `test`; see "Status — round 2". Deferred items are listed there.** _(superseded 11-14: the PR is open)_
 
@@ -143,6 +148,23 @@ The suite passes (offline lane): 1162. After the hub's PR merges, `v1` moves to 
 `scripts/pin_hub_reusables.py --sha` pins this repository's callers to it: drift clears. The record-major check stays
 red until the release, which raises the major version in `para_config.txt` (`v1.7.8-beta` now), `CITATION.cff` and
 `service/openapi.json`'s `info.version`.
+
+## Status — round 6 (11-14)
+
+The hub's PR (atrium-project#86) merged; `v1` moved to it and K4TEL pinned this repository's callers: drift green. Round
+6 (local, delivered as an archive):
+
+- `atrium_document.py`, its schema and `tests/test_document_originators.py` re-vendored: rows may carry
+  `lines[].unit: "block"` (rule 5, written by ocr-postprocess only), and `quality_summary.lines` counts them as
+  `block_units`. `v2.0.0-beta` as the unreleased version: `para_config.txt`, `CITATION.cff`, `service/openapi.json`
+  (re-exported) and a CONTRIBUTING.md row marked Unreleased; api-contract passes with it.
+- `docs/usage.md`: its contents list linked the removed section "As one stage of the pipeline"; it now links
+  "With a document record".
+
+The suite passes: 1163 (offline lane). Next: the hub's second PR for #84 (the E2E lanes, rule 5's mark), then `v1` and
+the pins again; then this PR. Hub:
+[plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md),
+"Status — round 6".
 
 ## Depends on
 

@@ -12,8 +12,8 @@ keywords:
   - "metadata translation"
   - "cross-language discovery"
   - "digital archives"
-version: "1.7.8-beta"
-date-released: "2026-11-06"
+version: "2.0.0-beta"
+date-released: "2026-11-14"
 authors:
   - family-names: "Lutsai"
     given-names: "Kateryna"

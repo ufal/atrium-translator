@@ -1003,3 +1003,11 @@ Documentation only; no code, test or configuration change.
 * **Checked:** the full suite (offline lane), 1162 passed.
 * **Next:** the pin commit after the hub's PR merges; the major version at the release. Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md), "Status — PRs".
 * **Not posted; not pushed.**
+
+## 2026-11-14 (afternoon) — atrium-project#84 round 6: the rest of this repository's part
+
+* **Asked (K4TEL):** complete the doc-schema-v2 update in every repository.
+* **Done (local, not pushed):** `atrium_document.py`, its schema and `tests/test_document_originators.py` re-vendored: rows may carry `lines[].unit: "block"` (rule 5, written by ocr-postprocess only), and `quality_summary.lines` counts them as `block_units`. `v2.0.0-beta` as the unreleased version: `para_config.txt`, `CITATION.cff`, `service/openapi.json` (re-exported) and a CONTRIBUTING.md row marked Unreleased; api-contract passes with it; `docs/usage.md`: its contents list linked the removed section "As one stage of the pipeline"; it now links "With a document record".
+* **Checked:** the full suite, 1163 (offline lane) passed; the spec export; `compare` against the latest release: compatible at v2.0.0-beta.
+* **Next:** the hub's second PR for #84, then the pins; then this PR. Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md), "Status — round 6".
+* **Not posted; not pushed.**
