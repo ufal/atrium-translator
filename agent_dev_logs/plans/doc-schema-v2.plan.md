@@ -1,13 +1,54 @@
-# Strategy — doc-schema-v2 (atrium-project, issue to be opened): the translator's metadata-en job
+# Strategy — [atrium-project#84](https://github.com/ufal/atrium-project/issues/84) (doc-schema-v2): the translator's metadata-en job
 
-> _Written **2026-11-11** after the meeting of that day (ARÚP's output contract; K4TEL's points in session). The
-> change as a whole is the hub's: [plan](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md)
-> · [digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/doc-schema-v2.digest.md) (today's
-> fields and writers) · [meeting digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/project_state_1111.md)
-> (variant E, the paradata per step). This file is this repository's slice only; the repository has no open issue.
-> The issue is not opened; rename this file to the issue number once it is. Code read at the checkout of 11-11._
+> _**Refreshed 2026-11-14**: "Status — PR (11-14)": the PR's checks and round 5's fixes._
+> _**Refreshed 2026-11-13**: "Status — round 2" (the code, pushed 11-13 to `test`) and round 4's notes. The file keeps
+> the name `doc-schema-v2.plan.md` (it was `84.plan.md` on 11-12 and 11-13)._
+> _**Refreshed 2026-11-12** on ARÚP's output contract of 12 November (D34, D35, D36) and atrium-project#84 §5 (motyc,
+> 11-12); code read at `55e178e` (= `test`). The change as a whole is the hub's:
+> [plan](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md) ·
+> [digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/doc-schema-v2.digest.md) ·
+> [contract digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/project_state_1211.md).
+> This file is this repository's slice only; the repository has no open issue. Its 11-11 version
+> (written before the issue existed) is superseded; the section "2026-11-12" is the current reading._
 
-**Status (2026-11-11)**: 📋 **Planned, not started. The translator leaves the document chain: a separate
+**Status (2026-11-14)**: 🟡 **[atrium-translator#60](https://github.com/ufal/atrium-translator/pull/60) is open
+(`doc-schema-v2` into `test`); see "Status — PR". Drift clears once the hub's PR merges and the pins move; the
+record-major check clears at this tool's next release, which raises its major version.**
+
+**Status (2026-11-13)**: 🟡 **Implemented, pushed 11-13 to `test`; see "Status — round 2". Deferred items are listed there.** _(superseded 11-14: the PR is open)_
+
+**Status (2026-11-12)**: 📋 **Planned, not started. The field list comes with each request; there is no default
+list, and metadata mode refuses a request without one (D34). `amcr-fields.txt` stays only as a documented example
+that nothing loads (K4TEL, 11-12; #84 §5 says the file goes — an example that is never read meets D34's "no default
+list"). `metadata-en` runs on archiving, follows `metadata`'s protection in the Digital Archive (D36), and is not
+published until atrium-project#78 is settled (D35).**
+
+## 2026-11-12 — what the contract of 12 November changes here
+
+| Point              | Today                                                                                                                         | Under D34                                                                                                                                              |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Service field list | loaded once at startup from `AMCR_FIELDS_PATH` (default `amcr-fields.txt`, `service/api.py:332`; `_load_xpaths()` 425; 472)   | a form field of each metadata request (XPaths inline, not a URL); no startup load, no `AMCR_FIELDS_PATH`                                               |
+| No list            | 422 "requires XPath targets, and none are configured" (`service/api.py:791-800`), reached only when the startup file is empty | the same 422 for a metadata request without the field; the message names the field                                                                     |
+| CLI                | `--xpaths`, else config `fields = amcr-fields.txt` (`config.txt:34`; `main.py:563-564`)                                       | `--xpaths` required in metadata mode; the `fields =` key goes                                                                                          |
+| `amcr-fields.txt`  | the default list; copied into the release's `dist/` (`.github/workflows/release.yml:161`)                                     | a documented example only (e.g. under `docs/examples/`), never loaded, not shipped as configuration; AMČR's list is authoritative (aiscr-webamcr#3570) |
+| Paradata           | —                                                                                                                             | the list used (XPaths only) in `paradata/metadata-en` `parameters`; no field text, no per-field log                                                    |
+| Publication        | —                                                                                                                             | `metadata-en` not published until #78 (D35); served under `metadata`'s protection (D36): AMČR's side                                                   |
+
+Tests that pin the startup list (`tests/test_api.py`, `tests/test_cli_and_routing.py`, `tests/test_limits.py`,
+`tests/openapi_contract_data.py`) and the docs that name the default (`README.md`, `service/README.md`,
+`docs/configuration.md`, `docs/usage.md`, `docs/how-it-works.md`, `docs/development.md`, `docs/reference/cli.md`,
+`docs/decisions/output-mode.md`, `CONTRIBUTING.md`, `data_samples/README.md`) move with the change; `eval/bakeoff.py`
+and `eval/langid_report.py` pass the example explicitly.
+
+**Samples** (atrium-project#16, motyc 11-12): the answer names keyword-extract and digital-convert, not this
+repository; `data_samples/my_documents/` (15 AMČR records), their translations and
+`eval/results/issue4_bakeoff_2610/` keep #20's status of 06-08 unless the next meeting decides otherwise (hub #16
+plan, action 7).
+
+Unchanged from 11-11: nothing in the record, D13 in the job, SHA-512 and distribution names, components as facts,
+docs without ALTO or full-text translation in the pipeline (tasks 2–6 below).
+
+**Status (2026-11-11)**: _(superseded 11-12 where the section above differs)_ 📋 **Planned, not started. The translator leaves the document chain: a separate
 record-level job turns AMČR's `metadata` into `metadata-en` (variant E) and writes nothing into the record. Code
 follows the hub's shared modules.**
 
@@ -27,7 +68,7 @@ follows the hub's shared modules.**
 
 ## Tasks (next rounds)
 
-1. **The field list per job:** the service takes the list inline with each request. Not a URL: the reason
+1. **The field list per job** _(11-12: per request, no default, refusal without one — the table above)_: the service takes the list inline with each request. Not a URL: the reason
    `service/api.py:337` gives for the XSD holds, since a URL from a request would make the service fetch. Today it
    loads the list once at startup from `AMCR_FIELDS_PATH` (`service/api.py:332`, `_load_xpaths()` at `:425`, `:472`);
    the CLI takes `--xpaths` (`main.py:453`) or config `fields =` (`main.py:563-564`).
@@ -58,6 +99,50 @@ One action per job in `paradata/metadata-en`, with no field text:
 - **components**, facts with their terms: CUBBITT via LINDAT (LINDAT's terms: atrium-project#78, postponed to the
   next meeting), UDPipe (lemma matching for term protection), the AMČR/TEATER vocabulary, and FastText when the
   source language is `auto` (`main.py:617-618`). No run licence such as "a LINDAT run is CC BY-NC-SA 4.0" (D2).
+
+## Status — round 2 (11-13)
+
+Local branch from `test`, on the re-vendored shared modules (record 2.0, paradata 3.0,
+`ContentLimitError`); delivered as an archive with the commands to run; pushed 11-13 (below). Nothing posted.
+
+- **Task 1, field list per request (D34):** the service takes an inline `xpaths` form field, one XPath per line,
+  required in metadata mode (`422 invalid_request` without it). The CLI requires `--xpaths FILE` in metadata mode.
+  `AMCR_FIELDS_PATH`, the startup load and config `fields =` are gone. `amcr-fields.txt` is a documented example:
+  out of the release bundle and `.env.example`, listed in `.dockerignore`.
+- **Task 2, nothing in the record:** `document_json` is still accepted ("just in case"): validated, `doc_id`
+  inherited, returned unchanged. No `translations`, no `derived_from`, no licence.
+- **Task 3, D13:** a segment kept as source and a UDPipe timeout raise; the glossary caps are `sampled`;
+  `main.py` lets `ContentLimitError` fail the file.
+- **Task 4, paradata:** metadata mode names `metadata` (input) and `metadata-en` (output) by SHA-512, with the
+  field list, backend, model and vocabulary version as parameters; no field text. Full-text and ALTO modes (research
+  use) name `original` and store nothing.
+- **Tasks 5, 6:** `effective_license` and the licence wording go; full-text and ALTO translation are not presented
+  as pipeline work in the README and docs.
+- **Tests:** 1160 passed, 4 skipped (offline lane, -m "not slow").
+- **Pushed** to `test` (11-13). Round 4 re-vendors the addendum's shared files; the suite then passes (1160, offline
+  lane).
+- **[atrium-project#78](https://github.com/ufal/atrium-project/issues/78#issuecomment-6827422711)** (11-12): LINDAT's
+  Terms of Use set aside for the pilot; whether D35 holds in the pilot is the hub's Q14. The docs keep D35 until it is
+  answered.
+
+## Status — PR (11-14)
+
+[atrium-translator#60](https://github.com/ufal/atrium-translator/pull/60), head `7b3b853`. Failing checks: check-drift
+(canonical), because the callers read the hub at `v1` (`4435ffb`) while the copies are v2; api-contract, because the
+record schema went from 1.0 to 2.0 without a major version. The causes across all seven PRs:
+[hub plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md),
+"Status — PRs".
+
+Round 5 (not pushed):
+
+- `atrium_rocrate.py` and `tests/test_atrium_rocrate.py` re-vendored: a crate root that asserts no licence names
+  `#no-licence-asserted` again (RO-Crate 1.2 requires a root licence; atrium-project#6, motyc 11-12). The hub's PR
+  failed its RO-Crate check without it.
+
+The suite passes (offline lane): 1162. After the hub's PR merges, `v1` moves to its merge commit and
+`scripts/pin_hub_reusables.py --sha` pins this repository's callers to it: drift clears. The record-major check stays
+red until the release, which raises the major version in `para_config.txt` (`v1.7.8-beta` now), `CITATION.cff` and
+`service/openapi.json`'s `info.version`.
 
 ## Depends on
 
