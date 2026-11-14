@@ -17,7 +17,7 @@ On this page, by task:
 - [Build the vocabulary](#build-the-vocabulary)
 - [Run it in Docker](#docker-and-compose)
 - [Call the HTTP service](#call-the-http-service)
-- [Use it as one stage of the pipeline](#as-one-stage-of-the-pipeline)
+- [Use it with a document record](#with-a-document-record)
 - [Call it from a coding agent](#call-it-from-a-coding-agent)
 - [Compare the command line with the service](#the-command-line-and-the-service)
 - [Fix a problem](#troubleshooting)
