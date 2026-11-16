@@ -2,7 +2,7 @@
 > _XML in-place translation (AMČR metadata records, ALTO). Open issue: #61 (2026-11-16). Closed: #46 2026-10-25, #4 2026-10-19,
 > #52 2026-10-13; Dependabot's #54 closed 2026-10-21. **Starting set of the pilot phase: v1.7.5-beta** (`17e2832`, 2026-11-04;
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
-> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-16, evening (#61 merged into `test`; closes with the merge into `master`). Twelve-factor detail lives in the hub:
+> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-16 (#61: `amcr-fields.example.txt`). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{4,46,61}.digest.md` · `plans/{4,46,61}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -1024,14 +1024,9 @@ Documentation only; no code, test or configuration change.
 * **Next:** one PR into `test`. The hub's translator pages go with atrium-project#84 (subtask E).
 * **Not posted; not pushed.**
 
-## 2026-11-16 (evening) — #61 merged into `test`; the hub's side merged
+## 2026-11-16 (night) — atrium-project#84 round 8: the meeting's follow-ups
 
-* **Asked (K4TEL):** fetch the `test` heads of this repository and the hub, check everything against #61 and its
-  logs, draft the next comment.
-* **Found (fetched `test`: here `e7905e4`, the hub `68e8aad`):** #62 squash-merged 15:32 UTC ("Closes #61."; 12 checks
-  green, 5 skipped as on every PR); every file as prepared but for table padding in `CONTRIBUTING.md`,
-  `service/README.md` and `docs/reference/cli.md`; `amcr-fields.txt` gone. The hub's side, ufal/atrium-project#90
-  (Galaxy wrapper `1.7.8-beta+galaxy1` with the XPath list a required input; the translator's pages), merged 15:50 UTC.
-  The default branch is `master`, so #61 closes when `test` is merged into it.
-* **Written here (not pushed):** `digests/61.digest.md`, `plans/61.plan.md` (merged; the Galaxy question answered;
-  left: `master`, a release-notes line); this entry. A comment for #61 drafted, not posted.
+* **Asked (K4TEL):** the follow-ups of #84 that the meeting decided and need no outside answer; per-repository archives.
+* **Written here (not pushed):** re-vendored shared modules and the re-exported spec only. 1163 passed (fast lane).
+* **Detail:** `plans/doc-schema-v2.plan.md`, "Status — the meeting's follow-ups"; hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md), "Status — round 8 (implemented)".
+* **Not posted; not pushed.**

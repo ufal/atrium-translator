@@ -166,6 +166,14 @@ the pins again; then this PR. Hub:
 [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md),
 "Status — round 6".
 
+## Status — the meeting's follow-ups (11-16 night)
+
+atrium-project#84 round 8 (comment 3's update): `forms` gone, decode verdicts apart, one line key, the services' JSON in the record's names. Paradata per distribution waits for the next meeting (Q23). Not pushed.
+
+- Re-vendored shared modules only (the line key and its check, the `decode-verdict` scheme); `service/openapi.json` re-exported. The hub's last translator page went with subtask E.
+- **Checked:** 1163 passed (fast lane, `pytest-env`).
+- **Next:** the hub's PR first; then this repository's, with the pins moved to it.
+
 ## Depends on
 
 - Hub tasks 1 (the grants: `translations` reserved), 2 (no licence block), 3 (`file_entity` with SHA-512 and the
