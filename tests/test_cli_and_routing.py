@@ -87,7 +87,7 @@ def test_main_parser_accepts_documented_flags():
         "config.txt",
         "--alto",
         "--xpaths",
-        "amcr-fields.txt",
+        "amcr-fields.example.txt",
         "--xsd",
         "schema.xsd",
         "--vocabulary",
@@ -101,7 +101,7 @@ def test_main_parser_accepts_documented_flags():
     assert getattr(args, "target_lang", "en") == "en"
     assert getattr(args, "formats", "alto.xml,txt") == "alto.xml,txt"
     assert getattr(args, "alto", True) is True
-    assert getattr(args, "xpaths", "amcr-fields.txt") == "amcr-fields.txt"
+    assert getattr(args, "xpaths", "amcr-fields.example.txt") == "amcr-fields.example.txt"
     assert getattr(args, "xsd", "schema.xsd") == "schema.xsd"
     assert getattr(args, "vocabulary", "vocabulary.csv") == "vocabulary.csv"
 
@@ -127,7 +127,7 @@ input_path = ./data_samples/my_documents
 source_lang = auto
 target_lang = en
 formats = alto.xml
-fields = amcr-fields.txt
+fields = amcr-fields.example.txt
 output = ./data_samples/translated_files
 vocabulary = data_samples/vocabulary.csv
 """,

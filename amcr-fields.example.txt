@@ -1,3 +1,8 @@
+# TEMPLATE EXAMPLE, not AMČR's field list.
+# It shows the shape of the XPath list a metadata job sends: --xpaths FILE on the command line, or the
+# `xpaths` form field of /translate. AMČR owns the list it uses (aiscr-webamcr#3570) and sends it with
+# each job. The translator has no default list and never loads this file by itself (D34).
+# Format: one XPath per line; blank lines and lines starting with # are ignored.
 //amcr:amcr/amcr:dokument/amcr:popis
 //amcr:amcr/amcr:dokument/amcr:poznamka
 //amcr:amcr/amcr:dokument/amcr:dokument_cast/amcr:neident_akce/amcr:lokalizace

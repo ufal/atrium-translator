@@ -97,7 +97,7 @@ namespace.
 AMČR's production run translates the records in `replace` mode and validates them against AMČR 2.2:
 
 ```bash
-python main.py ./data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
+python main.py ./data_samples/my_documents --xpaths amcr-fields.example.txt --formats xml \
     --source_lang cs --target_lang en --output-mode replace \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o out
 ```
@@ -113,8 +113,9 @@ python main.py ./data_samples/my_documents --xpaths amcr-fields.txt --formats xm
   failed document (exit 3; the XML is still written). The service validates against a local `XSD_PATH` set by its
   deployment.
 
-[amcr-fields.txt](../amcr-fields.txt) is an example list, not a default: AMČR passes its own list with each job
-([aiscr-webamcr#3570](https://github.com/ARUP-CAS/aiscr-webamcr/issues/3570)). It holds ten XPaths: `popis`, `poznamka`, `lokalizace`,
+[amcr-fields.example.txt](../amcr-fields.example.txt) is a template example, not a default and not AMČR's list: AMČR
+passes its own list with each job ([aiscr-webamcr#3570](https://github.com/ARUP-CAS/aiscr-webamcr/issues/3570)), and
+the commands on this page use the template in its place. It holds ten XPaths: `popis`, `poznamka`, `lokalizace`,
 `lokalizace_okolnosti`, `souhrn_upresneni`, two `nalez_*/poznamka`, and the three `lokalita/chranene_udaje/*`
 fields. For example:
 
@@ -134,7 +135,7 @@ under a file name reduced to letters, digits, `-` and `_`, and translated like a
 formats:
 
 ```bash
-python main.py amcr-inputs.txt --xpaths amcr-fields.txt --formats xml,txt \
+python main.py amcr-inputs.txt --xpaths amcr-fields.example.txt --formats xml,txt \
     --source_lang cs --output-mode replace \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd --target_lang en
 ```
@@ -174,7 +175,7 @@ every glossary build.
 
 ```bash
 python main.py ./data_samples/my_documents \
-    --xpaths amcr-fields.txt --source_lang cs \
+    --xpaths amcr-fields.example.txt --source_lang cs \
     --output-mode append \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd
 ```
@@ -232,7 +233,7 @@ A vocabulary keeps domain terms at their agreed translation. Pass a CSV with `--
 config.txt; the shipped config.txt names the bundled list, so a checkout applies it unless you clear the key:
 
 ```bash
-python main.py amcr-inputs.txt --xpaths amcr-fields.txt \
+python main.py amcr-inputs.txt --xpaths amcr-fields.example.txt \
     --vocabulary data_samples/vocabulary.csv --target_lang en
 ```
 
@@ -334,11 +335,12 @@ docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
   ghcr.io/ufal/atrium-translator:latest \
   /data/input --alto --formats alto.xml --target_lang en -o /data/output
 
-# AMČR metadata records (./data/input holds the *.xml records), the production shape:
+# AMČR metadata records (./data/input holds the *.xml records, ./data/fields.txt the job's field list; the image
+# ships none, so copy amcr-fields.example.txt there to try it), the production shape:
 # replace mode, validated against AMČR 2.2. The service validates against its deployment's XSD_PATH instead.
 docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
   ghcr.io/ufal/atrium-translator:latest \
-  /data/input --xpaths amcr-fields.txt --formats xml --source_lang cs --target_lang en \
+  /data/input --xpaths /data/fields.txt --formats xml --source_lang cs --target_lang en \
   --output-mode replace --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o /data/output
 ```
 

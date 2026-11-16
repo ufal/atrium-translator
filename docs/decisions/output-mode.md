@@ -57,7 +57,8 @@ ALTO in either mode is valid ALTO. A run that appends to AMČR records has logge
 
 `replace` is AMČR's production mode. AMČR keeps the English in its separate `metadata-en` file, so overwriting the
 Czech in the translated copy loses nothing. The Czech also stays in the `_log.csv`. AMČR's recipe is the batch image
-with `--xpaths amcr-fields.txt --formats xml --source_lang cs --target_lang en --output-mode replace --xsd
+with its field list (`--xpaths FILE`; [amcr-fields.example.txt](../../amcr-fields.example.txt) is a template) and
+`--formats xml --source_lang cs --target_lang en --output-mode replace --xsd
 https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd`, with `--xsd-strict` where an invalid record should fail the run. It
 uses no vocabulary, since the vocabulary fields carry AMČR's own English labels. The shipped
 `data_samples/in-place_translated_files/xml/` is a run of that shape (2026-10-19, with the curated vocabulary). ALTO

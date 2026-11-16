@@ -39,5 +39,5 @@ TEMP/
 *.png
 *.html
 
-# The metadata field list comes with each job (D34): the example list is not shipped.
-amcr-fields.txt
+# The metadata field list comes with each job (D34): the template example is not shipped.
+amcr-fields.example.txt

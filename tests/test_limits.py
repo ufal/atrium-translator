@@ -228,8 +228,8 @@ def test_a_split_field_reaches_the_response_header_through_the_real_pipeline(mon
     with patch("processors.translator.requests.get", side_effect=OSError("offline")):
         translator = LindatTranslator(vocab_path=None)
     models = {"translator": translator, "identifier": None}
-    # The field list comes with the request (D34); amcr-fields.txt serves as the example list.
-    xpaths = Path("amcr-fields.txt").read_text(encoding="utf-8")
+    # The field list comes with the request (D34); amcr-fields.example.txt serves as the template list.
+    xpaths = Path("amcr-fields.example.txt").read_text(encoding="utf-8")
     source = Path("data_samples/my_documents/C-TX-195304352.xml").read_text(encoding="utf-8")
     long_popis = "\n".join(["Hrad stojí na kopci nad řekou."] * 12)
     body = re.sub(
