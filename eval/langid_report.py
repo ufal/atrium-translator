@@ -20,7 +20,7 @@ Usage
 -----
     python -m eval.langid_report data_samples/my_documents/MTX201501307_anon.alto.xml > langid.csv
     LANG_ID_MIN_CONFIDENCE=0.7 python -m eval.langid_report doc.alto.xml > strict.csv
-    python -m eval.langid_report record.xml --xpaths amcr-fields.txt
+    python -m eval.langid_report record.xml --xpaths amcr-fields.example.txt
 """
 
 from __future__ import annotations

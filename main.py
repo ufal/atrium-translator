@@ -534,7 +534,7 @@ def parse_arguments():
     if args.backend is None:
         args.backend = defaults.get("translation_backend") or os.environ.get("TRANSLATION_BACKEND") or "lindat"
     # The field list comes with each job (D34): AMČR's list (aiscr-webamcr#3570) is passed per
-    # run with --xpaths. There is no default; amcr-fields.txt is a documented example only.
+    # run with --xpaths. There is no default; amcr-fields.example.txt is a template example only.
     if args.xsd_strict is None:
         args.xsd_strict = os.environ.get("XSD_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
     if args.output_mode is None:

@@ -715,7 +715,11 @@ def combine(args) -> list[dict]:
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="ATRIUM translator-base quality bake-off (issue #4).")
     p.add_argument("--samples", default="data_samples/my_documents", help="Directory of ALTO/AMCR XML samples.")
-    p.add_argument("--xpaths", default="amcr-fields.txt", help="XPath list for AMCR metadata field extraction.")
+    p.add_argument(
+        "--xpaths",
+        default="amcr-fields.example.txt",
+        help="XPath list for AMCR metadata field extraction (default: the template example, not AMCR's list).",
+    )
     p.add_argument(
         "--backends",
         default="lindat",

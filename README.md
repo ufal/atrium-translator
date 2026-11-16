@@ -22,7 +22,7 @@ Metadata mode translates the fields that a list of XPaths names, in AMČR record
 in any other XML. The pilot use is Czech to English: the free-text fields of AMČR metadata records, translated in
 `replace` mode and checked against the AMČR 2.2 schema. The field list comes with each job (`--xpaths`, or the
 service's `xpaths` field): AMČR passes its own list ([aiscr-webamcr#3570](https://github.com/ARUP-CAS/aiscr-webamcr/issues/3570)),
-and [`amcr-fields.txt`](amcr-fields.txt) is only an example of one. ALTO mode, which translates the full text of OCR
+and [`amcr-fields.example.txt`](amcr-fields.example.txt) is a template example of one, not that list. ALTO mode, which translates the full text of OCR
 pages, stays for research and batch use; it is not part of the pipeline. The target
 language is English by default; any other language the backend offers can be chosen.
 
@@ -40,22 +40,23 @@ translation service, and UDPipe when a vocabulary is loaded) and, when `--xsd` n
 downloads it once from Hugging Face. No GPU: the translation is done by a remote service, or by a server you run.
 
 The production shape of AMČR's run, on the 15 AMČR records in `data_samples/my_documents`, from a checkout with
-Python 3.11:
+Python 3.11. The template field list stands in for the list AMČR sends with each job:
 
 ```bash
 git clone https://github.com/ufal/atrium-translator.git && cd atrium-translator
 pip install -r requirements.txt
-python main.py data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
+python main.py data_samples/my_documents --xpaths amcr-fields.example.txt --formats xml \
     --source_lang cs --target_lang en --output-mode replace \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o out
 ```
 
-The same run with the published batch image, which carries the records:
+The same run with the published batch image, which carries the records but no field list: mount the job's list.
 
 ```bash
 mkdir -p out
-docker run --rm --user "$(id -u):0" -v "$PWD/out:/data/output" ghcr.io/ufal/atrium-translator:<version> \
-    data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
+docker run --rm --user "$(id -u):0" -v "$PWD/out:/data/output" \
+    -v "$PWD/amcr-fields.example.txt:/data/fields.txt:ro" ghcr.io/ufal/atrium-translator:<version> \
+    data_samples/my_documents --xpaths /data/fields.txt --formats xml \
     --source_lang cs --target_lang en --output-mode replace \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o /data/output    # <version>: the release without its v
 ```

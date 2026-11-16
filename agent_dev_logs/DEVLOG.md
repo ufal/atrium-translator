@@ -1,10 +1,10 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
-> _XML in-place translation (AMČR metadata records, ALTO). No open issue: #46 closed 2026-10-25, #4 2026-10-19,
+> _XML in-place translation (AMČR metadata records, ALTO). Open issue: #61 (2026-11-16). Closed: #46 2026-10-25, #4 2026-10-19,
 > #52 2026-10-13; Dependabot's #54 closed 2026-10-21. **Starting set of the pilot phase: v1.7.5-beta** (`17e2832`, 2026-11-04;
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
-> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-13 (this repository's part of atrium-project#84: `plans/doc-schema-v2.plan.md`). Twelve-factor detail lives in the hub:
+> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-16 (#61: `amcr-fields.example.txt`). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
-> _Per-issue detail: `digests/{4,46}.digest.md` · `plans/{4,46}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
+> _Per-issue detail: `digests/{4,46,61}.digest.md` · `plans/{4,46,61}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
 
 ## 2026-06-20
@@ -1010,4 +1010,16 @@ Documentation only; no code, test or configuration change.
 * **Done (local, not pushed):** `atrium_document.py`, its schema and `tests/test_document_originators.py` re-vendored: rows may carry `lines[].unit: "block"` (rule 5, written by ocr-postprocess only), and `quality_summary.lines` counts them as `block_units`. `v2.0.0-beta` as the unreleased version: `para_config.txt`, `CITATION.cff`, `service/openapi.json` (re-exported) and a CONTRIBUTING.md row marked Unreleased; api-contract passes with it; `docs/usage.md`: its contents list linked the removed section "As one stage of the pipeline"; it now links "With a document record".
 * **Checked:** the full suite, 1163 (offline lane) passed; the spec export; `compare` against the latest release: compatible at v2.0.0-beta.
 * **Next:** the hub's second PR for #84, then the pins; then this PR. Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md), "Status — round 6".
+* **Not posted; not pushed.**
+
+## 2026-11-16 — #61: `amcr-fields.example.txt`, a template, not AMČR's field list
+
+* **Asked (K4TEL, after the meeting of 11 November):** make clear that the repository's XPath file is a template
+  example, not AMČR's list (D34; AMČR's list is aiscr-webamcr#3570). Decided in session: rename it.
+* **Opened:** #61 (K4TEL, 14:41 UTC; `documentation`, Q1-27 [WP4]).
+* **Done (local, commit `9e9b409`, not pushed):** `amcr-fields.txt` → `amcr-fields.example.txt` with a `#` header;
+  every reference renamed; the image commands mount the job's list instead of naming a file the image lacks.
+* **Checked:** ruff clean; the fast suite, 1163 passed, 4 skipped; both parsers read the ten XPaths.
+* **Logs:** `digests/61.digest.md`, `plans/61.plan.md` (drafted as `new-amcr-fields-example.*`).
+* **Next:** one PR into `test`. The hub's translator pages go with atrium-project#84 (subtask E).
 * **Not posted; not pushed.**
