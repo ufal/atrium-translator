@@ -1,10 +1,13 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
-> _XML in-place translation (AMČR metadata records, ALTO). Open issue: #61 (2026-11-16). Closed: #46 2026-10-25, #4 2026-10-19,
-> #52 2026-10-13; Dependabot's #54 closed 2026-10-21. **Starting set of the pilot phase: v1.7.5-beta** (`17e2832`, 2026-11-04;
+> _XML in-place translation (AMČR metadata records, ALTO). Open issue: #61 (2026-11-16; done, `master` = `test`, closing is
+> motyc's). Closed: #46 2026-10-25, #4 2026-10-19, #52 2026-10-13 (the pairs of #4 and #52 removed 2026-11-19; #46's stays,
+> cited by `utils.py` and a test); Dependabot's #54 closed 2026-10-21. **Starting set of the pilot phase: v1.7.5-beta** (`17e2832`, 2026-11-04;
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
-> Hub workflows pinned to `51aad6c` (`v1`). Latest entry: 2026-11-16 (#61: `amcr-fields.example.txt`). Twelve-factor detail lives in the hub:
+> Since: **v1.7.8-beta** (11-06, the Galaxy entry point); v1.7.6-beta and v1.7.7-beta were tagged, not released. `test` (=
+> `master`, `3b966c5`) is 18 commits past v1.7.8-beta and declares the unreleased v2.0.0-beta. Hub workflows pinned to
+> `02cbd01` (`v1`). Latest entry: 2026-11-19 (log round). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
-> _Per-issue detail: `digests/{4,46,61}.digest.md` · `plans/{4,46,61}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
+> _Per-issue detail: `digests/{46,61}.digest.md` · `plans/{46,61}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
 
 ## 2026-06-20
@@ -933,7 +936,7 @@ Documentation only; no code, test or configuration change.
 
 * **Asked (K4TEL):** carry the meeting of 11 November (ARÚP's output contract) into this repository's logs: its
   slice of the consolidated record and paradata change. Anchor: [meeting digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/project_state_1111.md)
-  · [hub plan](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md).
+  · [hub plan](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md).
 * **Decided in session:** plans only this round; the schema issue is not opened yet (placeholder name
   `doc-schema-v2`); `categ` is ocr-postprocess's only (digital-convert's verdicts become `decode` markers), which
   this tool does not read.
@@ -962,7 +965,7 @@ Documentation only; no code, test or configuration change.
 * **Asked (K4TEL):** align the logs with ARÚP's output contract of 12 November (the .docx of that day, replacing the
   meeting document of 10 November) and with David Novák's comments of 11-12 (atrium-project#84 opened, #13, #16,
   #78); `test` fetched first (all seven working branches = `test`).
-  Anchor: [contract digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/project_state_1211.md) · [hub plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md).
+  Anchor: [contract digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/project_state_1211.md) · [hub plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md).
 * **Decided in session:** the tool slices are named `plans/84.plan.md`; the translator keeps `amcr-fields.txt` as a
   documented example that nothing loads (no default list, D34); the hub's #84 plan carries a reply draft agreeing on
   points 1 and 2.
@@ -984,16 +987,18 @@ Documentation only; no code, test or configuration change.
   no docproc answer from ARÚP; windows as `split`, prompt budgets as `sampled`, every other cut fails (D13).
 * **Done (local branch, delivered as an archive):** the field list per request, required in metadata mode; nothing written into the record; D13 for kept-as-source segments and UDPipe timeouts; paradata names `metadata` and `metadata-en`; full-text and ALTO translation no longer presented as pipeline work.
 * **Checked:** the full test suite; ruff; the regenerated spec against its contract test.
-* **Detail and what is deferred:** `plans/doc-schema-v2.plan.md`, "Status — round 2". Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md).
+* **Detail and what is deferred:** `plans/doc-schema-v2.plan.md`, "Status — round 2". Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md).
 * **Not posted; not pushed.**
+* **Merged 11-14** as #60 (`6bce29d`).
 
 ## 2026-11-13 — atrium-project#84 round 4: the push checked; #78
 
 * **Asked (K4TEL):** fetch the pushed branches and the comments since 12 November, and bring the logs up to them.
 * **Found:** the push of 11-13 on `test` lacks the addendum's re-vendored shared files; with them the suite passes (1160, offline lane).
 * **Written here (not pushed):** `plans/doc-schema-v2.plan.md` (the round-1 text in place of the 11-11 one, the round-2 status, the push, atrium-project#78 → the hub's Q14). This file: the round-2 entry of 11-13 and this one.
-* **Detail:** `plans/doc-schema-v2.plan.md`, "Status — round 2"; hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md).
+* **Detail:** `plans/doc-schema-v2.plan.md`, "Status — round 2"; hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md).
 * **Not posted; not pushed.**
+* **Merged 11-14** as #60 (`6bce29d`).
 
 ## 2026-11-14 — atrium-project#84 round 5: the PR's checks
 
@@ -1001,16 +1006,18 @@ Documentation only; no code, test or configuration change.
 * **Found:** [atrium-translator#60](https://github.com/ufal/atrium-translator/pull/60) fails drift (the hub pin at `v1`) and api-contract (record major 1.0 → 2.0, no major version yet).
 * **Written here (not pushed):** the re-vendored `atrium_rocrate.py` and `tests/test_atrium_rocrate.py` (`#no-licence-asserted` on the crate root again); `plans/doc-schema-v2.plan.md`, "Status — PR".
 * **Checked:** the full suite (offline lane), 1162 passed.
-* **Next:** the pin commit after the hub's PR merges; the major version at the release. Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md), "Status — PRs".
+* **Next:** the pin commit after the hub's PR merges; the major version at the release. Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md), "Status — PRs".
 * **Not posted; not pushed.**
+* **Merged 11-14** as #60 (`6bce29d`).
 
 ## 2026-11-14 (afternoon) — atrium-project#84 round 6: the rest of this repository's part
 
 * **Asked (K4TEL):** complete the doc-schema-v2 update in every repository.
 * **Done (local, not pushed):** `atrium_document.py`, its schema and `tests/test_document_originators.py` re-vendored: rows may carry `lines[].unit: "block"` (rule 5, written by ocr-postprocess only), and `quality_summary.lines` counts them as `block_units`. `v2.0.0-beta` as the unreleased version: `para_config.txt`, `CITATION.cff`, `service/openapi.json` (re-exported) and a CONTRIBUTING.md row marked Unreleased; api-contract passes with it; `docs/usage.md`: its contents list linked the removed section "As one stage of the pipeline"; it now links "With a document record".
 * **Checked:** the full suite, 1163 (offline lane) passed; the spec export; `compare` against the latest release: compatible at v2.0.0-beta.
-* **Next:** the hub's second PR for #84, then the pins; then this PR. Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md), "Status — round 6".
+* **Next:** the hub's second PR for #84, then the pins; then this PR. Hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md), "Status — round 6".
 * **Not posted; not pushed.**
+* **Merged 11-14** as #60 (`6bce29d`).
 
 ## 2026-11-16 — #61: `amcr-fields.example.txt`, a template, not AMČR's field list
 
@@ -1023,6 +1030,21 @@ Documentation only; no code, test or configuration change.
 * **Logs:** `digests/61.digest.md`, `plans/61.plan.md` (drafted as `new-amcr-fields-example.*`).
 * **Next:** one PR into `test`. The hub's translator pages go with atrium-project#84 (subtask E).
 * **Not posted; not pushed.**
+* **Merged 11-16** as #62 (`e7905e4`).
+
+## 2026-11-16 (evening) — #61 merged into `test`; the hub's side merged
+
+* **Asked (K4TEL):** fetch the `test` heads of this repository and the hub, check everything against #61 and its
+  logs, draft the next comment.
+* **Found (fetched `test`: here `e7905e4`, the hub `68e8aad`):** #62 squash-merged 15:32 UTC ("Closes #61."; 12 checks
+  green, 5 skipped as on every PR); every file as prepared but for table padding in `CONTRIBUTING.md`,
+  `service/README.md` and `docs/reference/cli.md`; `amcr-fields.txt` gone. The hub's side, ufal/atrium-project#90
+  (Galaxy wrapper `1.7.8-beta+galaxy1` with the XPath list a required input; the translator's pages), merged 15:50 UTC.
+  The default branch is `master`, so #61 closes when `test` is merged into it.
+* **Written here (not pushed):** `digests/61.digest.md`, `plans/61.plan.md` (merged; the Galaxy question answered;
+  left: `master`, a release-notes line); this entry. A comment for #61 drafted, not posted.
+* **On `test` 11-16** as `fb03ce0` (direct push, no PR); this entry was dropped from the file by #63 and restored on
+  11-19 from `fb03ce0`. The comment was posted at 16:31.
 
 ## 2026-11-16 (night) — atrium-project#84 round 8: the meeting's follow-ups
 
@@ -1030,3 +1052,26 @@ Documentation only; no code, test or configuration change.
 * **Written here (not pushed):** re-vendored shared modules and the re-exported spec only. 1163 passed (fast lane).
 * **Detail:** `plans/doc-schema-v2.plan.md`, "Status — the meeting's follow-ups"; hub: [plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md), "Status — round 8 (implemented)".
 * **Not posted; not pushed.**
+* **Merged 11-16** as #63 (`2a2fea7`).
+
+## 2026-11-19 — #64: `ctranslate2` raised (dependabot)
+
+* **Merged 11-19** as #64 (`3b966c5`): `requirements-ct2.txt` only, one line.
+
+## 2026-11-19 (round) — the threads since 16 November, Ronald's answers, the pilot dates
+
+* **Asked (K4TEL):** the log round of 11-19: `test` heads, open issues' threads and the ARÚP issues they link.
+* **Fetched:** `test` = `master` = `3b966c5`; the hub `a7e440b`, `v1` = `02cbd01`.
+* **Found:**
+  * #61: K4TEL's comment of 11-16 16:31 ("This issue can be closed") is posted; `master` = `test`, but #62 went into
+    `test`, so its "Closes #61" did not act: the close is motyc's.
+  * This file had lost its 11-16 (evening) entry: `fb03ce0` added it, #63's merge dropped it. Restored above.
+  * aiscr-webamcr#3570: no XPath list yet; criterion 3 still names a "translation licence" (D2): a meeting question.
+  * `scheduled-smoke.yml` (daily) is dropped under the agreement of 11-12; `lindat-daily.yml` (daily, LINDAT
+    monitoring from atrium-project#78) is asked first (atrium-project#40).
+* **Written here:** the export of #61; `digests/61.digest.md`, `plans/61.plan.md`; `plans/doc-schema-v2.plan.md`
+  ("Status — 11-19"); the hub links `doc-schema-v2.*` → `84.*`; `Merged` lines on the entries of 11-13 to 11-16; the
+  restored entry; the #64 entry; this header. Removed: the pairs of #4 and #52 (closed; nothing outside the logs cites
+  them).
+* **Next:** #61 closed by motyc; its release-notes line with the batch (atrium-project#77).
+* Logs only; no code changed. Files delivered as full files.

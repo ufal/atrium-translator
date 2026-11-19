@@ -1,20 +1,27 @@
 # Strategy — [atrium-project#84](https://github.com/ufal/atrium-project/issues/84) (doc-schema-v2): the translator's metadata-en job
 
+> _**Refreshed 2026-11-19**: "Status — 11-19": #61–#64 on `test`; aiscr-webamcr#3570 and its criterion 3; the pairs of
+> #4 and #52 removed._
 > _**Refreshed 2026-11-14 (afternoon)**: "Status — round 6 (11-14)": the hub merged, the pins moved, round 6._
 > _**Refreshed 2026-11-14**: "Status — PR (11-14)": the PR's checks and round 5's fixes._
 > _**Refreshed 2026-11-13**: "Status — round 2" (the code, pushed 11-13 to `test`) and round 4's notes. The file keeps
 > the name `doc-schema-v2.plan.md` (it was `84.plan.md` on 11-12 and 11-13)._
 > _**Refreshed 2026-11-12** on ARÚP's output contract of 12 November (D34, D35, D36) and atrium-project#84 §5 (motyc,
 > 11-12); code read at `55e178e` (= `test`). The change as a whole is the hub's:
-> [plan](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md) ·
-> [digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/doc-schema-v2.digest.md) ·
+> [plan](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md) ·
+> [digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/84.digest.md) ·
 > [contract digest](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/digests/project_state_1211.md).
 > This file is this repository's slice only; the repository has no open issue. Its 11-11 version
 > (written before the issue existed) is superseded; the section "2026-11-12" is the current reading._
 
+**Status (2026-11-19)**: 🟡 **This repository's part is on `test` (#60, #62, #63), pinned to `02cbd01`; `master` =
+`test` (`3b966c5`). Open on AMČR's side: aiscr-webamcr#3570 has no XPath list yet, and its acceptance criterion 3
+still asks for a "translation licence" (D2, D34): a question for the meeting. The release (`v2.0.0-beta`) goes with
+the batch (atrium-project#77).**
+
 **Status (2026-11-14, afternoon)**: 🟡 **The hub's PR is merged and this repository is pinned to it: drift is green.
 Round 6 completes this repository's part where no answer is pending; see "Status — round 6". The release (v2.0.0-beta)
-is cut at K4TEL's cadence.**
+is cut at K4TEL's cadence.** _(superseded 11-19: all on `test`)_
 
 **Status (2026-11-14)**: 🟡 **[atrium-translator#60](https://github.com/ufal/atrium-translator/pull/60) is open
 (`doc-schema-v2` into `test`); see "Status — PR". Drift clears once the hub's PR merges and the pins move; the
@@ -135,7 +142,7 @@ Local branch from `test`, on the re-vendored shared modules (record 2.0, paradat
 [atrium-translator#60](https://github.com/ufal/atrium-translator/pull/60), head `7b3b853`. Failing checks: check-drift
 (canonical), because the callers read the hub at `v1` (`4435ffb`) while the copies are v2; api-contract, because the
 record schema went from 1.0 to 2.0 without a major version. The causes across all seven PRs:
-[hub plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md),
+[hub plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md),
 "Status — PRs".
 
 Round 5 (not pushed):
@@ -163,7 +170,7 @@ The hub's PR (atrium-project#86) merged; `v1` moved to it and K4TEL pinned this 
 
 The suite passes: 1163 (offline lane). Next: the hub's second PR for #84 (the E2E lanes, rule 5's mark), then `v1` and
 the pins again; then this PR. Hub:
-[plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/doc-schema-v2.plan.md),
+[plan of #84](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/84.plan.md),
 "Status — round 6".
 
 ## Status — the meeting's follow-ups (11-16 night)
@@ -174,7 +181,23 @@ atrium-project#84 round 8 (comment 3's update): `forms` gone, decode verdicts ap
 - **Checked:** 1163 passed (fast lane, `pytest-env`).
 - **Next:** the hub's PR first; then this repository's, with the pins moved to it.
 
+## Status — 11-19: on `test`; AMČR's list and criterion 3
+
+- **On `test`:** #62 (the template `amcr-fields.example.txt`, #61), #63 (round 8), #64 (dependabot:
+  `requirements-ct2.txt`, `ctranslate2`, 11-19). The hub's side of #61 is atrium-project#90 (the Galaxy wrapper takes
+  the list as a required input).
+- **aiscr-webamcr#3570** (no comment since motyc's of 11-12): the XPath list "is part of this issue", owned by AMČR
+  and sent with each job (D34), but not posted. Criterion 3 reads "the paradata give the SHA-512 of the source
+  `metadata` and the translation licence"; motyc's comment reads it as the SHA-512 plus the components' terms. Under
+  D2 the paradata state no translation licence: whether the criterion's text is changed is for the meeting.
+- **D35 and the storage contract:** `metadata-en` from LINDAT is produced and checked in the pilot, not published
+  until atrium-project#78; LINDAT's terms are needed before production.
+- **Ronald's answers (11-17):** nothing for the metadata job.
+- **The tag:** after the pilot run on the cluster.
+
 ## Depends on
+
+_(11-19: the hub tasks are on `test`; still open: aiscr-webamcr#3570's list, atrium-project#78.)_
 
 - Hub tasks 1 (the grants: `translations` reserved), 2 (no licence block), 3 (`file_entity` with SHA-512 and the
   distribution name), 4 (`skipped` raises); then re-vendoring.
@@ -187,7 +210,7 @@ atrium-project#84 round 8 (comment 3's update): `forms` gone, decode verdicts ap
 
 ## Superseded in this repository's logs
 
-All in closed issues' files (listed, not edited):
+All in closed issues' files (listed, not edited; the pairs of #4 and #52 removed 11-19, the issues keep the history):
 
 - `plans/46.plan.md:25`, `:32`, `digests/46.digest.md:32`, `:55`: `amcr-fields.txt` as the list → AMČR's list, sent
   with each job.
