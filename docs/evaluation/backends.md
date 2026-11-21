@@ -105,7 +105,8 @@ translator `a048708` with the curated vocabulary (4,715 pairs). The per-segment 
 - **EuroLLM-9B** (`ct2`) failed 96 segments (8 %) and kept 157 of 230 terms; 89 of its 96 failures are ALTO blocks
   of at most ten characters (a number, a single word), where the model runs on past the source and the output-length
   guards (`CT2_GUARD_*`) refuse the reply; a check also rejects the source copied back unchanged. **EuroLLM-1.7B**
-  failed 584 (47 %). The guard turns each failure into an `untranslated` field rather than a wrong one.
+  failed 584 (47 %). The guard turned each failure into an `untranslated` field rather than a wrong one; such a
+  field now fails the job.
 - **The vocabulary**: the bake-off has no arm without it, so it shows that the curated list costs nothing (LINDAT and
   Qwen keep 98 % of its terms), not what it adds.
 

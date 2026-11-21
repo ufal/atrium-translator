@@ -70,6 +70,64 @@ def test_without_a_mode_flag_a_record_without_targets_is_a_failed_document(isola
     assert _run(monkeypatch, str(doc), "-o", str(isolated / "out")) == EXIT_FAILED
 
 
+def _never_translate(monkeypatch):
+    """Fail the test if any document reaches translation."""
+
+    def refuse(**kwargs):
+        raise AssertionError(f"{kwargs['file_path']} was translated")
+
+    monkeypatch.setattr(main_module, "process_single_file", refuse)
+
+
+@pytest.mark.parametrize(
+    "field_list",
+    [
+        None,  # --xpaths names a file that does not exist
+        "",  # an empty file
+        "\n   \n",  # blank lines only
+        "# a comment\n   # an indented comment\n\n",  # comments only
+    ],
+    ids=["missing", "empty", "blank", "comments-only"],
+)
+def test_a_metadata_run_without_a_usable_field_list_is_refused_before_translating(isolated, monkeypatch, field_list):
+    """The service answers 422 `missing_xpaths`; the command line used to copy each record
+    untranslated and exit 0. It now stops with a usage error before any document is translated."""
+    doc = isolated / "record.xml"
+    doc.write_text(_AMCR)
+    fields = isolated / "fields.txt"
+    if field_list is not None:
+        fields.write_text(field_list, encoding="utf-8")
+    _never_translate(monkeypatch)
+
+    code = _run(monkeypatch, str(doc), "--xpaths", str(fields), "-o", str(isolated / "out"))
+    assert code == EXIT_USAGE
+    assert not list((isolated / "out").glob("*.xml"))
+
+
+def test_an_indented_comment_is_not_an_xpath(isolated):
+    """A comment is a line that starts with `#` after its leading spaces, as in the service."""
+    fields = isolated / "fields.txt"
+    fields.write_text("# AMČR fields\n  # an indented comment\n\n  //amcr:nazev  \n", encoding="utf-8")
+    assert main_module._read_xpaths(fields) == ["//amcr:nazev"]
+
+
+def test_a_metadata_run_gets_the_field_list(isolated, monkeypatch):
+    doc = isolated / "record.xml"
+    doc.write_text(_AMCR)
+    fields = isolated / "fields.txt"
+    fields.write_text("  # the title\n//amcr:nazev\n", encoding="utf-8")
+    seen = []
+
+    def translate(**kwargs):
+        seen.append(kwargs["xpaths_list"])
+        return True, 0
+
+    monkeypatch.setattr(main_module, "process_single_file", translate)
+    code = _run(monkeypatch, str(doc), "--xpaths", str(fields), "-o", str(isolated / "out"))
+    assert code == EXIT_OK
+    assert seen == [["//amcr:nazev"]]
+
+
 def test_empty_input_directory_reports_no_input(isolated, monkeypatch):
     empty = isolated / "empty"
     empty.mkdir()

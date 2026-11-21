@@ -11,20 +11,17 @@ On this page: [What a run records](#what-a-run-records) · [The components](#the
 
 The code is MIT ([LICENSE](../../LICENSE)). Each run records the components it used, the models, data and web
 services, each with its own licence or, for a web service, the terms of use it is offered under. The list is the
-paradata's `components` ([paradata.md](paradata.md)); since paradata 3.0
-([atrium-project#84](https://github.com/ufal/atrium-project/issues/84)) nothing about licences is written into a
-document record.
+paradata's `components` ([paradata.md](paradata.md)); nothing about licences is written into a document record.
 
 **None of these is the licence of the translation.** A licence covers what it is attached to, a program, a model or
 a dataset; a web service such as LINDAT has terms of use, not a licence for its output; and the rights in an output
 depend first on the source document, which no tool knows. They are stated by whoever holds them: for the AMČR pilot,
-AMČR states the rights of the outputs it publishes (agreed on 22 October 2026,
-[atrium-project#6](https://github.com/ufal/atrium-project/issues/6)), and no tool makes an automatic or default
-licence assertion.
+AMČR states the rights of the outputs it publishes, and no tool makes an automatic or default licence assertion.
 
-No licence is computed from the list: the calculated `license` field of earlier paradata is gone. The hub explains
-it without code: [Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/). Until
-atrium-project#78 is settled, a translation produced through LINDAT is not published by AMČR (D35).
+No licence of an output is computed: the rights in an output follow the source document. The hub explains it
+without code: [Licences and paradata](https://ufal.github.io/atrium-project/ecosystem/licences/). Until the terms of
+LINDAT's services are settled ([atrium-project#78](https://github.com/ufal/atrium-project/issues/78)), AMČR does not
+publish outputs made through them: the linguistic layer, the entities, the TEITOK file and the English metadata.
 
 ## The components
 
@@ -61,9 +58,8 @@ Notes on the table:
   without one would be logged as `UNKNOWN`, which is flagged the same way as `llm_api`.
 - **Opus-MT is recorded at the conservative end of its split:** the `opus-mt-tc-big-*` checkpoints are CC BY 4.0, the
   older ones (such as `opus-mt-cs-en`) Apache-2.0. Both rank as permissive, but CC BY adds an attribution duty.
-- **The record states the same components as the run.** The backend's components are recorded before a document
-  record takes its component list, so a one-file run (one pipeline stage, one `/translate` call) lists the same as a
-  batch. Before v1.2.1-beta the record of such a run named only FastText, or nothing.
+- **A one-file run lists the same components as a batch.** The backend's components are recorded before the first
+  document is translated, so a one-file run (one `/translate` call) lists the same as a batch.
 - When records from several tools are merged (`merge_paradata_files()`), the merged record lists the union of the
   components all of them used.
 
@@ -93,7 +89,7 @@ translated documents, which depend on the source ([above](#what-a-run-records)).
 
 ## The candidate backends
 
-The licence each backend considered in issue #4 brings into a run, for information
+The licence each backend considered in the backend comparison brings into a run, for information
 ([the candidate survey](../evaluation/backends.md#the-candidate-survey-june-2026)). Behind LINDAT's Tag-and-Protect,
 a run also lists UDPipe's CC BY-NC-SA 4.0 models.
 

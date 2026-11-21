@@ -143,8 +143,9 @@ An HTTP 200 is not a translation ([the guard](how-it-works.md#the-degenerate-out
   `ct2` guards raise it for their ratio checks and for loops the ratio cannot see.
 - `utils.py` treats that error, and any reply that fails the detector (which also covers a backend with no guard of
   its own), as a **per-segment** failure: flagged, re-run after the whole document (`TRANSLATION_RERUN_ROUNDS`,
-  `TRANSLATION_RERUN_DELAY_S`), and kept as source text with `status=untranslated` in the log if it never recovers.
-  Any other `TranslationError` (transport, configuration) still skips the whole file.
+  `TRANSLATION_RERUN_DELAY_S`). A segment that never recovers raises `ContentLimitError` through the
+  `translation_rerun_rounds` limit, and the job fails. Any other `TranslationError` (transport, configuration) fails
+  that file.
 
 A new backend therefore needs no guard to be safe, but should raise `DegenerateTranslationError` rather than return
 text it knows is bad.
@@ -162,9 +163,8 @@ documentation for users, operators or integrators, and nothing else in the docum
 
 - [`DEVLOG.md`](../agent_dev_logs/DEVLOG.md), a timeline index of the work, by date, with the issue each entry
   belongs to;
-- `digests/`, one digest per issue (#4, #46 and #52), and `plans/`, one plan per issue;
-- `issues/`, the verbatim exports of open issues. The folder is absent while no issue is open: #4, #46 and #52 are
-  closed, and their threads are on
+- `digests/` and `plans/`, one digest and one plan per issue worked on;
+- `issues/`, the verbatim exports of the open issues; the threads of closed ones are on
   [GitHub](https://github.com/ufal/atrium-translator/issues?q=is%3Aissue+is%3Aclosed).
 
 The reasons behind the design are told, condensed, in [decisions/history.md](decisions/history.md); the release

@@ -3,18 +3,19 @@
 For users and reviewers who read what a run produced. It answers which files a run writes, what each column and
 `status` of the translation log means, and what the run records about each document. The paradata is in
 [paradata.md](paradata.md). The service returns the same document and provenance in its response instead of writing
-files, and the same record and log when the request sends a record or asks for them (`include_record`, `include_log`,
-since v1.6.0-beta; [service/README.md](../../service/README.md#response)).
+files, and the same record and log when the request sends a record or asks for them (`document_json`, `include_log`;
+[service/README.md](../../service/README.md#response)).
 
-| Output              | Name                                                                 | Contents                                                                                       |
-|---------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| Translated document | `<stem>_<target_lang><suffix>`, e.g. `MTX201501307_anon_en.alto.xml` | the same document, the same tags and coordinates; the text translated or the translation added |
-| Translation log     | `<file>_log.csv`                                                     | one row per ALTO line or metadata field ([below](#translation-logs))                           |
-| Document record     | `<doc_id>.document.json`, or `--document-json-out`                   | the ATRIUM record with this tool's blocks ([below](#the-document-record))                      |
-| Paradata            | `paradata/YYMMDD-HHmmss_translator.json` in the output directory     | the run's provenance ([paradata.md](paradata.md))                                              |
-| RO-Crate            | `ro-crate-metadata.json`                                             | only from `atrium_rocrate.py`'s own CLI, run over finished records                             |
+| Output              | Name                                                                 | Contents                                                                                         |
+|---------------------|----------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| Translated document | `<stem>_<target_lang><suffix>`, e.g. `MTX201501307_anon_en.alto.xml` | the same document, the same tags and coordinates; the text translated or the translation added   |
+| Translation log     | `<file>_log.csv`                                                     | one row per ALTO line or metadata field ([below](#translation-logs))                             |
+| Document record     | `<doc_id>.document.json`, or `--document-json-out`                   | only when `--document-json` gave one: that record, nothing added ([below](#the-document-record)) |
+| Paradata            | `paradata/YYMMDD-HHmmss_translator.json` in the output directory     | the run's provenance ([paradata.md](paradata.md))                                                |
+| RO-Crate            | `ro-crate-metadata.json`                                             | only from `atrium_rocrate.py`'s own CLI, run over finished records                               |
 
-The sample outputs in [data_samples/](../../data_samples/README.md) show each of them, in both output modes.
+The sample outputs in [data_samples/](../../data_samples/README.md) show each of them, in both output modes; they were
+made by a release before record schema 2.0, so their records and paradata differ from what a run writes now.
 
 ## Translation logs
 
@@ -31,13 +32,13 @@ the output directory beside the translated XML, for line-by-line review.
 | `text_<target_lang>` | the translated text **as redistributed to that line** | the translated text         |
 | `status`             | how the line's translation was obtained (below)       | the same                    |
 
-| `status`           | Meaning                                                                                                                                                                                                                       |
-|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ok`               | Translated and aligned normally.                                                                                                                                                                                              |
-| `rerun`            | Flagged during processing (a degenerate reply) and recovered by the end-of-document re-run.                                                                                                                                   |
-| `approx_alignment` | ALTO only: the line's anchor was unusable, so its words were placed by source word count (with `--fast-align`: its block came back with fewer words than lines).                                                              |
-| `untranslated`     | Still degenerate after the re-run: the **source text was kept** in the output and the target cell is empty (ALTO: also a line that needed its own line translation and had no usable one).                                    |
-| `unsupported_lang` | `--source_lang auto` only: the segment was identified as a language the backend cannot translate, and was translated from the fallback language (translator#52); review it. `untranslated` outranks it; it outranks the rest. |
+| `status`           | Meaning                                                                                                                                                                                                                    |
+|--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ok`               | Translated and aligned normally.                                                                                                                                                                                           |
+| `rerun`            | Flagged during processing (a degenerate reply) and recovered by the end-of-document re-run.                                                                                                                                |
+| `approx_alignment` | ALTO only: the line's anchor was unusable, so its words were placed by source word count (with `--fast-align`: its block came back with fewer words than lines).                                                           |
+| `untranslated`     | Still degenerate after the re-run (ALTO: also a line that needed its own line translation and had no usable one). The run then fails, so a finished run has no such row; the committed samples, made before that rule, do. |
+| `unsupported_lang` | `--source_lang auto` only: the segment was identified as a language the backend cannot translate, and was translated from the fallback language; review it. `untranslated` outranks it; it outranks the rest.              |
 
 **ALTO.** The target column holds the tokens *aligned and redistributed* to each physical line, not a separate
 translation of the line, so it shows exactly what was written into that line's `String` elements (or their
@@ -56,16 +57,14 @@ A metadata row looks like this (an invented record, for illustration; the real l
 ```text
 file,page_num,line_num,text_cs,text_en,status
 C-TX-000000000,,//amcr:amcr/amcr:dokument/amcr:popis,"Záchranný výzkum při stavbě rodinného domu.","Rescue excavation during the construction of a family house.",ok
-C-TX-000000000,,//amcr:amcr/amcr:dokument/amcr:poznamka,"Nálezy uloženy v muzeu.",,untranslated
+C-TX-000000000,,//amcr:amcr/amcr:dokument/amcr:poznamka,"Nálezy uloženy v muzeu.","Finds deposited in the museum.",rerun
 ```
 
-The second row is a field whose reply stayed degenerate after the re-run: the record keeps its Czech text, and the
-target cell is empty.
+The second row is a field whose first reply was degenerate and whose re-run succeeded.
 
 ## The document record
 
-Under record schema 2.0 ([atrium-project#84](https://github.com/ufal/atrium-project/issues/84)) the translator
-writes nothing into the document record. A record given with the input (`--document-json`, or `document_json` of
+Under record schema 2.0 the translator writes nothing into the document record. A record given with the input (`--document-json`, or `document_json` of
 `/translate`) is read for its `doc_id` and handed back with nothing added, as a 2.0 record (a seed gains
 `schema_version` and `record_type`; a 1.x record is migrated). Without one, no record is written. What used to be
 the record's `translations` block is now the run's paradata, per document (`parameters.translations.<doc_id>`):
@@ -89,11 +88,10 @@ language, and their log rows say `unsupported_lang`). `output_mode` is there bec
 a field needs to know whether the Czech was kept beside it or overwritten. No field text is recorded.
 
 **`entities[].translation_en` is reserved:** the schema assigns it to the translator, but `entities[]` is written by
-nlp-enrich, which runs after the translator, so no code path here writes it. It stays reserved
-([atrium-project#70](https://github.com/ufal/atrium-project/issues/70), decided 2026-09-30): the AMČR pilot needs
-English only for free-text metadata, so nothing asks for English entity names.
+nlp-enrich, and the translator writes nothing into the record. It stays reserved: the AMČR pilot needs English only
+for free-text metadata, so nothing asks for English entity names.
 
 **The `doc_id` is inherited** from the baseline (`--document-json`) and never re-derived from the input's file name,
-because in the pipeline the input is a page (`<doc>-1.alto.xml`), not the document. The record, the log's `file`
+because the input can be a page (`<doc>-1.alto.xml`), not the document. The record, the log's `file`
 column, the default record file name and the paradata key all take the document's id; the translated file and the
 log keep the per-file name. A standalone run derives the id from the file name.

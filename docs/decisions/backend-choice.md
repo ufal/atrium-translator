@@ -36,14 +36,14 @@ better on this material. v0.7.0 called the multi-backend support "finalized in t
 
 ## 2026-09-30: the pilot's frame
 
-For the S2 pilot, the self-hosted backend is the fallback and the alternative to LINDAT. Further model exploration
+For the AMČR pilot, the self-hosted backend is the fallback and the alternative to LINDAT. Further model exploration
 waits until after the pilot.
 
 ## 2026-10-18: a pair the backend cannot translate is refused, never rerouted
 
 LINDAT used to send any pair it has no model for to `cs-en` without a word. So `cs→it` wrote English into `_it.xml`,
 and `hu→en` translated Hungarian as Czech. Decided: an explicit pair is checked before anything is translated, and
-refused (CLI exit 1, HTTP 422 `unsupported_language_pair`), naming what the backend offers. In `auto` mode the
+refused (CLI exit 1, HTTP 422 with `cause` `unsupported_language_pair`), naming what the backend offers. In `auto` mode the
 fallback source language is checked the same way. There is no automatic fallback to another backend
 ([The three backends](../how-it-works.md#the-three-backends)).
 
@@ -66,7 +66,8 @@ pilot's frame of 30 September:
    the same, and one term fewer was kept.
 4. **`ct2` with EuroLLM is no longer the recommended fallback.** EuroLLM-9B failed 96 segments (8 %), 89 of them ALTO
    blocks of at most ten characters that the model runs on past. It kept 157 of 230 terms. EuroLLM-1.7B failed 584
-   (47 %). The guard turns each failure into an `untranslated` field rather than a wrong one. The backend stays for
+   (47 %). The guard turned each failure into an `untranslated` field rather than a wrong one; such a field now fails
+   the job. The backend stays for
    MADLAD-400, NLLB-200 and Opus-MT, which the pilot does not measure.
 5. **`VOCABULARY_PATH` stays unset by default.** The bake-off has no arm without the vocabulary. It shows that the
    curated list costs nothing (LINDAT and Qwen keep 98 % of its terms), not what it adds. AMČR's `metadata-en` recipe

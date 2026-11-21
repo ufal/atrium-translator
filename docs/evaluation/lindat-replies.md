@@ -2,13 +2,13 @@
 
 **In short:** On 2026-09-26 about a third of the replies from the public LINDAT translation endpoint were one Czech
 word repeated. Twelve test requests alternated bad and good (✗✓✗✓…), which points to one broken replica behind a load
-balancer. The translator's output guard re-requests such replies, and every run so far recovered them. A daily check
-now watches the endpoint. For a user: a run may log re-requested replies and take longer. The numbers show that the
+balancer. The translator's output guard re-requests such replies, and every run so far recovered them. A manual
+check probes the endpoint on demand. For a user: a run may log re-requested replies and take longer. The numbers show that the
 guard works on these samples, not that translations are good.
 
 For operators and anyone who wonders why a run logs re-requested replies. This page records what the sample refresh of
 2026-09-26 found about the public LINDAT translation endpoint and how it was confirmed. It also records how the output
-guard was calibrated, and the daily check that watches the endpoint now. How the guard works:
+guard was calibrated, and the manual check that probes the endpoint. How the guard works:
 [The degenerate-output guard](../how-it-works.md#the-degenerate-output-guard).
 
 ## What the refresh found
@@ -40,20 +40,20 @@ prints the pattern, with a report to hand to the service's operators:
 
 ```bash
 python -m eval.lindat_probe            # e.g. "fresh: ✗✓✗✓✗✓… → alternating — one of two replicas broken"
-python -m eval.lindat_probe --text daily --n 12 --pause 0.5 --max-bad 0   # the daily check; exit 1 on any bad reply
+python -m eval.lindat_probe --text daily --n 12 --pause 0.5 --max-bad 0   # the manual check; exit 1 on any bad reply
 ```
 
 `--n` sets the requests per mode (12), `--model` the pair (`cs-en`), and `--pause` the seconds between requests. A reply
 is bad when the guard rejects it, or when it fails the probe's content checks. These need the languages: every number
 kept, not the source repeated, no Czech-only letter left in the reply. Without `--max-bad` the probe only reports.
 
-## The daily check
+## The manual check
 
-`.github/workflows/lindat-daily.yml` runs the probe every day. It sends one Czech sentence (`--text daily`, "Výzkum v
-roce 1932 odkryl 3 hroby a 120 střepů.") 24 times, 12 over fresh connections and 12 over one session. Any bad reply
-fails the run (`--max-bad 0`), and a scheduled failure opens or updates the lane's issue through the hub's
-`lane-failure-issue` action (atrium-project#78, #81). It installs only `requests`. It is on the `test` branch since
-2026-10-22 and arrives with the next release.
+`.github/workflows/lindat-daily.yml`, "LINDAT check (manual)", runs the probe when it is dispatched (*Actions → LINDAT
+check (manual) → Run workflow*), for example before a release or when LINDAT misbehaves. It sends one Czech sentence
+(`--text daily`, "Výzkum v roce 1932 odkryl 3 hroby a 120 střepů.") 24 times, 12 over fresh connections and 12 over
+one session. Any bad reply fails the run (`--max-bad 0`), and the run's summary page shows the pattern. It installs
+only `requests`. It ran every day until CI moved to pull requests and releases only; the file keeps its old name.
 
 ## How the guard was calibrated
 

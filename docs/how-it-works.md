@@ -56,7 +56,7 @@ The translator runs as a batch command line and as an HTTP service, with the sam
 
 In the AMČR pilot the translator is not a stage of the document pipeline. It is a record-level job, run on
 archiving: AMČR sends a record's `metadata` distribution with the list of fields to translate, and the translator
-answers with `metadata-en` (atrium-project#84, D34). Its paradata name the two by SHA-512, record the field list as a
+answers with `metadata-en`. Its paradata name the two by SHA-512, record the field list as a
 parameter and carry no field text. Full-text and ALTO translation stay for research and batch use; no pipeline step
 reads their output, and nothing of them is stored by AMČR. The hub's
 [pipelines page](https://ufal.github.io/atrium-project/pipelines/) shows where the job sits.
@@ -98,18 +98,17 @@ MTX201501307_anon: source language — document cs (detected, FastText top guess
   blocks: cs 1193 (hint 988, context 158, detected 47); FastText guesses not used: eo×11, bod×6, swh×6, krc×5, yue×3.
 ```
 
-**A language the backend cannot translate** (translator#52). When FastText is confident (at least
+**A language the backend cannot translate.** When FastText is confident (at least
 `LANG_ID_MIN_CONFIDENCE`, on a text of at least `LANG_ID_MIN_LETTERS` letters) that a segment is a real language the
 backend cannot translate (Latin taxa, a Hungarian passage on LINDAT), and no translatable candidate scored as well,
 the segment still falls back through rules 2–4 and is translated from that language, but it is reported: its
-`_log.csv` rows say `unsupported_lang`, the document record counts it in `translations.unsupported_source_langs`
-(`{"hu": 1, "la": 2}`), and the document's log line ends with `identified as a language the backend cannot
+`_log.csv` rows say `unsupported_lang`, the paradata count it per document (`unsupported_source_langs` in the
+`translations` parameter, `{"hu": 1, "la": 2}`), and the document's log line ends with `identified as a language the backend cannot
 translate, translated from the fallback: la×2, hu×1`. An untrustworthy guess (below the threshold, an exotic
 FastText label such as `yue`, a text too short to judge) is not reported. A backend that does translate the
 language (EuroLLM or MADLAD on `ct2`) simply uses the detection.
 
-The resolved document language is recorded in the record (`translations.detected_source_lang`) and the policy in
-the paradata. To tune the two thresholds on real data, `python -m eval.langid_report <file.alto.xml> > langid.csv`
+The resolved document language (`detected_source_lang`) and the policy are recorded in the paradata. To tune the two thresholds on real data, `python -m eval.langid_report <file.alto.xml> > langid.csv`
 lists, per block, FastText's top three guesses next to the resolved language and its basis; it honours the same
 environment variables.
 
@@ -117,9 +116,9 @@ environment variables.
 loaded ([licences](reference/licences.md)).
 
 **An explicit pair is checked before anything is translated.** A source and target the backend cannot translate is
-refused, never rerouted: the CLI exits 1 and the service answers 422 (`unsupported_language_pair`), each naming the
-pairs the backend offers. With `auto`, the default source language is checked the same way. Codes such as `CS`,
-`cs-CZ` or `ces` are read as `cs`. Before 2026-10-18 LINDAT translated such a run from Czech into English without a
+refused, never rerouted: the CLI exits 1 and the service answers 422 with `cause` `unsupported_language_pair`, each
+naming the pairs the backend offers. With `auto`, the default source language is checked the same way. Codes such as
+`CS`, `cs-CZ` or `ces` are read as `cs`. Unchecked, LINDAT translated such a run from Czech into English without a
 word ([The three backends](#the-three-backends)).
 
 ## Chunking
@@ -139,8 +138,8 @@ To cut network latency and the load on the backend, an ALTO page is translated i
 source language, and sends each group as one payload separated by newlines.
 
 - **Fewer requests.** A block of N lines used to cost 1 + N requests; a page now costs as few as two per language
-  group: one for the blocks, one for the line anchors. Moving from per-block to per-page calls (v0.8.0) cut the
-  number of calls about twentyfold.
+  group: one for the blocks, one for the line anchors. Moving from per-block to per-page calls cut the number of
+  calls about twentyfold.
 - **A batch is trusted only when it is plausible.** A batched reply is accepted only if it keeps the request's line
   count **and** every line is a plausible translation of its own item ([the guard](#the-degenerate-output-guard)).
   If the model merges or drops line boundaries, or answers any item with a loop, an empty line or a runaway or
@@ -155,7 +154,7 @@ other than clean batching happened, so a slow run explains itself.
 
 ## The degenerate-output guard
 
-A backend can answer HTTP 200 with something that is not a translation. On the 2026-09-26 sample refresh about a
+A backend can answer HTTP 200 with something that is not a translation. On one refresh of the samples about a
 third of all LINDAT replies were one Czech word repeated up to about 150 times (`"pravidla pravidla …"`), for
 one-word headings and whole sentences, on the ALTO and the metadata path, and nondeterministically. Nothing looked
 at the content of a reply, so the garbage went into the XML and the log, and, through the ALTO line anchors, which
@@ -187,10 +186,8 @@ What happens to a rejected reply:
    searches a wider beam instead (NMT families 4, 6, 8, … up to 12; EuroLLM leaves greedy decoding for a beam of
    4, 6, …). That is still deterministic, so a run can be reproduced. Whether it recovers more segments on real
    EuroLLM output has not been measured. A recovered segment is logged `rerun`.
-4. **Keep the source.** A segment that never recovers keeps its source text (ALTO `String`s keep their `CONTENT` and
-   geometry; a metadata field is not overwritten and gets no appended sibling) and is logged `untranslated` in the
-   `status` column of the `_log.csv`. The file is still written: one bad reply costs one segment, never the
-   document.
+4. **Fail.** A segment that never recovers fails the document: the command line stops with exit 3, and the service
+   answers 422 `limit_exceeded`. No translation with a field or a line left in the source language is returned.
 
 A per-document summary line, a warning when anything was flagged or fell back, reports batches accepted, fallbacks
 by cause, segments flagged, recovered and left untranslated, and lines placed by word count. `main.py` adds one
@@ -251,8 +248,8 @@ Per `TextBlock` (`process_alto_xml` and `_align_tokens_to_lines` in `utils.py`):
      cuts the translation, never inserts into it, so every line after a missing word would show its neighbour's
      text and the last lines none. That is a table column whose repeated cells the model merged (page 76 of the
      sample: 42 numbers came back as 39). Each line then takes **its own line translation**, the anchor (`76` →
-     `76`); a line without a usable one keeps its source text and is logged `untranslated`. The per-document
-     summary names such blocks. Prose never reaches this rule, because its lines hold many words each.
+     `76`); a line without a usable one fails the document, as a segment that never recovers does. The
+     per-document summary names such blocks. Prose never reaches this rule, because its lines hold many words each.
    - Within each line, the bucket's tokens are distributed over the line's `String` elements **one to one, in
      order**: each `String` except the last gets one token (an empty string once the bucket is exhausted), and the
      **last `String` of the line takes all the remaining tokens**.
@@ -269,7 +266,7 @@ translated ALTO line by line, not word by word. `append` keeps the scanned `CONT
 geometry survive beside the translation; ALTO 3.1 declares `ALTERNATIVE` with a free-text `PURPOSE` for this, so
 the output stays schema-valid.
 
-**Why the anchors are validated.** The 2026-09-26 refresh showed what an unvalidated anchor does. With page-level
+**Why the anchors are validated.** One refresh of the samples showed what an unvalidated anchor does. With page-level
 batching the anchors are one request per page; a degenerate reply filled some anchor slots with 50 or more words
 and left the others empty, and the aligner, trusting the anchors, turned that into lines holding 71 words next to
 lines holding none, invisibly, since anchors are never logged.
@@ -367,7 +364,7 @@ The selection order is `--backend` → `translation_backend` in config.txt → `
 unknown name raises, with the list of available ones. Every setting: [configuration.md](configuration.md).
 
 **LINDAT stays the default; the self-hosted alternative is Qwen3.8-27B through `openai_compatible`.** The bake-off
-of 2026-10-19 found it close to LINDAT on every measured check, and `ct2` with EuroLLM no longer recommended
+found it close to LINDAT on every measured check, and `ct2` with EuroLLM no longer recommended
 ([the decision](decisions/backend-choice.md), [the evidence](evaluation/backends.md)). The `ct2` backend stays for
 MADLAD-400, NLLB-200 and Opus-MT, which the pilot does not measure. Its heavy imports (`ctranslate2`,
 `sentencepiece`) load on first use and fail with an install hint when `requirements-ct2.txt` is missing; the model
@@ -378,7 +375,7 @@ of six pairs into English (`cs`, `de`, `fr`, `pl`, `ru`, `uk`) when the API cann
 and has, for instance, no `cs-it` or `hu-en`. `openai_compatible` and `ct2` offer the languages in `LLM_LANGUAGES` /
 `CT2_LANGUAGES`; the LLM backend lists nothing unless `LLM_LANGUAGES` is set, so it refuses nothing.
 
-**A pair the backend cannot translate is refused, never rerouted** (2026-10-18). LINDAT used to send any pair it has
+**A pair the backend cannot translate is refused, never rerouted.** LINDAT used to send any pair it has
 no model for to `cs-en` without a word, so `cs→it` wrote English into `_it.xml` and `hu→en` translated Hungarian as
 Czech. Now `language_pair_problem()` (`processors/language.py`) checks an explicit pair before anything is
 translated; LINDAT is held to its exact `src-tgt` models, another backend to `supported_languages()` when that lists
@@ -401,4 +398,5 @@ These follow from how the tool works:
 - **No RO-Crate is produced by a run.** `atrium_rocrate.py` is a separate step, run over finished records
   ([outputs](reference/outputs.md)).
 - **Language coverage is the backend's.** CUBBITT is Czech-centric; other pairs need another backend.
-- **`entities[].translation_en` is not produced,** since entities are created later in the pipeline.
+- **`entities[].translation_en` is not produced.** The field stays reserved in the record schema; the translator
+  writes nothing into the record.
