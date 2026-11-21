@@ -1,5 +1,7 @@
 # .github/workflows/lindat-daily.yml
-# The daily check of the live LINDAT translation service (atrium-project#78).
+# A manual check of the live LINDAT translation service (atrium-project#78), run by dispatch
+# (Actions -> LINDAT check (manual) -> Run workflow), for example before a release or when LINDAT misbehaves.
+# The file keeps its old name, lindat-daily.yml, so links and tests still find it.
 #
 # Every other lane mocks LINDAT. This one sends it the same short Czech sentence 24 times (12 on a fresh
 # connection each, 12 over one keep-alive session) with eval/lindat_probe.py and fails when a reply is bad:
@@ -8,26 +10,23 @@
 # point: in October one broken replica behind LINDAT's balancer answered every other request with garbage,
 # which a single request finds half the time.
 #
-# A failing scheduled run opens the lane's issue, or comments on it while it is open (the hub's
-# lane-failure-issue action, atrium-project#81). The probe's own summary, with the pattern per mode and a
-# sample bad reply, is in the run's summary page.
+# The probe's own summary, with the pattern per mode and a sample bad reply, is in the run's summary page.
+# It ran daily until the CI agreement of 11 November 2026 (pull requests and releases only, no scheduled
+# runs); docs/decisions/e2e-lanes.md in the hub has the history.
 #
 # It installs only `requests`: the probe needs nothing else, and the lane stays a minute long.
 
-name: LINDAT daily check
+name: LINDAT check (manual)
 
-# Its own group, so it never queues behind or cancels the scheduled smoke test.
+# Its own group, so it never queues behind or cancels the smoke test.
 concurrency:
   group: lindat-daily-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: read
-  issues: write          # the lane's issue on a scheduled failure
 
 on:
-  schedule:
-    - cron: '23 6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -60,15 +59,3 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$rc"
-
-      - name: Open or update the lane's issue on scheduled failure
-        if: failure() && github.event_name == 'schedule'
-        uses: ufal/atrium-project/.github/actions/lane-failure-issue@02cbd0144cfa2d39d981d43eea7f4cd72bed53ba  # v1
-        with:
-          lane: lindat-daily
-          title: LINDAT daily check failed
-          labels: ci,upstream
-          body: >-
-            The daily check of the LINDAT translation service found bad replies. The run's summary shows the
-            pattern per mode and a sample reply; one broken replica behind the balancer shows as an alternating
-            pattern. If it persists, report it to LINDAT with that summary.

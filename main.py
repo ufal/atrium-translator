@@ -828,6 +828,14 @@ def _file_args(args, file_path: Path, is_batch: bool) -> argparse.Namespace:
     return file_args
 
 
+def _read_xpaths(path: Path) -> list[str]:
+    """The XPaths of a ``--xpaths`` file: one per line, blank lines and comments left out. A line is
+    a comment when it starts with ``#`` after its leading spaces, as in the service's ``xpaths``
+    field (``service/api.py`` ``_parse_xpaths``)."""
+    with open(path, "r", encoding="utf-8") as f:
+        return [xpath for xpath in (line.strip() for line in f) if xpath and not xpath.startswith("#")]
+
+
 def _choose_mode(file_args, file_path: Path, xpaths_list: list[str], detected_kinds: dict) -> str | None:
     """Set ``file_args.alto`` for one file; return why the file cannot be translated, or None.
 
@@ -908,6 +916,29 @@ def main() -> int:
         if args.mode_explicit and not args.alto and not args.xpaths:
             print("[ERROR] Specify either the --alto flag or the field list with --xpaths FILE.")
             return EXIT_USAGE
+
+        # The field list comes with each metadata job, as the service's `xpaths` field does. A
+        # metadata run whose list names no file, or holds no XPath, is refused before anything is
+        # translated, as the service refuses it (422 `missing_xpaths`): it used to copy every
+        # record untranslated and exit 0.
+        xpaths_list: list[str] = []
+        if args.xpaths is not None:
+            if args.xpaths.is_file():
+                xpaths_list = _read_xpaths(args.xpaths)
+            if not xpaths_list and not args.alto:
+                problem = (
+                    "holds no XPath (one per line; lines starting with # are comments)"
+                    if args.xpaths.is_file()
+                    else "names no file"
+                )
+                print(
+                    f"[ERROR] The field list {args.xpaths} {problem}. A metadata run translates the fields "
+                    "it lists: pass --xpaths with a file of XPaths, one per line."
+                )
+                return EXIT_USAGE
+        if xpaths_list:
+            # The field list shaped every metadata translation of the run: a parameter.
+            _logger.set_parameter("xpaths", xpaths_list)
 
         # A batch writes one record per document. One baseline file, or one --document-json-out
         # file, used to serve every document of the batch: each record took the baseline's
@@ -999,14 +1030,6 @@ def main() -> int:
         protected_by_doc: dict[str, int] = {}
         degenerate_by_doc: dict[str, int] = {}
         xsd_verdicts: dict[str, tuple[str, bool]] = {}
-
-        xpaths_list: list[str] = []
-        if args.xpaths and args.xpaths.exists():
-            with open(args.xpaths, "r", encoding="utf-8") as f:
-                xpaths_list = [line.strip() for line in f if line.strip() and not line.startswith("#")]
-        if xpaths_list:
-            # The field list shaped every metadata translation of the run (D34): a parameter.
-            _logger.set_parameter("xpaths", xpaths_list)
 
         # M2: compile the XSD schema once before the batch loop.
         # The old design re-fetched from the network on every file, which is

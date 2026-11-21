@@ -10,8 +10,8 @@ On this page, by task:
 
 - [Set it up](#set-up-the-translator)
 - [Choose ALTO or metadata mode](#choose-alto-or-metadata-mode)
-- [Translate ALTO pages](#translate-alto-pages)
 - [Translate AMČR metadata records](#translate-amčr-metadata-records)
+- [Translate ALTO pages](#translate-alto-pages), for research and batch use
 - [Choose replace or append](#choose-the-output-mode-replace-or-append)
 - [Use a vocabulary](#use-a-vocabulary)
 - [Build the vocabulary](#build-the-vocabulary)
@@ -45,7 +45,9 @@ The repository is not a pip-installable package: every command runs from the rep
 
 A file's **root element** decides when the command line names no mode. An `<alto>` root (any ALTO version) is
 translated as an ALTO page. Any other root is a metadata record, and its XPath targets come with the job: `--xpaths
-FILE` on the command line, `xpaths` in a `/translate` request. There is no default list (D34). Naming `--alto`, `--xpaths` or `--formats` decides for the whole run instead; a file whose root
+FILE` on the command line, `xpaths` in a `/translate` request. There is no default list: a metadata run whose list
+names no file, or holds no XPath, is refused before anything is translated (exit 1; the service answers 422). Naming
+`--alto`, `--xpaths` or `--formats` decides for the whole run instead; a file whose root
 says otherwise is still translated in the named mode, with a warning. `/translate` decides the same way, by the
 same function (`utils.xml_kind`), when `is_alto` is not sent.
 
@@ -61,32 +63,6 @@ Also:
   document's baseline is `<dir>/<doc_id>.document.json` when it exists, and its record is written to
   `<out dir>/<doc_id>.document.json`. One file for a whole batch is refused (exit 1), because its `doc_id` would key
   every record and each record would overwrite the last.
-
-## Translate ALTO pages
-
-An `<alto>` root is enough: without a mode flag each file's root element decides. `--alto`, or `--formats` with
-`alto.xml` on the command line, makes the whole run ALTO. ALTO mode translates the `CONTENT` attributes of the
-`String` elements and nothing else.
-
-```bash
-python main.py ./data_samples/my_documents --alto --formats alto.xml --target_lang en
-```
-
-In config.txt, `formats = alto.xml` (the shipped value) only says which files a folder scan picks up. The default
-target language is English (`en`).
-
-An example:
-
-- Input: [MTX201501307_anon.alto.xml](../data_samples/my_documents/MTX201501307_anon.alto.xml)
-- Output, `replace`: [MTX201501307_anon_en.alto.xml](../data_samples/in-place_translated_files/alto/MTX201501307_anon_en.alto.xml)
-- Output, `append`: [MTX201501307_anon_en.alto.xml](../data_samples/appended_translated_files/alto/MTX201501307_anon_en.alto.xml)
-
-Each `TextBlock` is translated as a whole, for the quality of the translation. The words are then distributed back
-over the `String` elements of each `TextLine`, so the layout of the page is kept. How:
-[ALTO dual-pass reconstruction](how-it-works.md#alto-dual-pass-reconstruction).
-
-`--fast-align` places each line's words by its source word count instead of translating each line as an anchor:
-far fewer requests, slightly coarser line splits.
 
 ## Translate AMČR metadata records
 
@@ -137,7 +113,7 @@ formats:
 ```bash
 python main.py amcr-inputs.txt --xpaths amcr-fields.example.txt --formats xml,txt \
     --source_lang cs --output-mode replace \
-    --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd --target_lang en
+    --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd --target_lang en -o out
 ```
 
 **Other XML.** For another schema, write your own XPath list and pass it with `--xpaths`:
@@ -149,14 +125,41 @@ python main.py amcr-inputs.txt --xpaths amcr-fields.example.txt --formats xml,tx
 ```
 
 ```bash
-python main.py ./my_xml_files --xpaths my-fields.txt --target_lang en
+python main.py ./my_xml_files --xpaths my-fields.txt --target_lang en -o out
 ```
 
 The namespace prefixes that appear in the document are extracted from it; use the same prefixes in your XPaths
 as the XML uses.
 
 Each translated file is written to the output directory with a companion `_log.csv`
-([the outputs](reference/outputs.md)).
+([the outputs](reference/outputs.md)). Without `-o`, the output directory is config.txt's `output`, a folder of the
+committed samples, so the examples on this page pass `-o`.
+
+## Translate ALTO pages
+
+ALTO translation is for research and batch use; it is not part of the AMČR pipeline. An `<alto>` root is enough: without a mode flag each file's root element decides. `--alto`, or `--formats` with
+`alto.xml` on the command line, makes the whole run ALTO. ALTO mode translates the `CONTENT` attributes of the
+`String` elements and nothing else.
+
+```bash
+python main.py ./data_samples/my_documents --alto --formats alto.xml --target_lang en -o out
+```
+
+In config.txt, `formats = alto.xml` (the shipped value) only says which files a folder scan picks up. The default
+target language is English (`en`).
+
+An example:
+
+- Input: [MTX201501307_anon.alto.xml](../data_samples/my_documents/MTX201501307_anon.alto.xml)
+- Output, `replace`: [MTX201501307_anon_en.alto.xml](../data_samples/in-place_translated_files/alto/MTX201501307_anon_en.alto.xml)
+- Output, `append`: [MTX201501307_anon_en.alto.xml](../data_samples/appended_translated_files/alto/MTX201501307_anon_en.alto.xml)
+
+Each `TextBlock` is translated as a whole, for the quality of the translation. The words are then distributed back
+over the `String` elements of each `TextLine`, so the layout of the page is kept. How:
+[ALTO dual-pass reconstruction](how-it-works.md#alto-dual-pass-reconstruction).
+
+`--fast-align` places each line's words by its source word count instead of translating each line as an anchor:
+far fewer requests, slightly coarser line splits.
 
 ## Choose the output mode: replace or append
 
@@ -177,7 +180,7 @@ every glossary build.
 python main.py ./data_samples/my_documents \
     --xpaths amcr-fields.example.txt --source_lang cs \
     --output-mode append \
-    --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd
+    --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o out_append
 ```
 
 **AMČR 2.2 does not accept `append` output.** Validated against the published schema, the 15 shipped records are
@@ -234,7 +237,7 @@ config.txt; the shipped config.txt names the bundled list, so a checkout applies
 
 ```bash
 python main.py amcr-inputs.txt --xpaths amcr-fields.example.txt \
-    --vocabulary data_samples/vocabulary.csv --target_lang en
+    --vocabulary data_samples/vocabulary.csv --target_lang en -o out
 ```
 
 ```ini
@@ -298,8 +301,8 @@ automatically: adopting one is a deliberate change of the CSV, the pin and this 
 The vocabulary workflow across the tools, from keyword-extract's curation to this CSV, is
 [W7 on the hub's pipelines page](https://ufal.github.io/atrium-project/pipelines/#w7--vocabulary-harvesting--review-the-translators-half).
 
-**TEATER's certificate.** As of 2026-09, `teater.aiscr.cz` serves its TLS certificate without the *RapidSSL TLS
-RSA CA G1* intermediate. So `requests` cannot verify it, and the TEATER harvest logs an SSL error and yields
+**TEATER's certificate.** `teater.aiscr.cz` has served its TLS certificate without the *RapidSSL TLS RSA CA G1*
+intermediate. Then `requests` cannot verify it, and the TEATER harvest logs an SSL error and yields
 nothing. Do not disable verification: point `REQUESTS_CA_BUNDLE` at a CA bundle that also contains that
 intermediate. `api.aiscr.cz` serves the same intermediate in its full chain
 (`openssl s_client -showcerts -connect api.aiscr.cz:443`).
@@ -314,32 +317,32 @@ Two images are published, one per entry point. Both are built from the same `Doc
 | `ghcr.io/ufal/atrium-translator:<version>`     | `base` | `python /app/container_entrypoint.py /app/main.py` | batch CLI    |
 | `ghcr.io/ufal/atrium-translator-api:<version>` | `api`  | `python -m service.api`                            | HTTP service |
 
-`<version>` is the release without its leading `v` (`1.7.8-beta` for release `v1.7.8-beta`), or `latest`. The
-`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:1.7.8-beta`. A tag
+`<version>` is the release without its leading `v` (`2.0.0-beta` for release `v2.0.0-beta`), or `latest`. The
+`-api` suffix belongs to the image **name**, not the tag: `ghcr.io/ufal/atrium-translator-api:2.0.0-beta`. A tag
 such as `atrium-translator:1.6.1-beta-api` is never published. The images carry `data_samples/my_documents/` and
 the vocabulary, not the sample outputs, and neither includes the `ct2` dependencies.
 
-The batch image passes its arguments to `main.py` (`docker run IMAGE /data/input --alto …`). Since `v1.7.8-beta` its
-entry point is the hub-canonical `container_entrypoint.py`: a first argument that names a shell or Python runs that
-program instead (`docker run IMAGE /bin/sh job.sh`, `docker run IMAGE python3 /app/main.py --help`), which is how
-Galaxy starts a tool's container. Only those interpreters run: an input file that happens to be executable is still
+The batch image passes its arguments to `main.py` (`docker run IMAGE /data/input --alto …`). Its entry point, the
+hub-canonical `container_entrypoint.py`, lets a first argument that names a shell or Python run that program instead
+(`docker run IMAGE /bin/sh job.sh`, `docker run IMAGE python3 /app/main.py --help`), so a job script can run in the
+image. Only those interpreters run: an input file that happens to be executable is still
 translated. `main.py` is found by its absolute path, so the container may start in any working directory.
 
 ### Batch translation
 
 ```bash
-# ./data/input holds the ALTO XML; results land in ./data/output
+# ALTO pages, for research use: ./data/input holds the ALTO XML; results land in ./data/output
 mkdir -p data/input data/output
 
 docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
-  ghcr.io/ufal/atrium-translator:latest \
+  ghcr.io/ufal/atrium-translator:<version> \
   /data/input --alto --formats alto.xml --target_lang en -o /data/output
 
 # AMČR metadata records (./data/input holds the *.xml records, ./data/fields.txt the job's field list; the image
-# ships none, so copy amcr-fields.example.txt there to try it), the production shape:
-# replace mode, validated against AMČR 2.2. The service validates against its deployment's XSD_PATH instead.
+# ships none, so copy amcr-fields.example.txt there to try it): replace mode, validated against AMČR 2.2.
+# The service validates against its deployment's XSD_PATH instead.
 docker run --rm --user "$(id -u):0" -v "$PWD/data:/data" \
-  ghcr.io/ufal/atrium-translator:latest \
+  ghcr.io/ufal/atrium-translator:<version> \
   /data/input --xpaths /data/fields.txt --formats xml --source_lang cs --target_lang en \
   --output-mode replace --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd -o /data/output
 ```
@@ -358,7 +361,8 @@ documents failed. So it can be wrapped in a cron job or a Kubernetes `Job` and m
 
 `docker-compose.yml` defines two services, `translator` (batch) and `api` (profile `api`); both read the
 repository's `.env` ([Environment variables](configuration.md#environment-variables)). Volumes: `./data:/data`,
-`hf-cache:/cache/huggingface` (the FastText model) and `./config.txt:/app/config.txt:ro`.
+`hf-cache:/cache/huggingface` (the Hugging Face cache; the images carry the FastText model in `/opt/models`) and
+`./config.txt:/app/config.txt:ro`.
 
 ```bash
 docker compose run --rm translator          # batch, ./data:/data
@@ -382,10 +386,13 @@ The same pipeline behind `POST /translate`. Its start, request fields, responses
 [service/README.md](../service/README.md); the contract is [service/openapi.json](../service/openapi.json).
 
 ```bash
-curl -s -X POST localhost:8000/translate \
-     -F "file=@data_samples/my_documents/C-N1000019.xml" -F "is_alto=false" \
+curl --fail-with-body -sS -X POST localhost:8000/translate \
+     -F "file=@data_samples/my_documents/C-N1000019.xml" -F "xpaths=<amcr-fields.example.txt" -F "is_alto=false" \
      -F "source_lang=cs" -F "output_mode=replace" -o C-N1000019_en.xml
 ```
+
+`xpaths` is the field list, one XPath per line: `-F "xpaths=<FILE"` sends a file's content as the field. Without it
+a metadata record is refused (422, `cause` `missing_xpaths`).
 
 `output_mode=append` works the same way, but its AMČR output does not validate against AMČR 2.2 (above).
 `is_alto`, `source_lang`, `target_lang`, `output_mode`, `response_format`, `fast_align`, `include_record`,
@@ -399,21 +406,14 @@ directly on the public internet.
 
 ## With a document record
 
-Under record schema 2.0 (atrium-project#84) the translator is not a stage of the document pipeline and writes
-nothing into the record: the pilot's job is `metadata` → `metadata-en` with the field list AMČR sends. The record
-options stay: a record given with `--document-json` names the outputs by its `doc_id` and is handed back with
-nothing added. The hub's end-to-end smoke still passes one:
+Under record schema 2.0 the translator is not a stage of the document pipeline and writes nothing into the record:
+the pilot's job is `metadata` → `metadata-en` with the field list AMČR sends. The record options stay: a record
+given with `--document-json` names the outputs by its `doc_id` and is handed back with nothing added. Without one,
+no record is written. For example, an ALTO page of a document whose record you have:
 
 ```bash
-docker run --rm \
-  -v "$PWD":/workspace \
-  -w /workspace/work/atrium-translator-main \
-  ghcr.io/ufal/atrium-translator:latest \
-  /workspace/work/PAGE_ALTO/CTX000000003/CTX000000003-1.alto.xml \
-  --alto --formats alto.xml --source_lang cs --target_lang en \
-  -o /workspace/work/translated \
-  --document-json /workspace/work/doc_json/2_alto.json \
-  --document-json-out /workspace/work/doc_json/3_translate.json
+python main.py <doc>-1.alto.xml --alto --formats alto.xml --source_lang cs --target_lang en -o out \
+    --document-json <doc>.document.json --document-json-out out/<doc>.document.json
 ```
 
 The record comes in and goes out with nothing added. Its `doc_id` is **inherited**, never re-derived from the
@@ -424,8 +424,9 @@ and how the AMČR deployment chains them: the
 ## Call it from a coding agent
 
 The `agent-skill` branch packages the HTTP service as an Agent Skill, so a coding agent can translate a file by
-calling a running service. Installation and the contract it relies on:
-[Agent skills](https://ufal.github.io/atrium-project/agent-skills/) on the hub.
+calling a running service. Its client sends no field list, so against this release's service it translates ALTO
+pages only: a metadata record sent through it is refused (422, `cause` `missing_xpaths`). Installation and the
+contract it relies on: [Agent skills](https://ufal.github.io/atrium-project/agent-skills/) on the hub.
 
 ## The command line and the service
 
@@ -434,46 +435,46 @@ Both entry points run one code path. It covers the mode decision (`utils.xml_kin
 paradata's keys. `main.build_run_config` builds the run's parameters, and `main.run_outcome_config` what it counted:
 protected vocabulary terms, LINDAT's degenerate replies and the XSD verdicts.
 
-A scratch harness compared the two on 256 combinations on 2026-10-28, with one stub backend and language detector on
-both sides. The combinations covered ALTO named `.alto.xml` and `.xml`, and an AMČR record; the mode detected and
+A scratch harness compared the two on 256 combinations, with one stub backend and language detector on both
+sides. The combinations covered ALTO named `.alto.xml` and `.xml`, and an AMČR record; the mode detected and
 named; `cs` and `auto`; `replace` and `append`; `--fast-align`; a vocabulary; a seed record; and no XSD, a passing
 one, a failing one and a strict one. The XML, the log, the record and the paradata's keys and values were equal in
 every case but the strict-XSD one in the table.
 [tests/test_cli_service_parity.py](../tests/test_cli_service_parity.py) keeps the main cases.
 
-| Input or setting     | Command line                                                     | Service                                                                                          | Same?                                                                                        |
-|----------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| How much per run     | a file, a folder, a `.txt` list of URLs                          | one XML document per request                                                                     | differs: the service is stateless and fetches no URLs                                        |
-| ALTO or metadata     | the root element, unless `--alto`, `--xpaths` or `--formats`     | the root element, unless `is_alto`                                                               | the same                                                                                     |
-| Source language      | `--source_lang`, config.txt `source_lang`, else `cs`             | `source_lang`, else `auto`                                                                       | the same when given; the defaults differ                                                     |
-| Target language      | `--target_lang`, config.txt `target_lang`, else `en`             | `target_lang` (a form field or query parameter), else `en`                                       | the same default; only the command line's can be changed (config.txt)                        |
-| Fallback language    | `--default-source-lang`, config.txt, `DEFAULT_SOURCE_LANG`, `cs` | `DEFAULT_SOURCE_LANG`, `cs`                                                                      | the same rule, set per deployment                                                            |
-| Output mode          | `--output-mode`, config.txt, `OUTPUT_MODE`, `replace`            | `output_mode`, `OUTPUT_MODE`, `replace`                                                          | the same; an unknown value: `--output-mode` refuses it, the service warns and uses `replace` |
-| `--fast-align`       | a flag                                                           | `fast_align=true`                                                                                | the same                                                                                     |
-| XPath targets        | `--xpaths FILE`, per run; no default                             | `xpaths`, per request; without it a metadata request is refused (422)                            | the same list, sent with each job (D34)                                                      |
-| Backend, vocabulary  | `--backend`, `--vocabulary` or config.txt                        | `TRANSLATION_BACKEND`, `VOCABULARY_PATH`                                                         | differs: set per deployment                                                                  |
-| XSD validation       | `--xsd` (a URL or a path), `--xsd-strict`                        | `XSD_PATH` (a local file, loaded at startup), `xsd_strict`; the verdict in the answer            | the same verdict; the service never fetches a schema                                         |
-| A strict XSD failure | the XML is written, the document counts as failed (exit 3)       | 422 `xsd_validation_failed`, no XML                                                              | differs: an answer is all or nothing                                                         |
-| The record           | handed back when `--document-json` was given, nothing added      | returned when `document_json` was sent, nothing added                                            | the same record                                                                              |
-| The log              | `<doc>_log.csv` beside the XML                                   | with `include_log=true`: `log_csv`, or a part of the multipart answer                            | the same rows                                                                                |
-| An invalid record    | a warning on stderr; the record is still handed back             | passed through; `document_json_schema_error` in the JSON answer (the multipart one has none)     | the same record                                                                              |
-| Paradata             | a file in `<output>/paradata/`, program `translator`             | the `CreateAction` of the JSON and multipart answers, program `translator-api`; none in bare XML | the same keys and values; a path on the command line is a file name in the service           |
+| Input or setting     | Command line                                                                         | Service                                                                                          | Same?                                                                                        |
+|----------------------|--------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| How much per run     | a file, a folder, a `.txt` list of URLs                                              | one XML document per request                                                                     | differs: the service is stateless and fetches no URLs                                        |
+| ALTO or metadata     | the root element, unless `--alto`, `--xpaths` or `--formats`                         | the root element, unless `is_alto`                                                               | the same                                                                                     |
+| Source language      | `--source_lang`, config.txt `source_lang`, else `cs`                                 | `source_lang`, else `auto`                                                                       | the same when given; the defaults differ                                                     |
+| Target language      | `--target_lang`, config.txt `target_lang`, else `en`                                 | `target_lang` (a form field or query parameter), else `en`                                       | the same default; both can be changed                                                        |
+| Fallback language    | `--default-source-lang`, config.txt, `DEFAULT_SOURCE_LANG`, `cs`                     | `DEFAULT_SOURCE_LANG`, `cs`                                                                      | the same rule, set per deployment                                                            |
+| Output mode          | `--output-mode`, config.txt, `OUTPUT_MODE`, `replace`                                | `output_mode`, `OUTPUT_MODE`, `replace`                                                          | the same; an unknown value: `--output-mode` refuses it, the service warns and uses `replace` |
+| `--fast-align`       | a flag                                                                               | `fast_align=true`                                                                                | the same                                                                                     |
+| XPath targets        | `--xpaths FILE`, per run; no default; a file that names no XPath is refused (exit 1) | `xpaths`, per request; without it a metadata request is refused (422)                            | the same list, sent with each job                                                            |
+| Backend, vocabulary  | `--backend`, `--vocabulary` or config.txt                                            | `TRANSLATION_BACKEND`, `VOCABULARY_PATH`                                                         | differs: set per deployment                                                                  |
+| XSD validation       | `--xsd` (a URL or a path), `--xsd-strict`                                            | `XSD_PATH` (a local file, loaded at startup), `xsd_strict`; the verdict in the answer            | the same verdict; the service never fetches a schema                                         |
+| A strict XSD failure | the XML is written, the document counts as failed (exit 3)                           | 422 `xsd_validation_failed`, no XML                                                              | differs: an answer is all or nothing                                                         |
+| The record           | handed back when `--document-json` was given, nothing added                          | returned when `document_json` was sent, nothing added                                            | the same record                                                                              |
+| The log              | `<doc>_log.csv` beside the XML                                                       | with `include_log=true`: `log_csv`, or a part of the multipart answer                            | the same rows                                                                                |
+| An invalid record    | a warning on stderr; the record is still handed back                                 | passed through; `document_json_schema_error` in the JSON answer (the multipart one has none)     | the same record                                                                              |
+| Paradata             | a file in `<output>/paradata/`, program `translator`                                 | the `CreateAction` of the JSON and multipart answers, program `translator-api`; none in bare XML | the same keys and values; a path on the command line is a file name in the service           |
 
 ## Troubleshooting
 
-| Symptom                                              | Cause                                                                                                                                                                                                                                               | Fix                                                                                                     |
-|------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
-| `.env` values have no effect under `python main.py`  | `.env` is read by Compose (`env_file`) for the container; `main.py` reads only the process environment                                                                                                                                              | export the variables (`set -a; . ./.env; set +a`), or run through Compose                               |
-| `EACCES` writing to `./data` under Docker            | the host directory is not writable by uid 10001, the image's default user                                                                                                                                                                           | run with `--user "$(id -u):0"`; under Compose set `ATRIUM_UID` in `.env`                                |
-| A metadata run finds nothing and exits 2             | a folder of records scanned with config.txt's `formats = alto.xml`, which picks up only `*.alto.xml`                                                                                                                                                | pass `--xpaths`, or `--formats xml` (`xml,txt` for a URL list)                                          |
-| The run exits 1 before translating                   | a refused language pair, a missing vocabulary file, an XSD that cannot be loaded, or a backend that cannot start; the `[ERROR]` line names which                                                                                                    | fix what the line names                                                                                 |
-| Container reports healthy, nothing can reach it      | `HOST=127.0.0.1` binds inside the container only                                                                                                                                                                                                    | leave `HOST` unset (it defaults to `0.0.0.0`)                                                           |
-| Every block is translated as the default language    | the FastText model could not be downloaded or loaded, so nothing is detected and the fallbacks decide                                                                                                                                               | check `GET /health?deep=true`, which reports it; or pass `--source_lang`, which skips detection         |
-| `/translate` answers 422 for a metadata file         | no `xpaths` sent with the request (`cause: "missing_xpaths"`): the field list comes with each job (D34)                                                                                                                                             | send the list as `xpaths`, one XPath per line                                                           |
-| A translation run is slow, with no error             | page batches fell back to one request per item, after a line-count mismatch, an implausible reply or a transport error                                                                                                                              | read the per-document `WARNING` summary, which counts each cause                                        |
-| `LINDAT: N degenerate reply(ies) re-requested`       | the translation service answered some requests with a looping or empty reply; each was asked again                                                                                                                                                  | nothing, if the log has no `untranslated` rows: the guard recovered them, at the cost of time           |
-| The run fails with `limit_exceeded` (exit 3, or 422) | a segment stayed degenerate after the end-of-document re-run; an untranslated field is not a result (D13), so the job fails                                                                                                                         | re-run that document later; raise `LINDAT_GUARD_RETRIES` / `TRANSLATION_RERUN_ROUNDS` if it recurs      |
-| Rows marked `unsupported_lang` in `_log.csv`         | with `--source_lang auto`, FastText was confident the segment is a language the backend cannot translate (Latin, Hungarian on LINDAT); it was translated from the fallback language, as the record's `translations.unsupported_source_langs` counts | review those rows; translate them with a backend that has the language (`ct2`), or pass `--source_lang` |
-| `XSD validation failed` on an `append` AMČR record   | AMČR 2.2 accepts neither `xml:lang` on the translated field nor its repeated sibling                                                                                                                                                                | expected for `append`; use `replace` where the record must validate                                     |
-| The TEATER harvest yields nothing, with an SSL error | `teater.aiscr.cz` serves an incomplete certificate chain                                                                                                                                                                                            | point `REQUESTS_CA_BUNDLE` at a bundle with the missing intermediate ([above](#build-the-vocabulary))   |
-| Container exits 143                                  | a clean SIGTERM drain                                                                                                                                                                                                                               | expected; not a failure                                                                                 |
+| Symptom                                              | Cause                                                                                                                                                                                                                                  | Fix                                                                                                        |
+|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| `.env` values have no effect under `python main.py`  | `.env` is read by Compose (`env_file`) for the container; `main.py` reads only the process environment                                                                                                                                 | export the variables (`set -a; . ./.env; set +a`), or run through Compose                                  |
+| `EACCES` writing to `./data` under Docker            | the host directory is not writable by uid 10001, the image's default user                                                                                                                                                              | run with `--user "$(id -u):0"`; under Compose set `ATRIUM_UID` in `.env`                                   |
+| A metadata run finds nothing and exits 2             | a folder of records scanned with config.txt's `formats = alto.xml`, which picks up only `*.alto.xml`                                                                                                                                   | pass `--xpaths`, or `--formats xml` (`xml,txt` for a URL list)                                             |
+| The run exits 1 before translating                   | a refused language pair, a field list that names no file or holds no XPath, a missing vocabulary file, an XSD that cannot be loaded, or a backend that cannot start; the `[ERROR]` line names which                                    | fix what the line names                                                                                    |
+| Container reports healthy, nothing can reach it      | `HOST=127.0.0.1` binds inside the container only                                                                                                                                                                                       | leave `HOST` unset (it defaults to `0.0.0.0`)                                                              |
+| Every block is translated as the default language    | the FastText model could not be downloaded or loaded, so nothing is detected and the fallbacks decide                                                                                                                                  | check `GET /health?deep=true`, which reports it; or pass `--source_lang`, which skips detection            |
+| `/translate` answers 422 for a metadata file         | no `xpaths` sent with the request (`cause: "missing_xpaths"`): the field list comes with each job                                                                                                                                      | send the list as `xpaths`, one XPath per line                                                              |
+| A translation run is slow, with no error             | page batches fell back to one request per item, after a line-count mismatch, an implausible reply or a transport error                                                                                                                 | read the per-document `WARNING` summary, which counts each cause                                           |
+| `LINDAT: N degenerate reply(ies) re-requested`       | the translation service answered some requests with a looping or empty reply; each was asked again                                                                                                                                     | nothing: the guard recovered them, at the cost of time. A reply it cannot recover fails the run (next row) |
+| The run fails with `limit_exceeded` (exit 3, or 422) | a segment stayed degenerate after the end-of-document re-run; an untranslated field is not a result, so the job fails and the command line stops                                                                                       | run it again later; raise `LINDAT_GUARD_RETRIES` / `TRANSLATION_RERUN_ROUNDS` if it recurs                 |
+| Rows marked `unsupported_lang` in `_log.csv`         | with `--source_lang auto`, FastText was confident the segment is a language the backend cannot translate (Latin, Hungarian on LINDAT); it was translated from the fallback language, as the paradata's `translations` parameter counts | review those rows; translate them with a backend that has the language (`ct2`), or pass `--source_lang`    |
+| `XSD validation failed` on an `append` AMČR record   | AMČR 2.2 accepts neither `xml:lang` on the translated field nor its repeated sibling                                                                                                                                                   | expected for `append`; use `replace` where the record must validate                                        |
+| The TEATER harvest yields nothing, with an SSL error | `teater.aiscr.cz` serves an incomplete certificate chain                                                                                                                                                                               | point `REQUESTS_CA_BUNDLE` at a bundle with the missing intermediate ([above](#build-the-vocabulary))      |
+| Container exits 143                                  | a clean SIGTERM drain                                                                                                                                                                                                                  | expected; not a failure                                                                                    |
