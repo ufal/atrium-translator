@@ -1,5 +1,7 @@
 # Strategy — [atrium-project#84](https://github.com/ufal/atrium-project/issues/84) (doc-schema-v2): the translator's metadata-en job
 
+> _**Refreshed 2026-11-22**: #65 merged (atrium-project#79 and #40: the docs, the CLI's refusal of a metadata run
+> without a field list, the CI schedules); the pins at `fbffe25`._
 > _**Refreshed 2026-11-19**: "Status — 11-19": #61–#64 on `test`; aiscr-webamcr#3570 and its criterion 3; the pairs of
 > #4 and #52 removed._
 > _**Refreshed 2026-11-14 (afternoon)**: "Status — round 6 (11-14)": the hub merged, the pins moved, round 6._
@@ -13,6 +15,8 @@
 > contract digest.
 > This file is this repository's slice only; the repository has no open issue. Its 11-11 version
 > (written before the issue existed) is superseded; the section "2026-11-12" is the current reading._
+
+**Status (2026-11-22)**: 🟡 **As on 11-19, now pinned to `fbffe25` since atrium-project#79's merge (11-22, #65 `a064ac4`); `test` is one commit past `master`. The command line refuses a metadata run with a missing or empty field list (exit 1), as the service does (422 `missing_xpaths`). `lindat-daily.yml` and `scheduled-smoke.yml` run by dispatch only on `test`; on `master` until the release merge (atrium-project#77).**
 
 **Status (2026-11-19)**: 🟡 **This repository's part is on `test` (#60, #62, #63), pinned to `02cbd01`; `master` =
 `test` (`3b966c5`). Open on AMČR's side: aiscr-webamcr#3570 has no XPath list yet, and its acceptance criterion 3
@@ -228,6 +232,7 @@ All in closed issues' files (listed, not edited; the pairs of #4 and #52 removed
 - Full-text and ALTO translation in the pipeline: a later decision.
 - AMČR's access rules for `metadata-en`, its protected-field filter and the record's RO-Crate (AMČR's side).
 - CI schedules: `lindat-daily.yml` and `scheduled-smoke.yml` go with atrium-project#81 (CI on pull requests and
-  releases only, security updates excepted); `codeql.yml` and `security.yml` keep theirs.
+  releases only, security updates excepted); `codeql.yml` and `security.yml` keep theirs. Done on `test` with #65
+  (11-22).
 - Galaxy work beyond the 30 September agreement: parked. The 11-06 entry moved the hub's Galaxy wrapper pin
   (`DEVLOG.md:919`); no action.

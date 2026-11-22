@@ -1,6 +1,6 @@
 # 📓 atrium-translator — agent_dev_logs/DEVLOG.md (timeline index)
-> _XML in-place translation (AMČR metadata records, ALTO). Open issue: #61 (2026-11-16; done, `master` = `test`, closing is
-> motyc's). Closed: #46 2026-10-25, #4 2026-10-19, #52 2026-10-13 (the pairs of #4 and #52 removed 2026-11-19; #46's stays,
+> _XML in-place translation (AMČR metadata records, ALTO). Open issue: #61 (2026-11-16; done; closing is motyc's). `test` is one
+> commit past `master` since #65 (11-22). Closed: #46 2026-10-25, #4 2026-10-19, #52 2026-10-13 (the pairs of #4 and #52 removed 2026-11-19; #46's stays,
 > cited by `utils.py` and a test); Dependabot's #54 closed 2026-10-21. **Starting set of the pilot phase: v1.7.5-beta** (`17e2832`, 2026-11-04;
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
 > Since: **v1.7.8-beta** (11-06, the Galaxy entry point); v1.7.6-beta and v1.7.7-beta were tagged, not released. `test` (=
@@ -1075,3 +1075,27 @@ Documentation only; no code, test or configuration change.
   them).
 * **Next:** #61 closed by motyc; its release-notes line with the batch (atrium-project#77).
 * Logs only; no code changed. Files delivered as full files.
+
+## 2026-11-22 — atrium-project#79: documentation and CI triggers, merged as #65
+
+* **Merged 11-22** as #65 (`a064ac4`), squash: this repository's documentation round for atrium-project#79 and the CI
+  trigger change of atrium-project#40. Its last commit re-pinned the hub reusables to `fbffe25` (`v1`, the merge of
+  atrium-project#93), so Workflow Policy Lint now refuses a branch push and a schedule outside `codeql` and
+  `security`.
+* **Checked after the merge:** the merged pull request's `docker.yml` run (its `closed` event) passed on the new
+  reusable and published `atrium-translator-api:test` from the merge commit (`sha256:f84d2ed4…`, revision `a064ac4`).
+  `docs_check.py` and `runbook_check.py` pass on `test`.
+* **Not yet in effect:** GitHub reads `schedule:` and `dependabot.yml` from the default branch, `master`, which still
+  has the old workflows: `scheduled-smoke.yml` and `lindat-daily.yml` keep their schedules there, and Dependabot its
+  version updates, until `test` is merged into it with the 2.0.0-beta release batch (atrium-project#77).
+* **Follow-ups the PR left:** a command-line usage error still writes a paradata file marked `completed`, with nothing
+  in it; the batch paradata `config` holds local paths; a UDPipe error answer or a refused connection leaves
+  vocabulary terms unprotected instead of failing; the committed samples predate record schema 2.0; the `agent-skill`
+  branch's client needs the field list.
+* **Written here (not pushed):** the `eval/lindat_probe.py` docstring and one comment: the LINDAT check runs when
+  someone dispatches it ("LINDAT check (manual)") and opens no issue. No code changed; `tests/test_lindat_probe.py` 19
+  passed, ruff clean. The test file's section comment still says "The daily check".
+* **Detail:** hub [plan of #79](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/79.plan.md),
+  "Where it stands — 2026-11-22";
+  [plan of #40](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/40.plan.md).
+* **Not posted; not pushed.**

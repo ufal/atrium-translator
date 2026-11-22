@@ -31,21 +31,21 @@ replica (all ✓ or all ✗) or balances per request (alternating again).
 It is a *script*, not a test: it calls the live endpoint (``TRANSLATION_URL`` /
 ``LINDAT_BASE_URL`` / the LINDAT default, exactly as the pipeline resolves it).
 
-The daily check (atrium-project#78)
------------------------------------
-``.github/workflows/lindat-daily.yml`` runs it every day with ``--max-bad 0``: the exit
-status is 1 when more replies than that are bad, and the lane's issue is opened or
-updated. A reply is bad when the pipeline's guard rejects it (above), and also when it
+The LINDAT check (atrium-project#78)
+------------------------------------
+``.github/workflows/lindat-daily.yml``, shown as "LINDAT check (manual)", runs it with
+``--max-bad 0`` when someone dispatches it: the exit status is 1 when more replies than
+that are bad. A reply is bad when the pipeline's guard rejects it (above), and also when it
 is not a translation (:func:`content_reason`): a number of the source is missing from
 it, it repeats the source, or it still carries letters of the source language that the
-target does not use. The daily text (``DAILY_TEXT``) has numbers and such letters, so
-both checks bite. Without ``--max-bad`` the probe only reports, as before.
+target does not use. The check's text (``DAILY_TEXT``, chosen with ``--text daily``) has numbers
+and such letters, so both checks bite. Without ``--max-bad`` the probe only reports, as before.
 
 Usage
 -----
     python -m eval.lindat_probe
     python -m eval.lindat_probe --n 30 --text "Nálezová zpráva" --pause 0.5
-    python -m eval.lindat_probe --text daily --max-bad 0      # the daily check
+    python -m eval.lindat_probe --text daily --max-bad 0      # the LINDAT check
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ from processors.quality import degeneration_reason  # noqa: E402
 from processors.translator import resolve_translation_url  # noqa: E402
 
 DEFAULT_TEXT = "Záchranný archeologický výzkum"
-#: The daily check's input: numbers to keep, and letters (ý, ř, ů) no English reply has.
+#: The LINDAT check's input (``--text daily``): numbers to keep, and letters (ý, ř, ů) no English reply has.
 DAILY_TEXT = "Výzkum v roce 1932 odkryl 3 hroby a 120 střepů."
 GOOD, BAD = "✓", "✗"
 
