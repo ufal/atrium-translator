@@ -1,11 +1,13 @@
 # .github/workflows/scheduled-smoke.yml
-# Nightly re-run of the full suite in a FROM-SCRATCH environment.
+# An on-demand re-run of the full suite in a FROM-SCRATCH environment.
+# Run by dispatch only (Actions -> this workflow -> Run workflow), for example before a release: the CI
+# agreement of 11 November 2026 allows no scheduled runs. The file keeps its name so links still work.
 #
 # What this job is for, stated because it is easy to misread (issue atrium-project#10):
 # it runs the same hermetic suite the PR lane runs, so it adds no new test coverage. Its
 # signal is DEPENDENCY DRIFT -- the PR lane runs against a warm cache and a resolved
 # environment, while this installs requirements-test.txt, requirements.txt and
-# service/requirements.txt fresh every night. A transitive release that breaks the
+# service/requirements.txt fresh on every run. A transitive release that breaks the
 # install, or a floating pin that moves under us, shows up here and nowhere else.
 #
 # It is deliberately NOT `-m slow`, and that decision is re-confirmed here rather
@@ -23,7 +25,7 @@
 # returned HTTP 500 on every real upload. That gap needs an integration lane with a
 # reachable backend, not a marker.
 
-name: Scheduled Smoke Test
+name: Fresh-environment Smoke Tests (manual)
 
 # Mirrors the hub's e2e-pipeline-smoke.yml: a smoke run that is already executing is
 # the one carrying the signal, so a later trigger queues rather than killing it.
@@ -34,13 +36,8 @@ concurrency:
 permissions:
   contents: read
   actions: read
-  issues: write          # required by "Open Issue on Failure"; GitHub's 403 asked
-                         # for exactly this (x-accepted-github-permissions: issues=write).
-                         # A permissions block WITHOUT it pins issues=none -> 403.
 
 on:
-  schedule:
-    - cron: '0 4 * * *'
   workflow_dispatch:     # allow manual re-runs
 
 jobs:
@@ -74,15 +71,3 @@ jobs:
         # `-rs` prints every skip with its reason, so a dependency that quietly stops
         # installing shows up as a growing skip list rather than as a still-green run.
         run: pytest tests/ -rs
-
-      # One open issue per failing lane, commented on by each later failure; scheduled runs only
-      # (atrium-project#81). It used to open a new issue on every failing run.
-      - name: Open or update the lane's issue on scheduled failure
-        if: failure() && github.event_name == 'schedule'
-        uses: ufal/atrium-project/.github/actions/lane-failure-issue@02cbd0144cfa2d39d981d43eea7f4cd72bed53ba  # v1
-        with:
-          lane: scheduled-smoke
-          title: Scheduled smoke test failed
-          labels: bug,automated issue
-          body: >-
-            The automated daily smoke test failed. Please review the action logs.

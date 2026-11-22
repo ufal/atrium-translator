@@ -69,8 +69,8 @@ output_mode = replace
 | `translation_backend` | `lindat`                                        | `--backend`             | `TRANSLATION_BACKEND`, then `lindat`                                  |
 | `output_mode`         | `replace`                                       | `--output-mode`         | `OUTPUT_MODE`, then `replace`                                         |
 
-The metadata field list is not a key: it comes with each job, `--xpaths FILE` on the command line (D34). An older
-config.txt's `fields =` key is ignored.
+The metadata field list is not a key: it comes with each job, `--xpaths FILE` on the command line, and a metadata
+run without one is refused. An older config.txt's `fields =` key is ignored.
 
 **`formats` says which files a folder scan picks up,** and nothing more: the shipped `alto.xml` takes only
 `*.alto.xml`, and each file's root element then decides ALTO or metadata. `--formats` on the command line also
@@ -125,20 +125,20 @@ Each remote backend retries a network error, HTTP 429 or 5xx up to its `*_MAX_RE
 
 ### `openai_compatible`: a language model behind an OpenAI-compatible API
 
-| Variable                | Default | Effect                                                                                                                                                                              |
-|-------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `LLM_BASE_URL`          | —       | the API's base URL, e.g. a local vLLM server's `/v1`; required                                                                                                                      |
-| `LLM_MODEL`             | —       | the model id; required. No model id is hard-coded                                                                                                                                   |
-| `LLM_API_KEY`           | —       | a **secret**: keep it out of the image and the manifest. A local server may need none                                                                                               |
-| `LLM_PROVIDER`          | —       | an optional provider label                                                                                                                                                          |
-| `LLM_LANGUAGES`         | —       | a CSV of the language codes the backend may handle. Unset, it lists none, and refuses no pair                                                                                       |
-| `LLM_EXTRA_BODY`        | —       | a JSON object merged into every request body, e.g. `{"chat_template_kwargs": {"enable_thinking": false}}` for a vLLM serving Qwen3.8; not a JSON object: the backend does not start |
-| `LLM_LICENSE_COMPONENT` | —       | the `para_config.txt` component recorded for the model instead of `llm_api` (the provider's terms): `qwen3_8` for a self-served Qwen3.8-27B (Apache-2.0)                            |
-| `LLM_MIN_INTERVAL_S`    | `0.0`   | the minimum seconds between requests                                                                                                                                                |
-| `LLM_BACKOFF_BASE_S`    | `1.0`   | as `LINDAT_BACKOFF_BASE_S`                                                                                                                                                          |
-| `LLM_GUARD_MIN_CHARS`   | `16`    | below this source length the ratio guards do not apply                                                                                                                              |
-| `LLM_GUARD_MIN_RATIO`   | `0.25`  | reject output shorter than this multiple of the source                                                                                                                              |
-| `LLM_GUARD_MAX_RATIO`   | `4.0`   | reject output longer than this multiple of the source                                                                                                                               |
+| Variable                | Default | Effect                                                                                                                                                                                                               |
+|-------------------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `LLM_BASE_URL`          | —       | the API's base URL, e.g. a local vLLM server's `/v1`; required                                                                                                                                                       |
+| `LLM_MODEL`             | —       | the model id the server lists at `/v1/models`; required. No model id is hard-coded. A vLLM serves a model under the Hugging Face id it was started with (`Qwen/Qwen3.8-27B`) unless `--served-model-name` renames it |
+| `LLM_API_KEY`           | —       | a **secret**: keep it out of the image and the manifest. A local server may need none                                                                                                                                |
+| `LLM_PROVIDER`          | —       | an optional provider label                                                                                                                                                                                           |
+| `LLM_LANGUAGES`         | —       | a CSV of the language codes the backend may handle. Unset, it lists none, and refuses no pair                                                                                                                        |
+| `LLM_EXTRA_BODY`        | —       | a JSON object merged into every request body, e.g. `{"chat_template_kwargs": {"enable_thinking": false}}` for a vLLM serving Qwen3.8; not a JSON object: the backend does not start                                  |
+| `LLM_LICENSE_COMPONENT` | —       | the `para_config.txt` component recorded for the model instead of `llm_api` (the provider's terms): `qwen3_8` for a self-served Qwen3.8-27B (Apache-2.0)                                                             |
+| `LLM_MIN_INTERVAL_S`    | `0.0`   | the minimum seconds between requests                                                                                                                                                                                 |
+| `LLM_BACKOFF_BASE_S`    | `1.0`   | as `LINDAT_BACKOFF_BASE_S`                                                                                                                                                                                           |
+| `LLM_GUARD_MIN_CHARS`   | `16`    | below this source length the ratio guards do not apply                                                                                                                                                               |
+| `LLM_GUARD_MIN_RATIO`   | `0.25`  | reject output shorter than this multiple of the source                                                                                                                                                               |
+| `LLM_GUARD_MAX_RATIO`   | `4.0`   | reject output longer than this multiple of the source                                                                                                                                                                |
 
 The bake-off's recommended setup (Qwen3.8-27B in bf16 on a local vLLM) is in
 [the backend decision](decisions/backend-choice.md).
@@ -177,8 +177,7 @@ Only with `source_lang=auto`.
 | `LANG_ID_MODEL_PATH`     | — (images: `/opt/models/fasttext-lid.bin`) | the FastText model file. Unset, a checkout downloads the pinned Hub revision into `HF_HOME` once. A path that is not a file: no detection, the fallbacks decide |
 | `HF_HOME`                | — (images: `/cache/huggingface`)           | where the Hugging Face cache lives; Compose mounts a named volume there                                                                                         |
 
-The published images carry the model since v1.6.0-beta; earlier images download it at
-start ([Models and caches](../service/README.md#models-and-caches)).
+The published images carry the model ([Models and caches](../service/README.md#models-and-caches)).
 
 ### The guard's re-run
 

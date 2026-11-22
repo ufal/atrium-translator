@@ -40,7 +40,7 @@ Which run produced each folder — each `paradata/` folder holds that run's reco
 > **`ct2_translated_files/xml` is the `ct2` EuroLLM-1.7B run of the same job**: the same records, `replace`,
 > `--source_lang cs`, the curated vocabulary, AMCR 2.2 (15/15), int8 on an RTX A4000 (`int8_float16`). Its 7
 > `untranslated` fields kept their Czech text: the model ran on past the source and the guard refused the reply. The
-> bake-off found EuroLLM unfit as the self-hosted alternative ([docs/translation-backends.md](../docs/translation-backends.md#recommendation));
+> bake-off found EuroLLM unfit as the self-hosted alternative ([the backend decision](../docs/decisions/backend-choice.md));
 > the folder stays as the record of that run. The CPU run of 2026-09-28 (33 `ok`, 4 `untranslated`) is at `0a64328`.
 
 Each folder holds, per input document:
@@ -113,17 +113,17 @@ python main.py data_samples/my_documents/MTX201501307_anon.alto.xml --alto \
 
 # AMCR metadata (a metadata run leaves *.alto.xml out of a directory scan) — LINDAT
 # replace: the production shape of issue #46
-python main.py data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
+python main.py data_samples/my_documents --xpaths amcr-fields.example.txt --formats xml \
     --source_lang cs --vocabulary data_samples/vocabulary.csv \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd \
     --output data_samples/in-place_translated_files/xml --output-mode replace
-python main.py data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
+python main.py data_samples/my_documents --xpaths amcr-fields.example.txt --formats xml \
     --source_lang auto --vocabulary data_samples/vocabulary.csv \
     --output data_samples/appended_translated_files/xml --output-mode append
 ```
 
 The same records through the self-hosted `ct2` EuroLLM backend (issue #4; install `requirements-ct2.txt`, convert the
-model as in [docs/translation-backends.md](../docs/translation-backends.md)) — into a folder of its own, so the
+model as in [the EuroLLM notes](../docs/evaluation/backends.md#eurollm-utter-project)) — into a folder of its own, so the
 LINDAT set stays as it is:
 
 ```bash
@@ -131,7 +131,7 @@ LINDAT set stays as it is:
 export CT2_MODEL_DIR="$PWD/models/ct2/eurollm-1.7b-int8" CT2_MODEL_FAMILY=eurollm \
        CT2_TOKENIZER_DIR="$PWD/models/hf/EuroLLM-1.7B-Instruct" \
        CT2_DEVICE=cpu CT2_COMPUTE_TYPE=int8 CT2_LANGUAGES=cs,en
-python main.py data_samples/my_documents --xpaths amcr-fields.txt --formats xml \
+python main.py data_samples/my_documents --xpaths amcr-fields.example.txt --formats xml \
     --backend ct2 --source_lang cs --vocabulary data_samples/vocabulary.csv \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd \
     --output data_samples/ct2_translated_files/xml --output-mode replace

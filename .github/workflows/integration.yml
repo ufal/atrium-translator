@@ -9,7 +9,7 @@
 #
 # Two jobs, deliberately asymmetric:
 #
-#   stub-backend  — runs on every push/PR. A local http.server speaks the LINDAT
+#   stub-backend  — runs on every pull request. A local http.server speaks the LINDAT
 #                   and UDPipe wire formats, so the real handler, the real
 #                   LindatTranslator, the real chunker, the real ALTO
 #                   reconstruction and the real paradata write all execute with
@@ -18,7 +18,7 @@
 #   live-backend  — manual only. Same tests against the real LINDAT hosts. What a
 #                   stub cannot prove is that LINDAT's own contract still holds:
 #                   if CUBBITT changes its response shape, the stub lane stays
-#                   green. Run this before a release, not on every push — the
+#                   green. Run this before a release, not on every pull request — the
 #                   endpoint is a shared public service we do not own, and a CI
 #                   lane hammering it on every commit is not a reasonable
 #                   neighbour.
@@ -33,8 +33,6 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches: [test, master]
   pull_request:
     branches: [test, master]
   workflow_dispatch:

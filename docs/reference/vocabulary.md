@@ -26,26 +26,27 @@ source_lemma,target_translation,source,source_id,uri,description
 archeolog,archaeologist,teater,4,https://teater.aiscr.cz/id/4,
 ```
 
-| Column                   | Content                                                                                                                                                                                                                          |
-|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `source_lemma`           | The **lemma (dictionary form)** of the source term. For a single word it must match what UDPipe returns for the source language (below). A multi-word phrase is matched on the surface form given here.                          |
-| `target_translation`     | The agreed translation, usually the preferred English term of a controlled vocabulary or thesaurus.                                                                                                                              |
-| `source` (optional)      | Which thesaurus the pair came from: `amcr` or `teater`.                                                                                                                                                                          |
-| `source_id` (optional)   | The concept's id in that thesaurus: the AMČR `heslo` id (`HES-…`) or the TEATER concept id.                                                                                                                                      |
-| `uri` (optional)         | The dereferenceable concept URI built from `source_id` (`https://api.aiscr.cz/id/…` or `https://teater.aiscr.cz/id/…`).                                                                                                          |
-| `description` (optional) | The concept's scope note (`note_en`, else `note_cs`), cut to 500 characters. Read **by header name only**. Given to the LLM backend as context when `LLM_GLOSSARY_DESCRIPTION_CHARS` > 0 (issue #4); LINDAT and `ct2` ignore it. |
+| Column                   | Content                                                                                                                                                                                                               |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `source_lemma`           | The **lemma (dictionary form)** of the source term. For a single word it must match what UDPipe returns for the source language (below). A multi-word phrase is matched on the surface form given here.               |
+| `target_translation`     | The agreed translation, usually the preferred English term of a controlled vocabulary or thesaurus.                                                                                                                   |
+| `source` (optional)      | Which thesaurus the pair came from: `amcr` or `teater`.                                                                                                                                                               |
+| `source_id` (optional)   | The concept's id in that thesaurus: the AMČR `heslo` id (`HES-…`) or the TEATER concept id.                                                                                                                           |
+| `uri` (optional)         | The dereferenceable concept URI built from `source_id` (`https://api.aiscr.cz/id/…` or `https://teater.aiscr.cz/id/…`).                                                                                               |
+| `description` (optional) | The concept's scope note (`note_en`, else `note_cs`), cut to 500 characters. Read **by header name only**. Given to the LLM backend as context when `LLM_GLOSSARY_DESCRIPTION_CHARS` > 0; LINDAT and `ct2` ignore it. |
 
 Single-word entries should be lemmas (the singular, the infinitive): matching is by lemma and is number-neutral.
 
-**The shipped list** (since 2026-10-18) is built from atrium-keyword-extract's release asset
+**The shipped list** is built from atrium-keyword-extract's release asset
 (`python load_vocab.py --from-release v1.3.0-beta`): the 4,715 pairs of its curated `vocabulary.csv`, so the project
-curates one list rather than two (AMČR, 13 October 2026). Each pair keeps its concept identity (`source`,
+curates one list rather than two (agreed with AMČR). Each pair keeps its concept identity (`source`,
 `source_id`, `uri`), and 1,961 carry the concept's description. Most descriptions are Czech: TEATER has them for
 about half its terms, AMČR for few. AMČR asked for the LLM backend to translate "with the vocab, including
 descriptions, as one of the inputs"; `LLM_GLOSSARY_DESCRIPTION_CHARS` gives a matched term's description to the
-model beside the pair, and a longer description is cut at a word (a `trimmed` note). It stays off by default
-([the decision](../decisions/backend-choice.md)). Only `openai_compatible` uses descriptions: EuroLLM-1.7B (`ct2`)
-already echoed the bare glossary into its output before the prompt fix of 2026-09-28, and its input budget is small.
+model beside the pair, and a longer description gives the prompt its first part, cut at a word (a `sampled` note).
+It stays off by default ([the decision](../decisions/backend-choice.md)). Only `openai_compatible` uses descriptions:
+EuroLLM-1.7B (`ct2`) echoed even the bare glossary into its output before its prompt was fixed, and its input budget
+is small.
 
 ## The lemma form by language
 
