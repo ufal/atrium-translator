@@ -75,8 +75,8 @@ C-TX-000000000,,//amcr:amcr/amcr:dokument/amcr:popis,"Záchranný výzkum při s
 
 `out/paradata/` holds the run's paradata. The ALTO page in the same folder is skipped, because this is a metadata
 run. [data_samples/in-place_translated_files/xml/](data_samples/in-place_translated_files/xml/) holds the output of
-the same run made by an earlier release: its translations compare, its records and paradata predate record schema
-2.0 ([data_samples/README.md](data_samples/README.md)). Releases before 2.0.0-beta are described by the README at
+the same run made by an earlier release: its translations compare; its records and paradata, which predate record
+schema 2.0, are no longer committed ([data_samples/README.md](data_samples/README.md)). Releases before 2.0.0-beta are described by the README at
 their tag.
 
 **What the run calls.** LINDAT's translation service, and its UDPipe service too, because the shipped

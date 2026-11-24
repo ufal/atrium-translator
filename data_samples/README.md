@@ -1,8 +1,9 @@
 ## Sample outputs
 
-> These samples predate record schema 2.0 and paradata 3.0 (atrium-project#84): their `.document.json` files carry
-> a `translations` block and their paradata a calculated licence. A run of this version writes no record of its own
-> and lists components as facts.
+> These samples were made before record schema 2.0 and paradata 3.0 (atrium-project#84). Their records
+> (`.document.json`, with a `translations` block) and run paradata (with a calculated licence) are no longer
+> committed; git history up to `v1.7.8-beta` keeps them. The translated documents and their QA logs stay. A run of
+> this version writes no record of its own and lists components as facts.
 
 The same inputs (`my_documents/`) translated in both output modes of issue #46, one folder per mode and per
 input kind, and the AMCR records once more through the self-hosted `ct2` backend (issue #4), in a folder of their own:
@@ -21,7 +22,7 @@ data_samples/
     └── xml/                      the AMCR records                        (ct2, EuroLLM-1.7B)
 ```
 
-Which run produced each folder — each `paradata/` folder holds that run's record:
+Which run produced each folder (the run ids name its paradata, in git history):
 
 | Folder                           | Backend                                  | `--source_lang` | `--xsd`  | Run             | Log `status`                         |
 |----------------------------------|------------------------------------------|-----------------|----------|-----------------|--------------------------------------|
@@ -49,8 +50,6 @@ Each folder holds, per input document:
 |--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
 | `<doc>_en.alto.xml` / `<doc>_en.xml` | the translated document                                                                                                     |
 | `<doc>_log.csv`                      | QA log: `file, page_num, line_num, text_<src>, text_en, status` — one row per ALTO line / metadata field, in document order |
-| `<doc>.document.json`                | the ATRIUM Document record (`translations.output_mode`, `translations.detected_source_lang` with `source_lang=auto`)        |
-| `paradata/<run>_translator.json`     | the run's provenance record (configuration incl. the language policy, licences, counts)                                     |
 
 What the two modes look like:
 
@@ -75,15 +74,9 @@ and translated from the fallback language; translator#52). A table
 column whose block translation merged repeated cells (page 76 of the ALTO sample) is placed line by line, each cell
 from its own translation, so no number moves to its neighbour's row.
 
-> The `.document.json` of both ALTO samples and of the first AMCR record of the append folder list only `fasttext`:
-> they were written before the backend's components were recorded, which later code fixes. Those runs' paradata and
-> their other records also list LINDAT and the UDPipe models, **CC BY-NC-SA 4.0**; the replace folder's records
-> (v1.2.2-beta) all do. The next LINDAT refresh below rewrites
-> the others. The AMCR/TEATER vocabulary
-> is **CC0**, as its rights holder AMČR stated
-> ([atrium-project#6](https://github.com/ufal/atrium-project/issues/6#issuecomment-5867861653), 2026-09-28); paradata
-> written before v1.2.2-beta labels it CC BY-NC 4.0. A LINDAT run still lists LINDAT and the UDPipe models,
-> CC BY-NC-SA 4.0. A `ct2` EuroLLM run with the vocabulary and `--source_lang cs` lists only permissive components and
+> The AMCR/TEATER vocabulary is **CC0**, as its rights holder AMČR stated
+> ([atrium-project#6](https://github.com/ufal/atrium-project/issues/6#issuecomment-5867861653), 2026-09-28). A LINDAT
+> run lists LINDAT and the UDPipe models, CC BY-NC-SA 4.0. A `ct2` EuroLLM run with the vocabulary and `--source_lang cs` lists only permissive components and
 > the CC0 vocabulary.
 >
 > **`vocabulary.csv`** is **CC0** per that statement. Since 2026-10-18 it is built from atrium-keyword-extract's
@@ -97,12 +90,10 @@ from its own translation, so no number moves to its neighbour's row.
 
 Run from the repository root, **one command at a time** — concurrent runs against the public LINDAT endpoint
 coincided with the degenerate replies that motivated the guard — and commit a folder only after its run has printed
-`PROCESSING COMPLETE`: each document's log, XML and record are replaced only when that document is finished. Remove
-the old run records first so each `paradata/` folder holds the record of the run that produced its files:
+`PROCESSING COMPLETE`: each document's log and XML are replaced only when that document is finished. Each run also
+writes its paradata into the folder's `paradata/`; commit them with the folder.
 
 ```bash
-rm -f data_samples/*/*/paradata/*.json
-
 # ALTO
 python main.py data_samples/my_documents/MTX201501307_anon.alto.xml --alto \
     --source_lang auto --vocabulary data_samples/vocabulary.csv \
