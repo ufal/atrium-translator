@@ -104,6 +104,23 @@ def test_a_metadata_run_without_a_usable_field_list_is_refused_before_translatin
     assert not list((isolated / "out").glob("*.xml"))
 
 
+def test_a_refused_run_says_failed_in_its_paradata(isolated, monkeypatch):
+    """A usage error found once the run has started writes paradata that say `failed`
+    (atrium-project#84, D13), not `completed` with nothing in them."""
+    import json
+
+    doc = isolated / "record.xml"
+    doc.write_text(_AMCR)
+    _never_translate(monkeypatch)
+
+    code = _run(monkeypatch, str(doc), "--xpaths", str(isolated / "none.txt"), "-o", str(isolated / "out"))
+    assert code == EXIT_USAGE
+    (paradata,) = (isolated / "out" / "paradata").glob("*_translator.json")
+    record = json.loads(paradata.read_text(encoding="utf-8"))
+    assert record["action_status"] == "failed"
+    assert record["error"].startswith("usage error")
+
+
 def test_an_indented_comment_is_not_an_xpath(isolated):
     """A comment is a line that starts with `#` after its leading spaces, as in the service."""
     fields = isolated / "fields.txt"

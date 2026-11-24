@@ -14,8 +14,9 @@ files, and the same record and log when the request sends a record or asks for t
 | Paradata            | `paradata/YYMMDD-HHmmss_translator.json` in the output directory     | the run's provenance ([paradata.md](paradata.md))                                                |
 | RO-Crate            | `ro-crate-metadata.json`                                             | only from `atrium_rocrate.py`'s own CLI, run over finished records                               |
 
-The sample outputs in [data_samples/](../../data_samples/README.md) show each of them, in both output modes; they were
-made by a release before record schema 2.0, so their records and paradata differ from what a run writes now.
+The sample outputs in [data_samples/](../../data_samples/README.md) show the translated documents and logs in both
+output modes. The two AMČR replace folders were made with this version and carry its paradata; none of the folders
+carries a record, since a run writes one only when `--document-json` gives it.
 
 ## Translation logs
 

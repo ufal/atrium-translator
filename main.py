@@ -613,6 +613,13 @@ def log_backend_components(translator, paradata_logger, *, detected: bool = Fals
             paradata_logger.log_component(comp)
 
 
+def _refused(logger: ParadataLogger) -> int:
+    """A usage error found once the run has started: nothing was translated. The run's paradata
+    say `failed` (D13, atrium-project#84), not `completed` with nothing in them."""
+    logger.fail("usage error: the run was refused before anything was translated")
+    return EXIT_USAGE
+
+
 def process_single_file(
     file_path: Path,
     output_file: Path,
@@ -915,7 +922,7 @@ def main() -> int:
     ) as _logger:
         if args.mode_explicit and not args.alto and not args.xpaths:
             print("[ERROR] Specify either the --alto flag or the field list with --xpaths FILE.")
-            return EXIT_USAGE
+            return _refused(_logger)
 
         # The field list comes with each metadata job, as the service's `xpaths` field does. A
         # metadata run whose list names no file, or holds no XPath, is refused before anything is
@@ -935,7 +942,7 @@ def main() -> int:
                     f"[ERROR] The field list {args.xpaths} {problem}. A metadata run translates the fields "
                     "it lists: pass --xpaths with a file of XPaths, one per line."
                 )
-                return EXIT_USAGE
+                return _refused(_logger)
         if xpaths_list:
             # The field list shaped every metadata translation of the run: a parameter.
             _logger.set_parameter("xpaths", xpaths_list)
@@ -948,7 +955,7 @@ def main() -> int:
                 "[ERROR] --document-json names one baseline record; a batch run takes a directory of them "
                 "(<doc_id>.document.json each), or none."
             )
-            return EXIT_USAGE
+            return _refused(_logger)
         if (
             is_batch
             and args.document_json_out
@@ -959,14 +966,14 @@ def main() -> int:
                 "[ERROR] --document-json-out names one record; in a batch run pass a directory, and each "
                 "document's record is written there as <doc_id>.document.json."
             )
-            return EXIT_USAGE
+            return _refused(_logger)
 
         if args.vocabulary and not Path(args.vocabulary).is_file():
             print(
                 f"[ERROR] The vocabulary {args.vocabulary} does not exist. Pass --vocabulary with an existing CSV, "
                 "or clear `vocabulary =` in config.txt to translate without one."
             )
-            return EXIT_USAGE
+            return _refused(_logger)
         # Imported here, like the paradata config's backend imports: the module is the LINDAT client.
         from processors.translator import TranslationError
 
@@ -974,7 +981,7 @@ def main() -> int:
             translator = get_backend(args.backend, vocab_path=args.vocabulary)
         except (TranslationError, ValueError) as exc:
             print(f"[ERROR] The {args.backend or 'lindat'} backend cannot start: {exc}")
-            return EXIT_USAGE
+            return _refused(_logger)
         # An explicit pair the backend cannot translate is refused before any file is touched
         # (translator#4); in auto mode, the language a segment falls back to is checked the same way.
         if args.source_lang == "auto":
@@ -989,7 +996,7 @@ def main() -> int:
                 f"[ERROR] Cannot translate {pair_source} → {args.target_lang}: {pair_problem} "
                 f"Change {pair_hint}, or choose another --backend."
             )
-            return EXIT_USAGE
+            return _refused(_logger)
         # A backend with a model (ct2) loads it and runs one short generation now, as the
         # service does at startup: a model that cannot run stops the run here, with the fix,
         # instead of failing every segment of every file (translator#4).
@@ -999,7 +1006,7 @@ def main() -> int:
                 warm()
             except TranslationError as exc:
                 print(f"[ERROR] The {args.backend or 'lindat'} backend cannot start: {exc}")
-                return EXIT_USAGE
+                return _refused(_logger)
         # The languages the backend can translate into the target, now that it is up: the run's
         # paradata named them only as "backend-supported" (build_run_config), the service's lists them.
         self_cfg = getattr(_logger, "config", None)
@@ -1042,7 +1049,7 @@ def main() -> int:
                 xsd_schema = load_xsd(args.xsd)
             except Exception as exc:
                 print(f"[ERROR] XSD schema load failed: {exc}")
-                return EXIT_USAGE
+                return _refused(_logger)
 
         # ── Collect files to process ───────────────────────────────────
         files_to_process: list[Path] = []

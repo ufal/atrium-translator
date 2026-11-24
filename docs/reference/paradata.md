@@ -7,8 +7,9 @@ each field means, and which schema the document record follows. What the records
 ## The paradata record
 
 The batch CLI writes a **run-level** JSON provenance record after every run, named `YYMMDD-HHmmss_translator.json`,
-into `paradata/` in the run's output directory, beside the translated files. The `paradata/` folders under
-[data_samples/](../../data_samples/README.md) hold the records of the sample runs. The `/translate` service writes no
+into `paradata/` in the run's output directory, beside the translated files. The two AMČR replace folders under
+[data_samples/](../../data_samples/README.md) hold the records of their sample runs in `paradata/`. The `/translate`
+service writes no
 such file: it returns each call's run as a Process Run Crate `CreateAction`, the response's `paradata`
 ([service/README.md](../../service/README.md#response)). The format is paradata 3.0
 ([atrium-project#84](https://github.com/ufal/atrium-project/issues/84)): no licence is computed, and what a run read
@@ -101,8 +102,9 @@ Abridged, from a metadata run with LINDAT and the vocabulary:
 }
 ```
 
-The records committed under `data_samples/*/paradata/` predate paradata 3.0: they carry the calculated `license`
-fields and `limits_applied`.
+The records committed in `data_samples/in-place_translated_files/xml/paradata/` and
+`data_samples/ct2_translated_files/xml/paradata/` are paradata 3.0, as a run of this version writes them. The ALTO
+and append folders keep no paradata: their earlier records predate paradata 3.0 (git history up to `v1.7.8-beta`).
 
 ## The record schema
 

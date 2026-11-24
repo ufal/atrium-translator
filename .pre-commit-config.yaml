@@ -2,8 +2,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # The sample outputs stay byte for byte as the translator wrote them: their paradata name
+      # each translated record by its SHA-512, which a whitespace fix would break.
       - id: trailing-whitespace
+        exclude: ^data_samples/.*_translated_files/
       - id: end-of-file-fixer
+        exclude: ^data_samples/.*_translated_files/
       - id: check-added-large-files
         args: ['--maxkb=5000']
       - id: check-yaml

@@ -1,9 +1,11 @@
 ## Sample outputs
 
-> These samples were made before record schema 2.0 and paradata 3.0 (atrium-project#84). Their records
-> (`.document.json`, with a `translations` block) and run paradata (with a calculated licence) are no longer
-> committed; git history up to `v1.7.8-beta` keeps them. The translated documents and their QA logs stay. A run of
-> this version writes no record of its own and lists components as facts.
+> The two AMCR replace folders (`in-place_translated_files/xml`, `ct2_translated_files/xml`) are made with this
+> version and carry its paradata 3.0 in `paradata/`; a run writes no record of its own and lists components as facts.
+> The ALTO and append folders are older research samples: their translated documents and QA logs stay, without
+> paradata (git history up to `v1.7.8-beta` keeps their records and paradata, which predate record schema 2.0).
+> ALTO translation is research and batch use, not a step of the AMČR pipeline, whose job is the record-level
+> `metadata` → `metadata-en` translation with the field list AMČR sends.
 
 The same inputs (`my_documents/`) translated in both output modes of issue #46, one folder per mode and per
 input kind, and the AMCR records once more through the self-hosted `ct2` backend (issue #4), in a folder of their own:
@@ -13,36 +15,35 @@ data_samples/
 ├── my_documents/                 inputs: 15 AMCR metadata records + MTX201501307_anon.alto.xml
 ├── vocabulary.csv                the glossary (keyword-extract's curated list, see below)
 ├── in-place_translated_files/    --output-mode replace (the default)
-│   ├── alto/                     the ALTO sample                         (lindat)
-│   └── xml/                      the AMCR records                        (lindat)
+│   ├── alto/                     the ALTO sample            (lindat; research, no paradata)
+│   └── xml/                      the AMCR records           (lindat; this version, with paradata/)
 ├── appended_translated_files/    --output-mode append
-│   ├── alto/                                                             (lindat)
-│   └── xml/                                                              (lindat)
+│   ├── alto/                                                (lindat; research, no paradata)
+│   └── xml/                                                 (lindat; research, no paradata)
 └── ct2_translated_files/         --output-mode replace, self-hosted
-    └── xml/                      the AMCR records                        (ct2, EuroLLM-1.7B)
+    └── xml/                      the AMCR records           (ct2, EuroLLM-1.7B; this version, with paradata/)
 ```
 
-Which run produced each folder (the run ids name its paradata, in git history):
+Which run produced each folder:
 
-| Folder                           | Backend                                  | `--source_lang` | `--xsd`  | Run             | Log `status`                         |
-|----------------------------------|------------------------------------------|-----------------|----------|-----------------|--------------------------------------|
-| `in-place_translated_files/alto` | `lindat` (LINDAT CUBBITT)                | `auto`          | —        | `260926-122251` | 2095 `ok`                            |
-| `appended_translated_files/alto` | `lindat`                                 | `auto`          | —        | `260926-120736` | 2095 `ok`                            |
-| `in-place_translated_files/xml`  | `lindat`                                 | `cs`            | AMCR 2.2 | `261019-101714` | 37 `ok`                              |
-| `appended_translated_files/xml`  | `lindat`                                 | `auto`          | —        | `260926-140310` | 37 `ok`                              |
-| `ct2_translated_files/xml`       | `ct2` (EuroLLM-1.7B-Instruct, int8, GPU) | `cs`            | AMCR 2.2 | `261019-101905` | 27 `ok`, 3 `rerun`, 7 `untranslated` |
+| Folder                           | Backend                                  | `--source_lang` | `--xsd`  | Run                                        |
+|----------------------------------|------------------------------------------|-----------------|----------|--------------------------------------------|
+| `in-place_translated_files/alto` | `lindat` (LINDAT CUBBITT)                | `auto`          | —        | `260926-122251`, in git history            |
+| `appended_translated_files/alto` | `lindat`                                 | `auto`          | —        | `260926-120736`, in git history            |
+| `in-place_translated_files/xml`  | `lindat`                                 | `cs`            | AMCR 2.2 | this version; its run id names `paradata/` |
+| `appended_translated_files/xml`  | `lindat`                                 | `auto`          | —        | `260926-140310`, in git history            |
+| `ct2_translated_files/xml`       | `ct2` (EuroLLM-1.7B-Instruct, int8, GPU) | `cs`            | AMCR 2.2 | this version; its run id names `paradata/` |
 
 > **The AMCR replace folder is the shape of AMČR's production run** (issue #46): LINDAT, `replace`,
-> `--source_lang cs`, the curated vocabulary (102 terms protected), validated against AMCR 2.2 with `--xsd` (15/15),
-> made on 2026-10-19 by translator#4's bake-off job (7147059). All 15 records were translated; the 35 degenerate LINDAT
-> replies of the run were re-requested and recovered (`lindat_degenerate_replies` in its paradata), so every field is
-> `ok`. The run of 2026-09-28 it replaces is in git history at `d8d72b5`.
+> `--source_lang cs`, the curated vocabulary, validated against AMCR 2.2 with `--xsd`, and the field list of
+> [amcr-fields.example.txt](../amcr-fields.example.txt), an example: AMČR sends its own list with each job. Its
+> paradata record the field list (`parameters.xpaths`), the vocabulary terms protected and the degenerate LINDAT
+> replies that were re-requested; each field's `status` is in the document's `_log.csv`.
 >
-> **`ct2_translated_files/xml` is the `ct2` EuroLLM-1.7B run of the same job**: the same records, `replace`,
-> `--source_lang cs`, the curated vocabulary, AMCR 2.2 (15/15), int8 on an RTX A4000 (`int8_float16`). Its 7
-> `untranslated` fields kept their Czech text: the model ran on past the source and the guard refused the reply. The
-> bake-off found EuroLLM unfit as the self-hosted alternative ([the backend decision](../docs/decisions/backend-choice.md));
-> the folder stays as the record of that run. The CPU run of 2026-09-28 (33 `ok`, 4 `untranslated`) is at `0a64328`.
+> **`ct2_translated_files/xml` is the `ct2` EuroLLM-1.7B run of the same job** on a GPU (`int8_float16`). A field
+> whose reply the guard refused keeps its Czech text (`untranslated` in the log). The bake-off found EuroLLM unfit as
+> the self-hosted alternative ([the backend decision](../docs/decisions/backend-choice.md)); the folder stays as the
+> record of that backend.
 
 Each folder holds, per input document:
 
@@ -82,35 +83,25 @@ from its own translation, so no number moves to its neighbour's row.
 > **`vocabulary.csv`** is **CC0** per that statement. Since 2026-10-18 it is built from atrium-keyword-extract's
 > `v1.3.0-beta` vocabulary (`python load_vocab.py --from-release v1.3.0-beta`): the 4,715 pairs of its curated list, each
 > with the identity of the concept that won it and, for 1,961 of them, the concept's description (cut to 500 characters).
-> The harvest of September 2026 it replaces had 5,087 pairs. The two AMCR replace folders (`xml`, 2026-10-19) were made
-> with this list; the ALTO and append folders with the older one. The other files here stay under
+> The harvest of September 2026 it replaces had 5,087 pairs. The two AMCR replace folders are made
+> with this list; the ALTO and append folders were made with the older one. The other files here stay under
 > [LICENSE](LICENSE) (CC BY-NC 4.0).
 
 ### Regenerating them
 
 Run from the repository root, **one command at a time** — concurrent runs against the public LINDAT endpoint
 coincided with the degenerate replies that motivated the guard — and commit a folder only after its run has printed
-`PROCESSING COMPLETE`: each document's log and XML are replaced only when that document is finished. Each run also
-writes its paradata into the folder's `paradata/`; commit them with the folder.
+`PROCESSING COMPLETE`: each document's log and XML are replaced only when that document is finished. Each run writes
+its paradata into the folder's `paradata/`; commit them with the folder, as the run wrote them (the whitespace hooks
+leave the sample folders alone, so the SHA-512s in the paradata still match). Pass relative paths: the command line
+records the paths it was given in the paradata `config`.
 
 ```bash
-# ALTO
-python main.py data_samples/my_documents/MTX201501307_anon.alto.xml --alto \
-    --source_lang auto --vocabulary data_samples/vocabulary.csv \
-    --output data_samples/in-place_translated_files/alto --output-mode replace
-python main.py data_samples/my_documents/MTX201501307_anon.alto.xml --alto \
-    --source_lang auto --vocabulary data_samples/vocabulary.csv \
-    --output data_samples/appended_translated_files/alto --output-mode append
-
-# AMCR metadata (a metadata run leaves *.alto.xml out of a directory scan) — LINDAT
-# replace: the production shape of issue #46
+# AMCR metadata, LINDAT, replace: the production shape of issue #46
 python main.py data_samples/my_documents --xpaths amcr-fields.example.txt --formats xml \
     --source_lang cs --vocabulary data_samples/vocabulary.csv \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd \
     --output data_samples/in-place_translated_files/xml --output-mode replace
-python main.py data_samples/my_documents --xpaths amcr-fields.example.txt --formats xml \
-    --source_lang auto --vocabulary data_samples/vocabulary.csv \
-    --output data_samples/appended_translated_files/xml --output-mode append
 ```
 
 The same records through the self-hosted `ct2` EuroLLM backend (issue #4; install `requirements-ct2.txt`, convert the
@@ -118,15 +109,18 @@ model as in [the EuroLLM notes](../docs/evaluation/backends.md#eurollm-utter-pro
 LINDAT set stays as it is:
 
 ```bash
-# The committed run used the GPU: CT2_DEVICE=cuda CT2_COMPUTE_TYPE=int8_float16 (a Pascal card has int8_float32 only)
-export CT2_MODEL_DIR="$PWD/models/ct2/eurollm-1.7b-int8" CT2_MODEL_FAMILY=eurollm \
-       CT2_TOKENIZER_DIR="$PWD/models/hf/EuroLLM-1.7B-Instruct" \
-       CT2_DEVICE=cpu CT2_COMPUTE_TYPE=int8 CT2_LANGUAGES=cs,en
+# On a GPU: CT2_DEVICE=cuda CT2_COMPUTE_TYPE=int8_float16 (a Pascal card has int8_float32 only); on a CPU: cpu, int8
+export CT2_MODEL_DIR=models/ct2/eurollm-1.7b-int8 CT2_MODEL_FAMILY=eurollm \
+       CT2_TOKENIZER_DIR=models/hf/EuroLLM-1.7B-Instruct \
+       CT2_DEVICE=cuda CT2_COMPUTE_TYPE=int8_float16 CT2_LANGUAGES=cs,en
 python main.py data_samples/my_documents --xpaths amcr-fields.example.txt --formats xml \
     --backend ct2 --source_lang cs --vocabulary data_samples/vocabulary.csv \
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd \
     --output data_samples/ct2_translated_files/xml --output-mode replace
 ```
+
+The research folders (ALTO, append) are made the same way with `--alto` or `--output-mode append`; their commands are
+in git history up to `v1.7.8-beta`.
 
 ## Sample inputs
 
