@@ -1,0 +1,396 @@
+{
+  "schema_version": "3.0",
+  "program": "translator",
+  "tool_version": "v2.0.0-beta",
+  "repository": "https://github.com/ufal/atrium-translator",
+  "runner_ref": "f52faa18f675b48c82c5432a443dc72d352a3b32",
+  "docker_image": "",
+  "python_version": "3.11.4 (main, Jul 26 2023, 14:53:35) [GCC 11.3.0]",
+  "run_id": "261125-134947",
+  "run_uuid": "urn:uuid:3677e934-6db3-49eb-b825-21ec22114cdc",
+  "run_agent": "",
+  "action_status": "completed",
+  "start_time": "2026-11-25T13:49:47.367087+00:00",
+  "end_time": "2026-11-25T13:50:37.463023+00:00",
+  "duration_seconds": 50.096,
+  "config": {
+    "input_path": "data_samples/my_documents",
+    "output_dir": "data_samples/ct2_translated_files/xml",
+    "source_lang": "cs",
+    "target_lang": "en",
+    "formats": "xml",
+    "mode": "metadata",
+    "output_mode": "replace",
+    "translation_backend": "ct2",
+    "xsd_url": "https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd",
+    "xsd_strict": false,
+    "fast_align": false,
+    "vocabulary": "data_samples/vocabulary.csv",
+    "vocabulary_sha256": "1d7af82172451215c085a8f86052743a4a58099817288c425f3fa80cf7f2ec39",
+    "chunk_limit": 4000,
+    "lang_id_model": "facebook/fasttext-language-identification",
+    "ct2_model_family": "eurollm",
+    "ct2_model": "eurollm-1.7b-int8",
+    "ct2_device": "cuda",
+    "ct2_compute_type": "int8_float16",
+    "default_source_lang": "cs",
+    "fasttext_confidence_threshold": 0.5,
+    "lang_id_min_letters": 20,
+    "lang_id_languages": [
+      "cs",
+      "en"
+    ],
+    "vocabulary_protected_terms": {
+      "C-9100725A": 4,
+      "C-N1000137": 5,
+      "C-N9007794": 2,
+      "C-N9000112": 5,
+      "C-TX-195304352": 1,
+      "C-202000543A-DT-27": 2,
+      "C-TX-202400594": 1,
+      "C-9141192A": 5,
+      "C-TX-202500252": 0,
+      "C-DT-100003326": 2,
+      "C-9107617A": 2,
+      "C-N1000019": 4,
+      "C-9124095A": 5,
+      "C-N9000080": 1,
+      "C-9115020A": 10
+    },
+    "vocabulary_protected_terms_total": 49,
+    "xsd_validation": {
+      "valid": 15,
+      "invalid": [],
+      "strict": false
+    }
+  },
+  "parameters": {
+    "xpaths": [
+      "//amcr:amcr/amcr:dokument/amcr:popis",
+      "//amcr:amcr/amcr:dokument/amcr:poznamka",
+      "//amcr:amcr/amcr:dokument/amcr:dokument_cast/amcr:neident_akce/amcr:lokalizace",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:akce/amcr:chranene_udaje/amcr:lokalizace_okolnosti",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:akce/amcr:chranene_udaje/amcr:souhrn_upresneni",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:dokumentacni_jednotka/amcr:komponenta/amcr:nalez_predmet/amcr:poznamka",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:dokumentacni_jednotka/amcr:komponenta/amcr:nalez_objekt/amcr:poznamka",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:lokalita/amcr:chranene_udaje/amcr:nazev",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:lokalita/amcr:chranene_udaje/amcr:popis",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:lokalita/amcr:chranene_udaje/amcr:poznamka"
+    ],
+    "translations": {
+      "C-9100725A": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-N1000137": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-N9007794": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-N9000112": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-TX-195304352": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-202000543A-DT-27": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-TX-202400594": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-9141192A": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-TX-202500252": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-DT-100003326": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-9107617A": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-N1000019": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-9124095A": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-N9000080": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-9115020A": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "name": "metadata",
+      "sha512": "e871f038fbae4360f5ffacd7f40e48ba0a650dcbc311e418584d9ca6cf2eea1351368be329f468f50c72b6db3c59bc5904dbf546c95e105a794f466aa2dcc585",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "fdb626ab5cff522ce09a325c7e7f05471b2d9cbc5c124395f9299c2bb018bbbf9d9a96cbcdc1229b8e49939bd5ffc435b54ef249e3c207c65cbcedc2c3f197d5",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "53274fa58219827b2c45cdb284149874a6e12c31a42ad84a3d4e82e58044577a4d7200ece036bfe7e4eea07ed9136d7266f56513a2eaec29552d3347eeeddc7c",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "41bce1b2975c7e6f77d2a7d0aeaeedc43dccea9e2f4b7bda83c0778489971f5dba10b112e587122bdba96e1010fd3ba49d319eae9b9932d0ffb1f6209c08dd91",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "c9bc7ee202e14c74d1eb7188a127c26e6178e7af153785bd0129c6ab96df41c870eb1f309829073363a3e9592ca2b73984fdf935c52a93a76bb2f9ebd5a07d8a",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "0d47f6253b6faadf5e70981f82ec0ee51588d0808ffb6a62a85a87b2be7dd4e83702038ffbefaae184a1f8c2719231ee7235dc29e4b523a644bc1129af298a86",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "35c59a9a3a6826fce5b3507105ec69ddf895e02c7c63a83fd4334f68cc17b9275861db577f9a67f3d5609164c7cc1a9ad6677f8ae899c13f69578e06d8cdfe99",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "119ed9f510b20968342514376cee8f76525b3d86678506662470c4c8748ecddde81e1885369fcf55bda9c5b240e633c79565661dcdc970a16f13e8e3097f812a",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "5bf77f980f7a28bc330f1c12995dcd398a684aea80d504c5d3668b9ca206752846d6bcbef75ed50a60cb1decadb597b8afd988b7673b0738c77832ab6eeafd02",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "bb1b90eb448b8eceec98af2ccca63a0e642d3ce8fea63fed497902fa9aaf8bff280d136f76d409d66ca593ec23b60c944585c54666c0b5c2be24c64b3c46cf18",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "4c3b1158eefee447551ed3db1143529142b195c1e3aa631fd9a4f7f92d8420aaf58a179cca593613514e22cd8c96cd8ef05aa01be9a2c52f7220a3af0ace58ec",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "8f255ec701698c4c2f1e39b5c940195fae07c43ff3165757514017fd9ab6d43796c599288136a44fd98deb3c20bc09722e3c82aa30b9370f0e59959429e07a89",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "b832c85151bfd51087c0f751c21bcaf391b4d81e68c9dd537a5f7ba7a4e7dce36fd53b39f549fe2172f3eb056d958298deccfe19e3258895d733929ac57d2cbe",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "61c4eabe8fb00f0602d41583afe0a75faa486444c73c0915bd6f15802b4259038552ef4edcb4a632156bbff825e3e971d882a8d42548d1f80374beacc81ce2fc",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "4e49aa5babb0e4e57927e9bba51335eba916c3eba175c72ddec7b9f5820136ede7b6e655ee7d0e742e7621e662d0cb462e92f0f73c2bf49af2a2cdec1ab5aa7f",
+      "media_type": "application/xml",
+      "stored": true
+    }
+  ],
+  "outputs": [
+    {
+      "name": "metadata-en",
+      "sha512": "adaabd55cba30872aa328d628ca5294c44207b2b7a12a443f71d5ce2f019bddcac18771e81424eaa90f40c52d1cfee872b8d325d15f0060b0e59937e25c84e3b",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "765aad0dab544d94b565bd693cdb28db8256615ee585ca6c2003aabc5bcc27e65706789eb7b543d82dc4256611b0595f0cf81cccd9c10ff8ccff63300b644d19",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "9ff4abc64937ff88dff6b876150013e306fa5ba99354e4d2e7ff5bbf407aaac66a580a769a0412ef5decd9e93692ac392d7e61076ec97fbc84afafce99125ac7",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "fe41f4de83821b9f9de3f77c766bd4a7736e831c52f712d7ffcfe7eb104471f0ab5d3e71ff99a9aa5b2a5a5ea6091523541da208853a7bec615cda9d4bac8d8c",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "379eeeb2c84927dbf0c4dbb12f982b29eca4737f31b45bcd4a39c78c00709fe0465085b7b34608041a24eb1461f9c7c1045b339d366db34a83301832c93d7fb2",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "81fa2b41797e2d076e0c61b8c3d55b68b02a0cc63f3cba5ae63327eca00a3613c6c4594841042510a85e94a6dd15f30ff1279ca72f8d612a0eecb03b2101d760",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "eb62d9056c14b4822604e60bee8d3693975e2236bc7eacc2662edef8d8b8aa06771bd65ce7e3b041cabfde2998bbfd5c634cfdf57d90a72b80ba2ce3875d3fca",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "7d2f2c74bfbe2034e80727564d7cdc161480da2b25641b8c1c506d240c1b18bbd926103b432582dc296340822ea9faf02e4449f01575e28490ccfb68e28cc70a",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "242e1fd97f625a235c9602684cebdaed9486018656eef8ce19ecc3c1a66a1f969912a0f6e534ee371a96ebbc40775f03dd1c5b6e6af6bf19deb8ff9f3e68b81c",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "4c4e78ed05417d8d347010491ec0bdd12ef543eb52d1b90911cba7851aa47b07300267d4578b97da9d482230fe60cabf776eb92484c8cb09761b0f194b3abb0d",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "81df6e0ba16410517f5f06480e47064bf9b02bfb2fa7a2595589890165a4296aab714fa04fb9fe6ba79d6b20bf81d5d7406bd0c6b1efdd18e24df789fbfdfac8",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "a5ce0994001de072573c4b8ba841c8ffb1b697b5adc89dbea7e055756ce8aa190d25fc711e995fa792aed9205fce8aedf16708407b04573a7ffc18fb572f9714",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "fd0e46de31d9df1b387f90532acce7312336109cda1cd8837c78c9258e088f2d92306c85009b40425af0668f91071a13b90e9a77107ce99df638c0fc7f883e51",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "b589a5ee2ec6b12e37513cd93553dfeff2fc193ef0df67e6b50058803e5205220ca8ef5441cf15218bcfa57f71aad723206e03392583d2fc299972ac1bb5db39",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "529dc178bd921e2ec353d61996553fb111b6266683bf45d1bb743190fa70d11cf1710e56faba7fc985e38568368c9b557ce5931fe94f596875a6be0a839cf077",
+      "media_type": "application/xml",
+      "stored": true
+    }
+  ],
+  "components": [
+    {
+      "name": "ctranslate2",
+      "license": "MIT",
+      "license_url": "https://opensource.org/license/mit/"
+    },
+    {
+      "name": "eurollm",
+      "license": "Apache-2.0",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0"
+    },
+    {
+      "name": "amcr_vocab",
+      "license": "CC0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "name": "teater_data",
+      "license": "CC0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    }
+  ],
+  "statistics": {
+    "input_files_total": 15,
+    "successfully_processed": 15,
+    "skipped_files": 0,
+    "output_counts_by_type": {
+      "xml": 15,
+      "csv": 15,
+      "json": 0
+    },
+    "performance_per_minute": {
+      "xml": 17.9655,
+      "csv": 17.9655,
+      "json": 0.0
+    }
+  },
+  "skipped_files_detail": [],
+  "limits": []
+}

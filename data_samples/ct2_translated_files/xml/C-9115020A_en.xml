@@ -30,8 +30,8 @@
       <amcr:datum_ukonceni>1994-12-31</amcr:datum_ukonceni>
       <amcr:hlavni_typ xml:lang="cs" id="HES-001059">plošný odkryv</amcr:hlavni_typ>
       <amcr:chranene_udaje>
-        <amcr:lokalizace_okolnosti>Havlíčkova street. Housing estates construction on 8 plots in the historical part of the city.</amcr:lokalizace_okolnosti>
-        <amcr:souhrn_upresneni>There are eight parcels in Havlíčkova street (part of the historical core). Systematically examined 3 parcels, remaining area searched with trenches. On pp. 107/8, several objects (oven, well, excavation pit, sunken feature) from the beginning of the 14th century were found. On pp. 112/1, the front part of the parcel, at the street line, were exposed layers and objects from the 16th century. On profiles, traces of catastrophic fires of Beroun, dated to 1544 and 1599, were found. The area B was located on the parcel no. 123. The sunken feature was interpreted as latrine. Building activity begins in the 15th century and especially intensive is from the 16th century. There were only one sunken cellar with rows of walls, well and oven (in Czech archaeology, find is extraordinary). Two trenches without names were examined at a shallow depth on parcels no. 114, 115 and 116. The attempt to find the supposed monastery garden in this medieval city area was unsuccessful. There was no evidence of a German half in this area of the medieval city.</amcr:souhrn_upresneni>
+        <amcr:lokalizace_okolnosti>Havlíčkova street. Housing construction on 8 plots in the historical part of the city.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>Eight parcels in Havlíčkova street (part of historic core). Systematically examined 3 parcels, remaining area surveyed by trenches. On ppč. 107/8 several objects (pec, well, exploitation pit, sunken feature) from the beginning of the 14th century. In the front part of the parcel, at the street line, layers from the 16th century were uncovered. Layer 16th century were visible on the profiles. The building activity begins in the 15th century and is especially intense from the 16th century. From the 14th century only the shell was found. The complex objects of the 14th century sunken cellar were found in the trench and a ß. Two trenches without names were examined on parcels čp. 114, 115 and 116. The attempt to find the presumed monastery garden in the remaining area was unsuccessful. Also the hypothesis about the German half in this area of the medieval city had no basis in the results of this research.</amcr:souhrn_upresneni>
       </amcr:chranene_udaje>
     </amcr:akce>
     <amcr:historie>
@@ -160,7 +160,7 @@
           <amcr:id>nalp-83170</amcr:id>
           <amcr:druh xml:lang="cs" id="HES-000642">kostra</amcr:druh>
           <amcr:specifikace xml:lang="cs" id="HES-000987">kost zvířecí</amcr:specifikace>
-          <amcr:poznamka>a dog</amcr:poznamka>
+          <amcr:poznamka>A dog.</amcr:poznamka>
         </amcr:nalez_predmet>
       </amcr:komponenta>
       <amcr:komponenta>
