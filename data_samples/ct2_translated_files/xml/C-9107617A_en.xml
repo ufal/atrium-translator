@@ -30,8 +30,8 @@
       <amcr:hlavni_typ xml:lang="cs" id="HES-001057">sonda</amcr:hlavni_typ>
       <amcr:ulozeni_nalezu>M Čelákovice, př. č. 119/07.</amcr:ulozeni_nalezu>
       <amcr:chranene_udaje>
-        <amcr:lokalizace_okolnosti>V Ovčárně, at no. 25. The reason: sewer connection for no. 33.</amcr:lokalizace_okolnosti>
-        <amcr:souhrn_upresneni>A skeleton of a well-preserved horse with iron shoes was found in the pit. The lower part of the hind legs was disturbed by a younger excavation.</amcr:souhrn_upresneni>
+        <amcr:lokalizace_okolnosti>Ulice V Ovčárně, p. p. č. 25.</amcr:lokalizace_okolnosti>
+        <amcr:souhrn_upresneni>A skeleton of a well-preserved horse with iron stirrups was found in the pit. The lower part of the hind legs was damaged by a younger excavation.</amcr:souhrn_upresneni>
       </amcr:chranene_udaje>
     </amcr:akce>
     <amcr:historie>
@@ -170,7 +170,7 @@
           <amcr:druh xml:lang="cs" id="HES-000736">kachel</amcr:druh>
           <amcr:specifikace xml:lang="cs" id="HES-000979">keramika</amcr:specifikace>
           <amcr:pocet>xx</amcr:pocet>
-          <amcr:poznamka>zlomky</amcr:poznamka>
+          <amcr:poznamka>Fragments of the Czech:</amcr:poznamka>
         </amcr:nalez_predmet>
         <amcr:nalez_predmet>
           <amcr:id>nalp-30769</amcr:id>
@@ -192,7 +192,7 @@
         <amcr:nalez_objekt>
           <amcr:id>nalo-21187</amcr:id>
           <amcr:druh xml:lang="cs" id="HES-000544">místo výroby</amcr:druh>
-          <amcr:poznamka>jáma vyplněná mazanicí</amcr:poznamka>
+          <amcr:poznamka>Area filled with paint</amcr:poznamka>
         </amcr:nalez_objekt>
         <amcr:nalez_predmet>
           <amcr:id>nalp-32244</amcr:id>

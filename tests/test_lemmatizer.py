@@ -205,3 +205,72 @@ def test_a_udpipe_timeout_fails_the_job(monkeypatch):
                 list(lem._request_conllu_chunks("Hrad stojí na kopci.", "czech"))
     assert post.call_args.kwargs["timeout"] == 2.5
     assert (raised.value.limit, raised.value.effect) == ("udpipe_timeout_s", "skipped")
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        pytest.param({"return_value": MagicMock(status_code=503)}, id="error-answer"),
+        pytest.param({"side_effect": ConnectionError("connection refused")}, id="refused-connection"),
+        pytest.param(
+            {"return_value": MagicMock(status_code=200, json=MagicMock(side_effect=ValueError("no JSON")))},
+            id="unreadable-answer",
+        ),
+    ],
+)
+def test_a_udpipe_failure_fails_the_document(outcome):
+    """An error answer, a refused connection or an unreadable answer would leave the chunk's
+    vocabulary terms unprotected, so it raises instead (D13, atrium-project#84): the document
+    fails, as one whose translation LINDAT does not answer does. It used to warn and go on."""
+    from processors.lemmatizer import LemmatizationError
+
+    lem = LindatLemmatizer(url="https://udpipe.example.test/process")
+    with patch("processors.lemmatizer.requests.post", **outcome):
+        with pytest.raises(LemmatizationError, match="unprotected"):
+            lem.get_lemmas_with_features("Hrad stojí na kopci.", lang="cs")
+
+
+def test_a_lemmatisation_failure_fails_the_file_and_writes_nothing(tmp_path):
+    """process_single_file turns the failure into a failed document: no translated file."""
+    import argparse
+
+    from main import process_single_file
+    from processors.lemmatizer import LemmatizationError
+
+    source = tmp_path / "record.xml"
+    source.write_text('<?xml version="1.0"?><r><t>Hrad stojí na kopci.</t></r>', encoding="utf-8")
+    output = tmp_path / "out" / "record_en.xml"
+    output.parent.mkdir()
+
+    translator = MagicMock()
+    translator.vocabulary = {"hrad": "castle"}
+    translator.protected_count = 0
+    translator.translate.side_effect = LemmatizationError("UDPipe returned HTTP 503: … unprotected")
+    translator.translate_batch.side_effect = LemmatizationError("UDPipe returned HTTP 503: … unprotected")
+    logger = MagicMock()
+    logger.limits_applied = []
+    args = argparse.Namespace(
+        alto=False,
+        source_lang="cs",
+        target_lang="en",
+        output_mode="replace",
+        document_json=None,
+        document_json_out=None,
+        xsd=None,
+        xsd_strict=False,
+        backend="lindat",
+        formats="xml",
+    )
+    success, _ = process_single_file(
+        file_path=source,
+        output_file=output,
+        args=args,
+        translator=translator,
+        identifier=None,
+        xpaths_list=["//t"],
+        _logger=logger,
+    )
+    assert success is False
+    assert not output.exists()
+    logger.log_skip.assert_called_once()
+    assert "unprotected" in logger.log_skip.call_args.args[1]

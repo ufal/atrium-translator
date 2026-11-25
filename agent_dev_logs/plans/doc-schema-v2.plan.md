@@ -1,5 +1,6 @@
 # Strategy — [atrium-project#84](https://github.com/ufal/atrium-project/issues/84) (doc-schema-v2): the translator's metadata-en job
 
+> _**Refreshed 2026-11-25**: Status — 11-25 (the v2.0.0-beta release prep)._
 > _**Refreshed 2026-11-22**: #65 merged (atrium-project#79 and #40: the docs, the CLI's refusal of a metadata run
 > without a field list, the CI schedules); the pins at `fbffe25`._
 > _**Refreshed 2026-11-19**: "Status — 11-19": #61–#64 on `test`; aiscr-webamcr#3570 and its criterion 3; the pairs of
@@ -17,6 +18,8 @@
 > (written before the issue existed) is superseded; the section "2026-11-12" is the current reading._
 
 **Status (2026-11-22)**: 🟡 **As on 11-19, now pinned to `fbffe25` since atrium-project#79's merge (11-22, #65 `a064ac4`); `test` is one commit past `master`. The command line refuses a metadata run with a missing or empty field list (exit 1), as the service does (422 `missing_xpaths`). `lindat-daily.yml` and `scheduled-smoke.yml` run by dispatch only on `test`; on `master` until the release merge (atrium-project#77).**
+
+**Status (2026-11-25)**: 🟢 **v2.0.0-beta release prep in #66 (`v2-beta-prep` → `test`), CI green; the ct2 EuroLLM path fixed for short fields, both AMČR replace folders this version's (checked 11-25). Tag 26 November after the merge.**
 
 **Status (2026-11-19)**: 🟡 **This repository's part is on `test` (#60, #62, #63), pinned to `02cbd01`; `master` =
 `test` (`3b966c5`). Open on AMČR's side: aiscr-webamcr#3570 has no XPath list yet, and its acceptance criterion 3

@@ -5,7 +5,7 @@
 > immutable, with `images.json`; atrium-project#77); v1.7.3-beta and v1.7.4-beta were tagged, not released.
 > Since: **v1.7.8-beta** (11-06, the Galaxy entry point); v1.7.6-beta and v1.7.7-beta were tagged, not released. `test` (=
 > `master`, `3b966c5`) is 18 commits past v1.7.8-beta and declares the unreleased v2.0.0-beta. Hub workflows pinned to
-> `02cbd01` (`v1`). Latest entry: 2026-11-19 (log round). Twelve-factor detail lives in the hub:
+> `02cbd01` (`v1`). Latest entry: 2026-11-25 (v2.0.0-beta release prep). Twelve-factor detail lives in the hub:
 > `ufal/atrium-project/agent_dev_logs/{digests,plans}/53.*`._
 > _Per-issue detail: `digests/{46,61}.digest.md` · `plans/{46,61}.plan.md` · `issues/` exports (source of truth). Cross-repo/hub
 > history lives in `ufal/atrium-project/agent_dev_logs/DEVLOG.md` (deduplicated out of this file)._
@@ -1099,3 +1099,19 @@ Documentation only; no code, test or configuration change.
   "Where it stands — 2026-11-22";
   [plan of #40](https://github.com/ufal/atrium-project/blob/test/agent_dev_logs/plans/40.plan.md).
 * **Not posted; not pushed.**
+
+## 2026-11-24 → 2026-11-25 — v2.0.0-beta release prep (#66), the ct2 fix, the samples
+
+* **PR #66** (`v2-beta-prep` → `test`, head `97e03e5`): a usage error found after a run has started leaves paradata
+  that say `failed`; a UDPipe error answer or refused connection fails the document; `CITATION.cff` dated
+  2026-11-26; the pre-2.0 records and paradata removed.
+* **The ct2 EuroLLM path** (`869bc26`): a one-line source stops at the end of its line, and a reply that is only
+  the prompt's echoed `Czech: …` line is continued once from it. EuroLLM-1.7B ran on past short fields
+  (`zlomky`), which failed the job since an untranslated field does. The first ct2 sample commit (`517dc6f`, a
+  failed run that also re-added 1.x records) was reverted (`9baf3bb`).
+* **Samples:** `in-place_translated_files/xml` (LINDAT, runner `f52faa1`) and `ct2_translated_files/xml` (EuroLLM-1.7B,
+  `int8_float16`, runner `e8abb55`), each 15 of 15 with paradata 3.0, every field translated.
+* **Checked 11-25:** the XML is well-formed, logs and outputs pair up, no field text in the paradata, no records.
+  CI green.
+* **Open:** batch paradata `config` holds the paths it was given (asked on [#84](https://github.com/ufal/atrium-project/issues/84)).
+* Logs only; not pushed.

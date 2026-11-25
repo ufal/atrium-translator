@@ -75,16 +75,17 @@ C-TX-000000000,,//amcr:amcr/amcr:dokument/amcr:popis,"Záchranný výzkum při s
 
 `out/paradata/` holds the run's paradata. The ALTO page in the same folder is skipped, because this is a metadata
 run. [data_samples/in-place_translated_files/xml/](data_samples/in-place_translated_files/xml/) holds the output of
-the same run made by an earlier release: its translations compare, its records and paradata predate record schema
-2.0 ([data_samples/README.md](data_samples/README.md)). Releases before 2.0.0-beta are described by the README at
-their tag.
+the same run made by this version, with its paradata in `paradata/`
+([data_samples/README.md](data_samples/README.md)). Releases before 2.0.0-beta are described by the README at their
+tag.
 
 **What the run calls.** LINDAT's translation service, and its UDPipe service too, because the shipped
 [config.txt](config.txt) names the bundled vocabulary (terms are matched by lemma); the service loads no vocabulary
 unless `VOCABULARY_PATH` is set. `api.aiscr.cz` for the schema. Without LINDAT, each request is retried
 (`LINDAT_MAX_RETRIES`, 4 by default), then the document fails, the batch goes on, and the run exits 3. A UDPipe
-request that times out fails the run; one that is refused or answers an error leaves the terms of its passage
-unprotected, and the log says so. Without the schema, the run stops before translating anything, with exit code 1.
+request that times out fails the run; one that is refused or answers an error fails its document in the same way,
+since the terms of its passage would go unprotected. Without the schema, the run stops before translating anything,
+with exit code 1.
 
 **As a service**, the `ghcr.io/ufal/atrium-translator-api` image answers `POST /translate` with the translated
 document. A metadata record needs the field list in the `xpaths` field (`-F "xpaths=<amcr-fields.example.txt"`),

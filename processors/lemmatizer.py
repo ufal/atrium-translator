@@ -68,6 +68,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_UDPIPE_URL = "https://lindat.mff.cuni.cz/services/udpipe/api/process"
 
 
+class LemmatizationError(RuntimeError):
+    """UDPipe answered an error, could not be reached, or sent an unreadable answer.
+
+    The chunk's vocabulary terms would be translated unprotected, so the document fails instead
+    (D13, atrium-project#84), as a document whose translation LINDAT does not answer fails: the
+    command line goes on with the batch and exits 3, the service answers 500. A timeout is the
+    `udpipe_timeout_s` limit and fails the job through its limit note.
+    """
+
+
 def resolve_udpipe_url(url: str | None = None) -> str:
     """Resolve the UDPipe endpoint (atrium-project#63, factor IV).
 
@@ -191,14 +201,11 @@ class LindatLemmatizer:
                     timeout=UDPIPE_TIMEOUT_S.get(),
                 )
                 if resp.status_code != 200:
-                    logger.warning(
-                        "UDPipe returned HTTP %s; this chunk is not lemmatised and its vocabulary terms are "
-                        "not protected.",
-                        resp.status_code,
+                    raise LemmatizationError(
+                        f"UDPipe returned HTTP {resp.status_code}: the passage's vocabulary terms would go "
+                        "unprotected, so the document fails"
                     )
-                    continue
-
-                yield resp.json().get("result", "")
+                result = resp.json().get("result", "")
 
             except requests.exceptions.Timeout:
                 # The chunk's vocabulary terms would go unprotected: the note raises
@@ -213,8 +220,16 @@ class LindatLemmatizer:
                     "UDPipe request timed out after %ss; this chunk's vocabulary terms are not protected.",
                     UDPIPE_TIMEOUT_S.get(),
                 )
+            except LemmatizationError:
+                raise
             except Exception as e:
-                logger.warning("Lemmatisation failed (%s); this chunk's vocabulary terms are not protected.", e)
+                # A refused connection or an unreadable answer: the same failure as an error answer.
+                raise LemmatizationError(
+                    f"Lemmatisation failed ({e}): the passage's vocabulary terms would go unprotected, "
+                    "so the document fails"
+                ) from e
+            else:
+                yield result
 
     @staticmethod
     def _parse_conllu(conllu: str) -> list[tuple[str, str]]:

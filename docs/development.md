@@ -78,7 +78,7 @@ atrium-translator/
 └── data_samples/
     ├── vocabulary.csv         # Czech → English domain vocabulary (AMČR/TEATER terms)
     ├── my_documents/          # sample inputs (an anonymised ALTO page, AMČR metadata records)
-    ├── in-place_translated_files/   # replace-mode outputs: alto/ and xml/, each with logs, records and paradata/
+    ├── in-place_translated_files/   # replace-mode outputs: alto/ and xml/, each with the translated documents and logs
     ├── appended_translated_files/   # append-mode outputs, the same layout
     └── ct2_translated_files/        # the AMČR records through ct2 (EuroLLM-1.7B); see data_samples/README.md
 ```

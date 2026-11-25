@@ -320,6 +320,8 @@ class CT2Translator:
         self._sp = None
         self._tokenizer = None
         self._probed = False
+        # The tokens that write a newline (see _line_end_tokens); None until first asked.
+        self._newline_tokens = None
         # One backend object serves every request of the service, and the first requests can
         # arrive together: without the lock each would load its own copy of the model.
         self._load_lock = threading.RLock()
@@ -662,7 +664,16 @@ class CT2Translator:
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
     def _generate_llm(self, text: str, src_lang: str, tgt_lang: str, glossary: list) -> str:
-        """One generation for *text*; the decoded reply with any echoed prompt removed."""
+        """One generation for *text*; the decoded reply with any echoed prompt removed.
+
+        A one-line source gets a one-line reply: generation also stops at the end of the line
+        (:meth:`_line_end_tokens`). EuroLLM-1.7B otherwise ran on past its translation of a short
+        field until the budget stopped it ("podlaha, kůly", "Sonda 4, východní řez; obj. 1.",
+        2026-11-25). A reply that is only the echoed ``<Source>: …`` line of the prompt's format
+        (cut there by the line stop, or ended there by the model) is continued once from that
+        line, with ``<Target>:`` after it: what the model writes next is the translation, as in
+        its own reply ``Czech: zlomky \nEnglish: fragments``.
+        """
         messages = self._llm_messages(text, src_lang, tgt_lang, glossary)
         try:
             prompt = self._tokenizer.apply_chat_template(
@@ -672,36 +683,54 @@ class CT2Translator:
             )
         except ImportError as e:  # transformers renders chat templates with Jinja2
             raise TranslationError(f"Install requirements-ct2.txt (jinja2) for the EuroLLM chat template: {e}") from e
-        encoded = self._tokenizer(prompt, add_special_tokens=False)
-        tokens = self._tokenizer.convert_ids_to_tokens(encoded["input_ids"])
+        tokens = self._tokens_of(prompt)
 
         # max_length counts generated tokens only (the prompt is forwarded first). A reply
         # far longer than its source is rejected by the guard anyway, so it is stopped at
         # 4x the source's own tokens + 32 instead of running on to the cap (1840 tokens for
         # the one-word "zlomky" in the 2026-09-27 AMCR run).
-        max_decoding = CT2_MAX_DECODING_TOKENS.get()
         source_tokens = len(self._tokenizer(text, add_special_tokens=False)["input_ids"])
-        budget = min(max_decoding, _RUNAWAY_FACTOR * source_tokens + _RUNAWAY_SLACK)
+        budget = min(CT2_MAX_DECODING_TOKENS.get(), _RUNAWAY_FACTOR * source_tokens + _RUNAWAY_SLACK)
+        end_token = self._end_tokens()
+        line_ends = self._line_end_tokens() if "\n" not in text.strip() and end_token else []
+        options = {"max_length": budget, "include_prompt_in_result": False}
+        if line_ends:
+            ends = [end_token] if isinstance(end_token, str) else list(end_token)
+            options.update(end_token=ends + [t for t in line_ends if t not in ends], min_length=1)
+        else:
+            options["end_token"] = end_token
         attempt = self._rerun_round()
         if attempt:
             # A re-run: beam search (sampling options do not apply to it).
-            search = {"beam_size": min(_LLM_RERUN_BEAM + _RERUN_BEAM_STEP * attempt, _RERUN_BEAM_MAX)}
+            options["beam_size"] = min(_LLM_RERUN_BEAM + _RERUN_BEAM_STEP * attempt, _RERUN_BEAM_MAX)
         else:
-            search = {"sampling_temperature": 0.0}  # greedy
-        result = self._engine.generate_batch(
-            [tokens],
-            max_length=budget,
-            include_prompt_in_result=False,
-            end_token=self._end_tokens(),
-            **search,
-        )
+            options["sampling_temperature"] = 0.0  # greedy
 
+        src_name, tgt_name = _language_name(src_lang), _language_name(tgt_lang)
+        out_tokens, decoded = self._generate_once(tokens, options, source_tokens)
+        reply = _strip_prompt_echo(text, decoded, src_name, tgt_name)
+        if not reply and decoded.startswith(f"{src_name}:"):
+            continued = tokens + out_tokens + self._tokens_of(f"\n{tgt_name}:")
+            _, decoded = self._generate_once(continued, options, source_tokens)
+            reply = _strip_prompt_echo(text, decoded, src_name, tgt_name)
+        return reply
+
+    def _tokens_of(self, text: str) -> list:
+        """*text* as the token strings CTranslate2 takes, with no special tokens added."""
+        encoded = self._tokenizer(text, add_special_tokens=False)
+        return self._tokenizer.convert_ids_to_tokens(encoded["input_ids"])
+
+    def _generate_once(self, tokens: list, options: dict, source_tokens: int):
+        """``(generated tokens, decoded reply)`` of one generation from *tokens*; a reply that
+        is still going at the budget is a :class:`DegenerateTranslationError`."""
+        budget = options["max_length"]
+        result = self._engine.generate_batch([tokens], **options)
         generated = list(result[0].sequences[0])
         out_tokens = _until_turn_end(generated)
         if len(out_tokens) == len(generated) and len(generated) >= budget:
-            if budget == max_decoding:
+            if budget == CT2_MAX_DECODING_TOKENS.get():
                 raise DegenerateTranslationError(
-                    f"CTranslate2 reply reached CT2_MAX_DECODING_TOKENS={max_decoding}; it is cut, not complete."
+                    f"CTranslate2 reply reached CT2_MAX_DECODING_TOKENS={budget}; it is cut, not complete."
                 )
             raise DegenerateTranslationError(
                 f"CT2 output rejected — runaway length: still going at {budget} tokens for a "
@@ -715,7 +744,25 @@ class CT2Translator:
             skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         ).strip()
-        return _strip_prompt_echo(text, decoded, _language_name(src_lang), _language_name(tgt_lang))
+        return out_tokens, decoded
+
+    def _line_end_tokens(self) -> list:
+        """The tokens that write a newline, as the tokenizer encodes ``"\n"`` and ``"\n\n"``.
+
+        Empty when the tokenizer cannot render a token back to text: then only the turn end
+        stops a reply, as for a source of several lines.
+        """
+        if self._newline_tokens is None:
+            found: list = []
+            try:
+                for text in ("\n", "\n\n"):
+                    for tok in self._tokens_of(text):
+                        if "\n" in self._tokenizer.convert_tokens_to_string([tok]) and tok not in found:
+                            found.append(tok)
+            except (AttributeError, KeyError, NotImplementedError, TypeError, ValueError):
+                found = []
+            self._newline_tokens = found
+        return self._newline_tokens
 
     def _end_tokens(self):
         """The tokens that end the assistant turn: the tokenizer's EOS and the chat markers it knows.

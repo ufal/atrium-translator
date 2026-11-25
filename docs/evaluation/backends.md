@@ -245,7 +245,10 @@ uncovered pair is not wired: such a pair is refused ([The three backends](../how
   tokenizer and chat template (`CT2_TOKENIZER_DIR`; unset, `CT2_MODEL_DIR` when converted with
   `--copy_files tokenizer_config.json tokenizer.model special_tokens_map.json`, else the folder of `CT2_SP_MODEL`);
   `requirements-ct2.txt` brings Transformers and Jinja2 for the template. Generation stops at the tokenizer's EOS and
-  at the chat markers it knows (`<|im_end|>`, `<|im_start|>`). 1.7B is CPU-viable at int8; 9B wants a GPU.
+  at the chat markers it knows (`<|im_end|>`, `<|im_start|>`), and for a one-line source also at the end of the line:
+  without that stop EuroLLM-1.7B ran on past short fields (`podlaha, kůly`, 2026-11-25). A reply that is only the
+  echoed `Czech: …` line of the prompt is continued once from that line, with `English:` after it. 1.7B is
+  CPU-viable at int8; 9B wants a GPU.
 - **On a GPU:** CTranslate2 4.x runs on CUDA 12 and loads `libcublas.so.12`, which a CUDA 13 PyTorch in the same
   environment does not bring: `pip install nvidia-cublas-cu12` and put its `lib` folder on `LD_LIBRARY_PATH`
   (`requirements-ct2.txt` has the line), or use a CUDA 12 runtime. A Blackwell GPU (compute capability 12.x) needs
