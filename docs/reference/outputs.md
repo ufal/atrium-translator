@@ -15,7 +15,7 @@ files, and the same record and log when the request sends a record or asks for t
 | RO-Crate            | `ro-crate-metadata.json`                                             | only from `atrium_rocrate.py`'s own CLI, run over finished records                               |
 
 The sample outputs in [data_samples/](../../data_samples/README.md) show the translated documents and logs in both
-output modes. The AMČR replace folder on LINDAT was made with this version and carries its paradata; none of the folders
+output modes. The two AMČR replace folders were made with this version and carry their paradata; none of the folders
 carries a record, since a run writes one only when `--document-json` gives it.
 
 ## Translation logs

@@ -7,8 +7,8 @@ each field means, and which schema the document record follows. What the records
 ## The paradata record
 
 The batch CLI writes a **run-level** JSON provenance record after every run, named `YYMMDD-HHmmss_translator.json`,
-into `paradata/` in the run's output directory, beside the translated files. The AMČR replace folder on LINDAT under
-[data_samples/](../../data_samples/README.md) holds the record of its sample run in `paradata/`. The `/translate`
+into `paradata/` in the run's output directory, beside the translated files. The two AMČR replace folders under
+[data_samples/](../../data_samples/README.md) hold the records of their sample runs in `paradata/`. The `/translate`
 service writes no
 such file: it returns each call's run as a Process Run Crate `CreateAction`, the response's `paradata`
 ([service/README.md](../../service/README.md#response)). The format is paradata 3.0
@@ -102,9 +102,9 @@ Abridged, from a metadata run with LINDAT and the vocabulary:
 }
 ```
 
-The record committed in `data_samples/in-place_translated_files/xml/paradata/` is paradata 3.0, as a run of this
-version writes it. The other folders keep no paradata: their earlier records predate paradata 3.0 (git history up to
-`v1.7.8-beta`).
+The records committed in `data_samples/in-place_translated_files/xml/paradata/` and
+`data_samples/ct2_translated_files/xml/paradata/` are paradata 3.0, as a run of this version writes them. The ALTO
+and append folders keep no paradata: their earlier records predate paradata 3.0 (git history up to `v1.7.8-beta`).
 
 ## The record schema
 
