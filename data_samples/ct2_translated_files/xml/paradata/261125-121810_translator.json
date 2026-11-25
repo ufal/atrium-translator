@@ -1,0 +1,284 @@
+{
+  "schema_version": "3.0",
+  "program": "translator",
+  "tool_version": "v2.0.0-beta",
+  "repository": "https://github.com/ufal/atrium-translator",
+  "runner_ref": "f52faa18f675b48c82c5432a443dc72d352a3b32",
+  "docker_image": "",
+  "python_version": "3.11.4 (main, Jul 26 2023, 14:53:35) [GCC 11.3.0]",
+  "run_id": "261125-121810",
+  "run_uuid": "urn:uuid:c7b1703a-3277-4237-809e-f76162ef956a",
+  "run_agent": "",
+  "action_status": "failed",
+  "error": "limit 'translation_rerun_rounds' skipped content (1 unit(s)): field(s) still degenerate after the backend's retries and the re-run kept their source text — the step fails: a trimmed, skipped or stopped result is not written (D13)",
+  "start_time": "2026-11-25T12:18:10.776138+00:00",
+  "end_time": "2026-11-25T12:19:55.822489+00:00",
+  "duration_seconds": 105.046,
+  "config": {
+    "input_path": "data_samples/my_documents",
+    "output_dir": "data_samples/ct2_translated_files/xml",
+    "source_lang": "cs",
+    "target_lang": "en",
+    "formats": "xml",
+    "mode": "metadata",
+    "output_mode": "replace",
+    "translation_backend": "ct2",
+    "xsd_url": "https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd",
+    "xsd_strict": false,
+    "fast_align": false,
+    "vocabulary": "data_samples/vocabulary.csv",
+    "vocabulary_sha256": "1d7af82172451215c085a8f86052743a4a58099817288c425f3fa80cf7f2ec39",
+    "chunk_limit": 4000,
+    "lang_id_model": "facebook/fasttext-language-identification",
+    "ct2_model_family": "eurollm",
+    "ct2_model": "eurollm-1.7b-int8",
+    "ct2_device": "cuda",
+    "ct2_compute_type": "int8_float32",
+    "default_source_lang": "cs",
+    "fasttext_confidence_threshold": 0.5,
+    "lang_id_min_letters": 20,
+    "lang_id_languages": [
+      "cs",
+      "en"
+    ]
+  },
+  "parameters": {
+    "xpaths": [
+      "//amcr:amcr/amcr:dokument/amcr:popis",
+      "//amcr:amcr/amcr:dokument/amcr:poznamka",
+      "//amcr:amcr/amcr:dokument/amcr:dokument_cast/amcr:neident_akce/amcr:lokalizace",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:akce/amcr:chranene_udaje/amcr:lokalizace_okolnosti",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:akce/amcr:chranene_udaje/amcr:souhrn_upresneni",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:dokumentacni_jednotka/amcr:komponenta/amcr:nalez_predmet/amcr:poznamka",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:dokumentacni_jednotka/amcr:komponenta/amcr:nalez_objekt/amcr:poznamka",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:lokalita/amcr:chranene_udaje/amcr:nazev",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:lokalita/amcr:chranene_udaje/amcr:popis",
+      "//amcr:amcr/amcr:archeologicky_zaznam/amcr:lokalita/amcr:chranene_udaje/amcr:poznamka"
+    ],
+    "translations": {
+      "C-9100725A": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-N1000137": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-N9007794": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-N9000112": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-TX-195304352": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-202000543A-DT-27": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-TX-202400594": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-9141192A": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-TX-202500252": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      },
+      "C-DT-100003326": {
+        "source_lang": "cs",
+        "target_lang": "en",
+        "backend": "ct2",
+        "output_mode": "replace"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "name": "metadata",
+      "sha512": "e871f038fbae4360f5ffacd7f40e48ba0a650dcbc311e418584d9ca6cf2eea1351368be329f468f50c72b6db3c59bc5904dbf546c95e105a794f466aa2dcc585",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "fdb626ab5cff522ce09a325c7e7f05471b2d9cbc5c124395f9299c2bb018bbbf9d9a96cbcdc1229b8e49939bd5ffc435b54ef249e3c207c65cbcedc2c3f197d5",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "53274fa58219827b2c45cdb284149874a6e12c31a42ad84a3d4e82e58044577a4d7200ece036bfe7e4eea07ed9136d7266f56513a2eaec29552d3347eeeddc7c",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "41bce1b2975c7e6f77d2a7d0aeaeedc43dccea9e2f4b7bda83c0778489971f5dba10b112e587122bdba96e1010fd3ba49d319eae9b9932d0ffb1f6209c08dd91",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "c9bc7ee202e14c74d1eb7188a127c26e6178e7af153785bd0129c6ab96df41c870eb1f309829073363a3e9592ca2b73984fdf935c52a93a76bb2f9ebd5a07d8a",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "0d47f6253b6faadf5e70981f82ec0ee51588d0808ffb6a62a85a87b2be7dd4e83702038ffbefaae184a1f8c2719231ee7235dc29e4b523a644bc1129af298a86",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "35c59a9a3a6826fce5b3507105ec69ddf895e02c7c63a83fd4334f68cc17b9275861db577f9a67f3d5609164c7cc1a9ad6677f8ae899c13f69578e06d8cdfe99",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "119ed9f510b20968342514376cee8f76525b3d86678506662470c4c8748ecddde81e1885369fcf55bda9c5b240e633c79565661dcdc970a16f13e8e3097f812a",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "5bf77f980f7a28bc330f1c12995dcd398a684aea80d504c5d3668b9ca206752846d6bcbef75ed50a60cb1decadb597b8afd988b7673b0738c77832ab6eeafd02",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata",
+      "sha512": "bb1b90eb448b8eceec98af2ccca63a0e642d3ce8fea63fed497902fa9aaf8bff280d136f76d409d66ca593ec23b60c944585c54666c0b5c2be24c64b3c46cf18",
+      "media_type": "application/xml",
+      "stored": true
+    }
+  ],
+  "outputs": [
+    {
+      "name": "metadata-en",
+      "sha512": "9e10e5316d8460ba36a3aefbb6ff47083c913c56031ceeb69831a4cffec3fe908d9ed0a476d1c4168ca3f42efa719e71b7f2d2cb0e4077c00d067321a88804ca",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "830bbbd4b140b6c28696ce1743e07bcd18285aecc6308c0fd7fd2a0de18d3d1315957cb2a5400498bf5e53eb972f028b4d7023d1be73923d5ff6601b992ca17f",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "7073bcf17ac024b6791bd068a1a1143c7c5b66111f88b8aac4c27b2fae4cf62b9789b40a2f4c371f9ae082e0a85ec2f64dd04620e07afe1938a5e3d70ab597f3",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "93c6bd950ad144b9a8473d68663c6d7c0014b7d08942dba12faa8628e40767f9fcb651e8ff3c0bbd90cea36a48b60a3b17ca226293b688acb916b7200cbe23e6",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "6d51e497b3e914dbf9106a6dd40e6c530a2b56dc6c1468b546986be871327ab51bfe30e91ac1035c4ad9ac3f74d11cc7309fa1ac026ad37696e5a3dff151836d",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "078cc666d5030bced6f804cb8f0a5727abca661226435c3d3fdd79145b3e025cb798ace119ab645d37db47401ade1a07c1f83d9f81c2876adc559187f082a206",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "35de2d53a9a9bbca66b85f56c5b872ecb9dcc821f3cb931241d546cc8566ca76f4c6a9ca52c7e42f08839a6cd6b9add86bea242d98b19cef614df7535bd62340",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "a675a547b0016ca1ac2495b4d63d1ffb0a39e38c897c6e7dcb78b37bf406e02b669f5518a0ef7e48107240579eab0f5828587dac9521d5811f8a96bf20670eb7",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "bc8a709cd62f92db8c811dfff59edb4cf533cd9b25587cab5b1b0252411a415740c6ee46f6775674a9f39d917cde189b3a4bc185fb210b8df1773e52d7c1462c",
+      "media_type": "application/xml",
+      "stored": true
+    },
+    {
+      "name": "metadata-en",
+      "sha512": "210b4f5dfb0e6bf088b948c4e41fc9d84e250836d7f1394ee5e86c19804a77b1bc116cab9e75624c295def45e8fc464aa0c693336dc7d4496d3ec63730d81a36",
+      "media_type": "application/xml",
+      "stored": true
+    }
+  ],
+  "components": [
+    {
+      "name": "ctranslate2",
+      "license": "MIT",
+      "license_url": "https://opensource.org/license/mit/"
+    },
+    {
+      "name": "eurollm",
+      "license": "Apache-2.0",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0"
+    },
+    {
+      "name": "amcr_vocab",
+      "license": "CC0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "name": "teater_data",
+      "license": "CC0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    }
+  ],
+  "statistics": {
+    "input_files_total": 10,
+    "successfully_processed": 10,
+    "skipped_files": 0,
+    "output_counts_by_type": {
+      "xml": 10,
+      "csv": 10,
+      "json": 0
+    },
+    "performance_per_minute": {
+      "xml": 5.7118,
+      "csv": 5.7118,
+      "json": 0.0
+    }
+  },
+  "skipped_files_detail": [],
+  "limits": []
+}
