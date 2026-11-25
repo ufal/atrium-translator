@@ -1,9 +1,9 @@
 ## Sample outputs
 
-> The two AMCR replace folders (`in-place_translated_files/xml`, `ct2_translated_files/xml`) are made with this
-> version and carry its paradata 3.0 in `paradata/`; a run writes no record of its own and lists components as facts.
-> The ALTO and append folders are older research samples: their translated documents and QA logs stay, without
-> paradata (git history up to `v1.7.8-beta` keeps their records and paradata, which predate record schema 2.0).
+> The AMCR replace folder on LINDAT (`in-place_translated_files/xml`) is made with this version and carries its
+> paradata 3.0 in `paradata/`; a run writes no record of its own and lists components as facts. The other folders
+> (`ct2`, ALTO, append) are older samples: their translated documents and QA logs stay, without paradata (git history
+> up to `v1.7.8-beta` keeps their records and paradata, which predate record schema 2.0).
 > ALTO translation is research and batch use, not a step of the AMČR pipeline, whose job is the record-level
 > `metadata` → `metadata-en` translation with the field list AMČR sends.
 
@@ -21,7 +21,7 @@ data_samples/
 │   ├── alto/                                                (lindat; research, no paradata)
 │   └── xml/                                                 (lindat; research, no paradata)
 └── ct2_translated_files/         --output-mode replace, self-hosted
-    └── xml/                      the AMCR records           (ct2, EuroLLM-1.7B; this version, with paradata/)
+    └── xml/                      the AMCR records           (ct2, EuroLLM-1.7B; v1.4.0-beta, no paradata)
 ```
 
 Which run produced each folder:
@@ -32,7 +32,7 @@ Which run produced each folder:
 | `appended_translated_files/alto` | `lindat`                                 | `auto`          | —        | `260926-120736`, in git history            |
 | `in-place_translated_files/xml`  | `lindat`                                 | `cs`            | AMCR 2.2 | this version; its run id names `paradata/` |
 | `appended_translated_files/xml`  | `lindat`                                 | `auto`          | —        | `260926-140310`, in git history            |
-| `ct2_translated_files/xml`       | `ct2` (EuroLLM-1.7B-Instruct, int8, GPU) | `cs`            | AMCR 2.2 | this version; its run id names `paradata/` |
+| `ct2_translated_files/xml`       | `ct2` (EuroLLM-1.7B-Instruct, int8, GPU) | `cs`            | AMCR 2.2 | `261019-101905`, in git history            |
 
 > **The AMCR replace folder is the shape of AMČR's production run** (issue #46): LINDAT, `replace`,
 > `--source_lang cs`, the curated vocabulary, validated against AMCR 2.2 with `--xsd`, and the field list of
@@ -40,9 +40,11 @@ Which run produced each folder:
 > paradata record the field list (`parameters.xpaths`), the vocabulary terms protected and the degenerate LINDAT
 > replies that were re-requested; each field's `status` is in the document's `_log.csv`.
 >
-> **`ct2_translated_files/xml` is the `ct2` EuroLLM-1.7B run of the same job** on a GPU (`int8_float16`). A field
-> whose reply the guard refused keeps its Czech text (`untranslated` in the log). The bake-off found EuroLLM unfit as
-> the self-hosted alternative ([the backend decision](../docs/decisions/backend-choice.md)); the folder stays as the
+> **`ct2_translated_files/xml` is the `ct2` EuroLLM-1.7B run of the same job**, made with v1.4.0-beta on a GPU
+> (`int8_float16`). A field whose reply the guard refused kept its Czech text (`untranslated` in the log, 7 fields).
+> Since 2.0.0-beta such a field fails the job, and EuroLLM-1.7B still leaves one (the one-word field `zlomky`
+> comes back empty), so the folder is not made again. The bake-off found EuroLLM unfit as the self-hosted alternative
+> ([the backend decision](../docs/decisions/backend-choice.md)); the folder stays as the
 > record of that backend.
 
 Each folder holds, per input document:
@@ -118,6 +120,9 @@ python main.py data_samples/my_documents --xpaths amcr-fields.example.txt --form
     --xsd https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd \
     --output data_samples/ct2_translated_files/xml --output-mode replace
 ```
+
+With EuroLLM-1.7B this run fails: a field stays untranslated, and since 2.0.0-beta an untranslated field fails
+the job. The folder keeps the v1.4.0-beta run.
 
 The research folders (ALTO, append) are made the same way with `--alto` or `--output-mode append`; their commands are
 in git history up to `v1.7.8-beta`.
