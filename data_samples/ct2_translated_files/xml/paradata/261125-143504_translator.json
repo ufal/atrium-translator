@@ -3,16 +3,16 @@
   "program": "translator",
   "tool_version": "v2.0.0-beta",
   "repository": "https://github.com/ufal/atrium-translator",
-  "runner_ref": "f52faa18f675b48c82c5432a443dc72d352a3b32",
+  "runner_ref": "e8abb552e2874483289556aeff1ce8f8c03a29d2",
   "docker_image": "",
   "python_version": "3.11.4 (main, Jul 26 2023, 14:53:35) [GCC 11.3.0]",
-  "run_id": "261125-134947",
-  "run_uuid": "urn:uuid:3677e934-6db3-49eb-b825-21ec22114cdc",
+  "run_id": "261125-143504",
+  "run_uuid": "urn:uuid:4d236a7a-74f8-4a0e-84fd-6c7ab020ed24",
   "run_agent": "",
   "action_status": "completed",
-  "start_time": "2026-11-25T13:49:47.367087+00:00",
-  "end_time": "2026-11-25T13:50:37.463023+00:00",
-  "duration_seconds": 50.096,
+  "start_time": "2026-11-25T14:35:04.707060+00:00",
+  "end_time": "2026-11-25T14:36:42.501081+00:00",
+  "duration_seconds": 97.794,
   "config": {
     "input_path": "data_samples/my_documents",
     "output_dir": "data_samples/ct2_translated_files/xml",
@@ -265,91 +265,91 @@
   "outputs": [
     {
       "name": "metadata-en",
-      "sha512": "adaabd55cba30872aa328d628ca5294c44207b2b7a12a443f71d5ce2f019bddcac18771e81424eaa90f40c52d1cfee872b8d325d15f0060b0e59937e25c84e3b",
+      "sha512": "64bd32606e4eda8b9db8a4f89c3076dfa02b54a1b0d3d256a4c949cc4264b980db8c832c2694f73db1388e2e543ce89e16f86c73ff1241db8adae023be21b2c8",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "765aad0dab544d94b565bd693cdb28db8256615ee585ca6c2003aabc5bcc27e65706789eb7b543d82dc4256611b0595f0cf81cccd9c10ff8ccff63300b644d19",
+      "sha512": "30a89d03690a86940ee2f5e9951aaea6f59e3b27cb2460f6b3f25d781861e54bd6323ae6746e67ee88011f068dfd8ac810a8d1c97816847e017f89e01ba055a9",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "9ff4abc64937ff88dff6b876150013e306fa5ba99354e4d2e7ff5bbf407aaac66a580a769a0412ef5decd9e93692ac392d7e61076ec97fbc84afafce99125ac7",
+      "sha512": "8dd0132fcabf792f5878e40d558ea58204c9550154aab7d058a9cd059b93170a8185f71a1521576c2fb9a84a47582d02b71e9c783d9582985d527803b278684b",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "fe41f4de83821b9f9de3f77c766bd4a7736e831c52f712d7ffcfe7eb104471f0ab5d3e71ff99a9aa5b2a5a5ea6091523541da208853a7bec615cda9d4bac8d8c",
+      "sha512": "7fba33c0ba8707037c63c2e31cc8ac80421e167668ccdc78dec55113d0373e01efd9b36f99ad5fb6b14fb92ed54273d45701913edb77a0d82167ee13e1d87ca2",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "379eeeb2c84927dbf0c4dbb12f982b29eca4737f31b45bcd4a39c78c00709fe0465085b7b34608041a24eb1461f9c7c1045b339d366db34a83301832c93d7fb2",
+      "sha512": "c1ac264d25ec3e099b72d921d3fab571de5c89b52bf1e0101a2c9f317b8e3ed7583d10969b9601616a80e394f8d6e3240a273ead7905c3ab6ea0e160607367ee",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "81fa2b41797e2d076e0c61b8c3d55b68b02a0cc63f3cba5ae63327eca00a3613c6c4594841042510a85e94a6dd15f30ff1279ca72f8d612a0eecb03b2101d760",
+      "sha512": "e3dbe7265bb6bc7a25c19a28cfb39d2ad02aa7447bfdcc23ecf8a1b5a61411e3a5cc6ddb36200ced430d3a8c0dac5a170b03570f471ee3459bd808005588094d",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "eb62d9056c14b4822604e60bee8d3693975e2236bc7eacc2662edef8d8b8aa06771bd65ce7e3b041cabfde2998bbfd5c634cfdf57d90a72b80ba2ce3875d3fca",
+      "sha512": "13eb1affe947aefcc35e2d0f181003fa30f5781eb85733a7e00bd609eb0c1bd37a6a47fd064bcd1cff9d1b41e959d575c3c6865f82184f8a833caefd424bef3d",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "7d2f2c74bfbe2034e80727564d7cdc161480da2b25641b8c1c506d240c1b18bbd926103b432582dc296340822ea9faf02e4449f01575e28490ccfb68e28cc70a",
+      "sha512": "64642d2d803c051f9558422714637e048915787f04425c3d332f73040ec9fd2ae6a53a9f5e52422799e184c8923ef56166285149ce2caf77c872bd2f9f70d07f",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "242e1fd97f625a235c9602684cebdaed9486018656eef8ce19ecc3c1a66a1f969912a0f6e534ee371a96ebbc40775f03dd1c5b6e6af6bf19deb8ff9f3e68b81c",
+      "sha512": "5b2eb0ea6962413444fc9c8f0b04f1bb1f6a2b480a948aca9616deb73f8199bc59c06e623aed6dea226eff5ac47354ffe95a6ea1700ad9089d465e424fbf51d0",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "4c4e78ed05417d8d347010491ec0bdd12ef543eb52d1b90911cba7851aa47b07300267d4578b97da9d482230fe60cabf776eb92484c8cb09761b0f194b3abb0d",
+      "sha512": "1f6d232bdcec44594b568fe49585134d818488c6a3f4ae33105245958a52b4bdfd8cd1d509096b5a1aec52915044af36ddf54d14f59ee45ad0ddda4873213dec",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "81df6e0ba16410517f5f06480e47064bf9b02bfb2fa7a2595589890165a4296aab714fa04fb9fe6ba79d6b20bf81d5d7406bd0c6b1efdd18e24df789fbfdfac8",
+      "sha512": "d7461ee10e60b0435502172ae68087a75054dcf271afe387a8b06101ee52f00eb6d93a4a8115559c24d08e36432c8866822f35322180ecdfab6fe2d4878c9f0f",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "a5ce0994001de072573c4b8ba841c8ffb1b697b5adc89dbea7e055756ce8aa190d25fc711e995fa792aed9205fce8aedf16708407b04573a7ffc18fb572f9714",
+      "sha512": "062ef958ce6a5869a8e3172a6a9675fb17889f5daa4eacdb1de9f0208cb69363553f4fb2cfc9cc6184bee457de503cd0a507495313fe9537ff047c123a4ea0af",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "fd0e46de31d9df1b387f90532acce7312336109cda1cd8837c78c9258e088f2d92306c85009b40425af0668f91071a13b90e9a77107ce99df638c0fc7f883e51",
+      "sha512": "d0bc8bc6fd646a6c9a4752aa665ba6fa9d63844f90876806e3e4de862c6ce05599d7d53aa7e113ec6e5d1d084d53346bbebffadf10c86d93aaebb7ca54f257c4",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "b589a5ee2ec6b12e37513cd93553dfeff2fc193ef0df67e6b50058803e5205220ca8ef5441cf15218bcfa57f71aad723206e03392583d2fc299972ac1bb5db39",
+      "sha512": "d12589903a4a33f6a78490aa8ad0351bf60cfe05ba53eb8872db2058a3f17e6aa8a08df00f8adf2e0cc1c4f0e6a7d4ffc7a47b34f0003daa65cbaa64a465d1ba",
       "media_type": "application/xml",
       "stored": true
     },
     {
       "name": "metadata-en",
-      "sha512": "529dc178bd921e2ec353d61996553fb111b6266683bf45d1bb743190fa70d11cf1710e56faba7fc985e38568368c9b557ce5931fe94f596875a6be0a839cf077",
+      "sha512": "290c4cfbe877a62af4354c12bad6ada93fdb0d52f1bd740c91787e1fe5e3b3a63be07d14f97594568510f6916e6c3730215ff32411278aaa341aef45cd8854e8",
       "media_type": "application/xml",
       "stored": true
     }
@@ -386,8 +386,8 @@
       "json": 0
     },
     "performance_per_minute": {
-      "xml": 17.9655,
-      "csv": 17.9655,
+      "xml": 9.203,
+      "csv": 9.203,
       "json": 0.0
     }
   },
