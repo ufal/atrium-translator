@@ -273,6 +273,82 @@ def test_end_token_is_the_eos_alone_when_the_tokenizer_has_no_vocab_listing(monk
     assert backend._engine.calls[0][1]["end_token"] == "<|im_end|>"
 
 
+# ── a one-line source gets a one-line reply (2026-11-25, dll-4gpu1) ──────────────────────
+#
+# EuroLLM-1.7B ran on past its translation of a short field ("podlaha, kůly"; "Sonda 4, východní
+# řez; obj. 1." failed the AMCR ct2 run), and with a stop at the line end it sometimes wrote only
+# the echoed "Czech: zlomky" line. The stub below encodes "\n" as a byte token and renders tokens
+# back to text, as EuroLLM's SentencePiece tokenizer does.
+
+
+class _LineTokenizer(_FakeTokenizer):
+    def __call__(self, prompt, *, add_special_tokens):
+        self.tokenizer_calls.append((prompt, add_special_tokens))
+        if prompt.strip("\n") == "":
+            return {"input_ids": [10] * len(prompt)}
+        if prompt.startswith("\n"):
+            return {"input_ids": [10, 900]}  # "\nEnglish:"
+        return {"input_ids": [101, 102, 103]}
+
+    def convert_ids_to_tokens(self, ids):
+        names = {10: "<0x0A>", 900: "English:"}
+        return [names.get(i, f"tok-{i}") for i in ids]
+
+    def convert_tokens_to_string(self, tokens):
+        return "".join("\n" if t == "<0x0A>" else t for t in tokens)
+
+
+def test_a_one_line_source_stops_at_the_end_of_its_line(monkeypatch):
+    backend = _eurollm(monkeypatch, _LineTokenizer(outputs=["Vítkův Kámen Castle."]))
+    assert backend.translate("Hrad Vítkův Kámen.", "cs", "en") == "Vítkův Kámen Castle."
+    with backend.retrying(1):
+        backend.translate("Hrad Vítkův Kámen.", "cs", "en")
+    for _, kwargs in backend._engine.calls:
+        assert kwargs["end_token"] == ["<|im_end|>", "<0x0A>"]
+        assert kwargs["min_length"] == 1
+    assert backend._engine.calls[1][1]["beam_size"] == 4, "the re-run keeps its wider search"
+
+
+def test_a_source_of_several_lines_stops_at_the_turn_end_only(monkeypatch):
+    backend = _eurollm(monkeypatch, _LineTokenizer(outputs=["Trench 4\nPit 1"]))
+    assert backend.translate("Sonda 4\nObjekt 1", "cs", "en") == "Trench 4\nPit 1"
+    kwargs = backend._engine.calls[0][1]
+    assert kwargs["end_token"] == "<|im_end|>" and "min_length" not in kwargs
+
+
+def test_a_reply_that_only_echoes_the_source_line_is_continued_from_it(monkeypatch):
+    backend = _eurollm(monkeypatch, _LineTokenizer(outputs=["Czech: zlomky", "fragments"]))
+    assert backend.translate("zlomky", "cs", "en") == "fragments"
+    first, second = backend._engine.calls
+    prompt = ["tok-101", "tok-102", "tok-103"]
+    assert first[0] == [prompt]
+    assert second[0] == [prompt + ["out-1", "out-2", "<0x0A>", "English:"]], "the echo, then the target label"
+    assert second[1] == first[1], "the same stops and search"
+
+
+def test_the_echo_is_continued_once_only(monkeypatch):
+    backend = _eurollm(monkeypatch, _LineTokenizer(outputs=["Czech: zlomky"]))
+    with pytest.raises(DegenerateTranslationError, match="empty translation"):
+        backend.translate("zlomky", "cs", "en")
+    assert len(backend._engine.calls) == 2
+
+
+def test_an_echo_ended_by_the_turn_end_is_continued_too(monkeypatch):
+    # Without a line stop (the tokenizer cannot render tokens), the model ended its turn after
+    # the echo (the probe's beam-search round): the reply is continued all the same.
+    backend = _eurollm(monkeypatch, _FakeTokenizer(outputs=["Czech: psa", "A dog."]))
+    assert backend.translate("psa", "cs", "en") == "A dog."
+    assert backend._engine.calls[0][1]["end_token"] == "<|im_end|>"
+    assert len(backend._engine.calls) == 2
+
+
+def test_a_runaway_on_a_one_line_source_is_still_rejected(monkeypatch):
+    backend = _eurollm(monkeypatch, _LineTokenizer())
+    monkeypatch.setattr(_FakeGenerator, "generated", ["floor"] * 44)
+    with pytest.raises(DegenerateTranslationError, match="runaway length: still going at 44 tokens"):
+        backend.translate("podlaha, kůly", "cs", "en")
+
+
 def test_a_reply_at_the_decoding_cap_without_a_turn_end_is_rejected(monkeypatch):
     monkeypatch.setenv("CT2_MAX_DECODING_TOKENS", "3")
     tokenizer = _FakeTokenizer()
