@@ -458,7 +458,7 @@ every case but the strict-XSD one in the table.
 | The record           | handed back when `--document-json` was given, nothing added                          | returned when `document_json` was sent, nothing added                                            | the same record                                                                              |
 | The log              | `<doc>_log.csv` beside the XML                                                       | with `include_log=true`: `log_csv`, or a part of the multipart answer                            | the same rows                                                                                |
 | An invalid record    | a warning on stderr; the record is still handed back                                 | passed through; `document_json_schema_error` in the JSON answer (the multipart one has none)     | the same record                                                                              |
-| Paradata             | a file in `<output>/paradata/`, program `translator`                                 | the `CreateAction` of the JSON and multipart answers, program `translator-api`; none in bare XML | the same keys and values; a path on the command line is a file name in the service           |
+| Paradata             | a file in `<output>/paradata/`, program `translator`                                 | the `CreateAction` of the JSON and multipart answers, program `translator-api`; none in bare XML | the same keys and values; files and folders by name on both sides, never by path             |
 
 ## Troubleshooting
 

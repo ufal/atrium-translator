@@ -96,8 +96,9 @@ Run from the repository root, **one command at a time** — concurrent runs agai
 coincided with the degenerate replies that motivated the guard — and commit a folder only after its run has printed
 `PROCESSING COMPLETE`: each document's log and XML are replaced only when that document is finished. Each run writes
 its paradata into the folder's `paradata/`; commit them with the folder, as the run wrote them (the whitespace hooks
-leave the sample folders alone, so the SHA-512s in the paradata still match). Pass relative paths: the command line
-records the paths it was given in the paradata `config`.
+leave the sample folders alone, so the SHA-512s in the paradata still match). The paradata `config` names the
+input, the output, the vocabulary and a local XSD by file or folder name, never by the path the command line was
+given (atrium-project#84).
 
 ```bash
 # AMCR metadata, LINDAT, replace: the production shape of issue #46

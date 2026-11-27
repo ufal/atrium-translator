@@ -63,14 +63,18 @@ the component licences with [para_licenses.py](../../para_licenses.py). Every fi
 
 `config` holds the run's settings (`input_path`, `output_dir`, `source_lang`, `target_lang`, `formats`, `mode`:
 `alto`, `metadata` or `detect`, `output_mode`, `translation_backend`, `xsd_url`, `xsd_strict`,
-`fast_align`, `vocabulary`, `vocabulary_sha256`, `chunk_limit`), the language-ID model and the translation endpoint
+`fast_align`, `vocabulary`, `vocabulary_sha512`, `chunk_limit`), the language-ID model and the translation endpoint
 actually resolved (`lang_id_model`, `translation_api`), the source-language policy (`default_source_lang`,
 `fasttext_confidence_threshold`, `lang_id_min_letters`, `lang_id_languages`: the languages the backend translates
 into the target), and the counts of the run: `detected_kind` per document when the root element decided,
 `vocabulary_protected_terms` per document and its `_total` with a vocabulary, `lindat_degenerate_replies` per
 document and its `_total` with LINDAT, and, with an XSD, `xsd_validation` (`valid`, `invalid` doc ids, `strict`).
 The service's `paradataRecord.config` has the same keys, built by the same functions (`main.build_run_config`,
-`main.run_outcome_config`), with file names where the command line has paths.
+`main.run_outcome_config`). On both sides `input_path`, `output_dir` (the translated file's name when `-o` names
+one), `vocabulary` and `xsd_url` name a file or folder, never its path (atrium-project#84 decision 1):
+`data_samples/my_documents/` is recorded as `my_documents`. An XSD given as a URL is kept as given.
+`vocabulary_sha512` fingerprints the vocabulary file by SHA-512, as the inputs and outputs are (decision 2; it was
+`vocabulary_sha256`); the service's `/info` still reports the vocabulary's SHA-256.
 
 ### An example
 

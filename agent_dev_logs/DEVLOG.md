@@ -1115,3 +1115,12 @@ Documentation only; no code, test or configuration change.
   CI green.
 * **Open:** batch paradata `config` holds the paths it was given (asked on [#84](https://github.com/ufal/atrium-project/issues/84)).
 * Logs only; not pushed.
+
+## 2026-11-27 — atrium-project#84: the non-A options prepared (ARÚP's answers pending)
+
+* **1b, 2b:** `build_run_config` through `name_only` (URLs kept); `vocabulary_sha256` → `vocabulary_sha512` (`_file_sha512`; the service hashes the resolved vocabulary at startup). The 11-25 open item is prepared.
+* **Checked:** 1182 passed (1180 at baseline); a parity test runs the real CLI and the service; openapi regenerated. The committed sample paradata still carry paths and the SHA-256 until the samples are regenerated.
+* **Shared:** the re-vendored `atrium_paradata.py` (`name_only`, `start --config-name`, `RENDERED_PDF_DISTRIBUTION`), `atrium_document.schema.json` (H3 descriptions: the forced pages and the pages showing graphics) and `atrium_rocrate.py` (a docstring), byte-identical to the hub's; the pin moves to the hub's squash commit before the PR opens.
+* **Not in the PR:** the committed samples, regenerated from the merged code before the tags.
+* The change is `atrium-translator.decisions-84.zip`, these logs `atrium-translator.agent_dev_logs.zip`.
+* Logs only; not pushed.

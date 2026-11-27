@@ -31,7 +31,7 @@ except ImportError:
 
 from atrium_document import DocumentRecord, canonical_doc_id, load_document, validate_baseline
 from atrium_limits import ContentLimitError, LimitExceeded
-from atrium_paradata import ParadataLogger
+from atrium_paradata import ParadataLogger, name_only, sha512_of
 from processors.backend import TranslationBackend, get_backend
 from processors.identifier import LanguageIdentifier
 from processors.language import (
@@ -86,10 +86,15 @@ def build_run_config(
     xsd_strict: bool = False,
     fast_align: bool = False,
     vocabulary: str = "",
-    vocabulary_sha256: str = "",
+    vocabulary_sha512: str = "",
 ) -> dict:
     """The run's parameters as its paradata records them: one builder for the command line and
     the service (atrium-project#72), so a batch run and a ``/translate`` call record the same keys.
+
+    The input, the output, the vocabulary and a local XSD are recorded by file or folder name,
+    never by path (``name_only``, atrium-project#84 decision 1): a path describes the machine that
+    ran the job. An XSD given as a URL is kept. *vocabulary_sha512* fingerprints the vocabulary
+    file by SHA-512, as the paradata fingerprint a distribution (decision 2).
 
     *mode* is ``alto``, ``metadata`` or, when each file's root element decides, ``detect``.
     *translator* is the live backend when there is one: its ``base_url`` (LINDAT) or
@@ -98,8 +103,8 @@ def build_run_config(
     """
     backend_name = str(backend_name or "lindat")
     cfg = {
-        "input_path": str(input_path or ""),
-        "output_dir": str(output_dir or ""),
+        "input_path": name_only(str(input_path or "")),
+        "output_dir": name_only(str(output_dir or "")),
         "source_lang": str(source_lang),
         "target_lang": str(target_lang),
         "formats": str(formats or ""),
@@ -109,11 +114,11 @@ def build_run_config(
         # the source-language text was kept beside the translation or overwritten.
         "output_mode": str(output_mode or DEFAULT_OUTPUT_MODE),
         "translation_backend": backend_name,
-        "xsd_url": str(xsd or ""),
+        "xsd_url": name_only(str(xsd or "")),
         "xsd_strict": bool(xsd_strict),
         "fast_align": bool(fast_align),
-        "vocabulary": str(vocabulary or ""),
-        "vocabulary_sha256": str(vocabulary_sha256 or ""),
+        "vocabulary": name_only(str(vocabulary or "")),
+        "vocabulary_sha512": str(vocabulary_sha512 or ""),
         "chunk_limit": TRANSLATION_CHUNK_CHARS.get(),
         "lang_id_model": "facebook/fasttext-language-identification",
     }
@@ -195,7 +200,8 @@ def degenerate_replies(translator) -> int | None:
 
 
 def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
-    """The command line's run parameters, through the builder the service uses."""
+    """The command line's run parameters, through the builder the service uses: the paths it was
+    given are recorded by name (``build_run_config``)."""
     vocabulary = getattr(args, "vocabulary", None)
     return build_run_config(
         backend_name=str(getattr(args, "backend", "") or "lindat"),
@@ -211,17 +217,16 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         xsd_strict=bool(getattr(args, "xsd_strict", False)),
         fast_align=bool(getattr(args, "fast_align", False)),
         vocabulary=str(vocabulary or ""),
-        vocabulary_sha256=_sha256_of(vocabulary),
+        vocabulary_sha512=_file_sha512(vocabulary),
     )
 
 
-def _sha256_of(path) -> str:
-    """sha256 of a file, or "" when there is none (the vocabulary, so two runs can be told apart)."""
+def _file_sha512(path) -> str:
+    """SHA-512 of a file, or "" when there is none (the vocabulary, so two runs can be told apart;
+    atrium-project#84 decision 2)."""
     if not path or not Path(path).is_file():
         return ""
-    import hashlib
-
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    return sha512_of(path=str(path))
 
 
 def _run_mode(args) -> str:

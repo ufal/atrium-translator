@@ -39,7 +39,7 @@ from pydantic import BaseModel, ConfigDict, Field
 import atrium_rocrate
 from atrium_document import canonical_doc_id
 from atrium_limits import LimitExceeded, LimitNotes
-from atrium_paradata import ParadataLogger
+from atrium_paradata import ParadataLogger, sha512_of
 from main import (
     build_run_config,
     degenerate_replies,
@@ -432,6 +432,9 @@ async def lifespan(app: FastAPI):
     logger.info("Warming up translation backend (%s)", backend or "lindat")
     # The vocabulary first: a VOCABULARY_PATH that names no usable CSV stops the service here.
     vocab_path, models["vocabulary_info"] = _resolve_vocabulary(VOCABULARY_PATH)
+    # The paradata fingerprint the same file by SHA-512 (atrium-project#84 decision 2); /info
+    # keeps its SHA-256.
+    models["vocabulary_sha512"] = sha512_of(path=str(vocab_path)) if vocab_path is not None else ""
     if vocab_path is not None:
         logger.info("Applying the vocabulary %s (%d terms)", vocab_path, models["vocabulary_info"]["terms"])
     models["translator"] = get_backend(backend, vocab_path=str(vocab_path) if vocab_path else None)
@@ -872,7 +875,7 @@ async def translate_document(
             xsd_strict=bool(xsd_strict) if xsd_schema is not None else False,
             fast_align=fast_align,
             vocabulary=vocabulary_info.get("file", ""),
-            vocabulary_sha256=vocabulary_info.get("sha256", ""),
+            vocabulary_sha512=models.get("vocabulary_sha512", "") if vocabulary_info else "",
         )
         if detected_kind:
             para_config["detected_kind"] = {canonical_doc_id(input_path): detected_kind}
