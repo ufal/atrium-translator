@@ -54,8 +54,18 @@ class FakeParadataLogger:
         """ParadataLogger.add_input (paradata 3.0): an input by distribution name."""
         self.inputs.append(name)
 
+    def add_input_files(self, *paths, **kwargs) -> list:
+        """ParadataLogger.add_input_files: files read, by file name (atrium-project#84 decision 1)."""
+        self.input_files = [Path(p).name for p in paths]
+        return []
+
     def add_output(self, name: str, data=None, **kwargs) -> None:
         self.outputs.append(name)
+
+    def add_output_files(self, *paths, **kwargs) -> list:
+        """ParadataLogger.add_output_files: files written, by file name (atrium-project#84 decision 1)."""
+        self.output_files = getattr(self, "output_files", []) + [Path(p).name for p in paths]
+        return []
 
     def set_parameter(self, key: str, value) -> None:
         self.parameters[key] = value
@@ -510,6 +520,8 @@ def test_main_routes_to_metadata_processor_with_vocab_xpaths_and_xsd(
 
     logger = FakeParadataLogger.instances[-1]
     assert logger.inputs == ["metadata"] and logger.outputs == ["metadata-en"]
+    # The command line names the log it wrote by file name (decision 1), not its rows.
+    assert logger.output_files == ["metadata_log.csv"]
     assert logger.parameters["xpaths"] == ["//root/child"]
 
     assert "fasttext" in logger.components

@@ -39,13 +39,14 @@ from pydantic import BaseModel, ConfigDict, Field
 import atrium_rocrate
 from atrium_document import canonical_doc_id
 from atrium_limits import LimitExceeded, LimitNotes
-from atrium_paradata import ParadataLogger, sha512_of
+from atrium_paradata import ParadataLogger
 from main import (
     build_run_config,
     degenerate_replies,
     log_backend_components,
     process_single_file,
     record_doc_id,
+    run_input_files,
     run_outcome_config,
     translated_filename,
 )
@@ -337,6 +338,12 @@ def _xsd_strict_default() -> bool:
     return os.environ.get("XSD_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def _xsd_path(path_value: str) -> Path:
+    """The local file ``XSD_PATH`` names, as ``_resolve_xsd`` finds it."""
+    candidate = Path(path_value.strip())
+    return candidate if candidate.is_absolute() else _REPO_ROOT / candidate
+
+
 def _resolve_xsd(path_value: str):
     """The schema ``XSD_PATH`` names, compiled: ``(schema, /info entry)``, or ``(None, None)`` when unset.
 
@@ -432,9 +439,9 @@ async def lifespan(app: FastAPI):
     logger.info("Warming up translation backend (%s)", backend or "lindat")
     # The vocabulary first: a VOCABULARY_PATH that names no usable CSV stops the service here.
     vocab_path, models["vocabulary_info"] = _resolve_vocabulary(VOCABULARY_PATH)
-    # The paradata fingerprint the same file by SHA-512 (atrium-project#84 decision 2); /info
-    # keeps its SHA-256.
-    models["vocabulary_sha512"] = sha512_of(path=str(vocab_path)) if vocab_path is not None else ""
+    # The paradata name the same file by its file name and SHA-512, as an input entry
+    # (atrium-project#84 decisions 1, 2); /info keeps its SHA-256.
+    models["vocabulary_path"] = vocab_path
     if vocab_path is not None:
         logger.info("Applying the vocabulary %s (%d terms)", vocab_path, models["vocabulary_info"]["terms"])
     models["translator"] = get_backend(backend, vocab_path=str(vocab_path) if vocab_path else None)
@@ -447,6 +454,7 @@ async def lifespan(app: FastAPI):
     models["identifier"] = LanguageIdentifier()
     # The schema metadata translations are validated against: compiled once, as the CLI's --xsd is.
     models["xsd_schema"], models["xsd_info"] = _resolve_xsd(XSD_PATH)
+    models["xsd_path"] = _xsd_path(XSD_PATH) if models["xsd_schema"] is not None else None
     if models["xsd_schema"] is not None:
         logger.info("Validating metadata translations against %s", models["xsd_info"]["file"])
     _state.warm = True
@@ -869,13 +877,10 @@ async def translate_document(
             mode="detect" if detected_kind else ("alto" if is_alto else "metadata"),
             output_mode=effective_output_mode,
             allowed_languages=allowed_source_languages(models["translator"], target_lang),
-            input_path=upload_name,
             formats="xml",
             xsd=args.xsd or "",
             xsd_strict=bool(xsd_strict) if xsd_schema is not None else False,
             fast_align=fast_align,
-            vocabulary=vocabulary_info.get("file", ""),
-            vocabulary_sha512=models.get("vocabulary_sha512", "") if vocabulary_info else "",
         )
         if detected_kind:
             para_config["detected_kind"] = {canonical_doc_id(input_path): detected_kind}
@@ -891,6 +896,13 @@ async def translate_document(
             output_types=["xml", "csv", "json"],
             config_dir=_PARA_CONFIG_DIR,
         ) as logger:
+            # The vocabulary and the XSD this call used, by file name and SHA-512 (decisions 1, 2).
+            logger.add_input_files(
+                *run_input_files(
+                    vocabulary=models.get("vocabulary_path") if vocabulary_info else None,
+                    xsd=models.get("xsd_path") if xsd_schema is not None else None,
+                )
+            )
             if not is_alto:
                 # The field list shaped the translation (D34): a parameter, never field text.
                 logger.set_parameter("xpaths", xpaths_list)

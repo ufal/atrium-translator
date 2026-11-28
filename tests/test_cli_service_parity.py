@@ -422,15 +422,14 @@ def test_both_entry_points_record_the_same_run_keys(stub, monkeypatch):
         )
     )
     assert cli_keys == service_keys
-    # atrium-project#84 decision 2: the vocabulary is fingerprinted by SHA-512, as distributions are.
-    assert "vocabulary_sha512" in cli_keys
-    assert "vocabulary_sha256" not in cli_keys
+    # atrium-project#84 decision 1(c): settings only; no file or folder of the run's.
+    assert not {"input_path", "output_dir", "vocabulary", "vocabulary_sha512", "vocabulary_sha256"} & cli_keys
 
 
-def test_both_entry_points_record_names_and_the_vocabulary_sha512(stub, monkeypatch, tmp_path):
-    """atrium-project#84 decisions 1 and 2: each side's paradata `config` names the input, the output, the
-    vocabulary and the XSD, never their paths, and gives the vocabulary file's SHA-512. `/info` keeps the
-    vocabulary's SHA-256."""
+def test_both_entry_points_name_the_vocabulary_and_xsd_as_input_entries(stub, monkeypatch, tmp_path):
+    """atrium-project#84 decisions 1(c) and 2: each side's paradata `config` holds settings only; the
+    vocabulary and the local XSD are input entries by file name and SHA-512, beside the records (and the
+    command line's field list too). `/info` keeps the vocabulary's SHA-256."""
     vocab = tmp_path / "terms" / "vocabulary.csv"
     vocab.parent.mkdir()
     vocab.write_text("source_lemma,target_translation\nhradiště,hillfort\n", encoding="utf-8")
@@ -457,7 +456,7 @@ def test_both_entry_points_record_names_and_the_vocabulary_sha512(stub, monkeypa
         str(target),
     )
     assert code == EXIT_OK
-    cli_config = json.loads(next((target.parent / "paradata").glob("*.json")).read_text(encoding="utf-8"))["config"]
+    cli_record = json.loads(next((target.parent / "paradata").glob("*.json")).read_text(encoding="utf-8"))
 
     # The service as a deployment runs it: VOCABULARY_PATH and XSD_PATH resolved at startup.
     @asynccontextmanager
@@ -478,19 +477,21 @@ def test_both_entry_points_record_names_and_the_vocabulary_sha512(stub, monkeypa
         )
         info = live.get("/info").json()
     assert response.status_code == 200, response.text[:600]
-    service_config = response.json()["paradata"]["paradataRecord"]["config"]
+    service_record = response.json()["paradata"]["paradataRecord"]
 
-    sha512 = hashlib.sha512(vocab.read_bytes()).hexdigest()
-    for config in (cli_config, service_config):
-        for key in ("input_path", "output_dir", "vocabulary", "xsd_url"):
-            assert "/" not in config[key] and "\\" not in config[key], (key, config[key])
-        assert config["input_path"] == "record.xml"
-        assert config["vocabulary"] == "vocabulary.csv"
-        assert config["xsd_url"] == "amcr.xsd"
-        assert re.fullmatch(r"[0-9a-f]{128}", config["vocabulary_sha512"])
-        assert config["vocabulary_sha512"] == sha512
-        assert "vocabulary_sha256" not in config
-    assert cli_config["output_dir"] == "record_en.xml"
+    files = {
+        "vocabulary.csv": hashlib.sha512(vocab.read_bytes()).hexdigest(),
+        "amcr.xsd": hashlib.sha512(xsd.read_bytes()).hexdigest(),
+    }
+    for record in (cli_record, service_record):
+        config = record["config"]
+        assert not {"input_path", "output_dir", "vocabulary", "vocabulary_sha512"} & set(config)
+        assert config["xsd_url"] == "", "a local XSD is an input entry, not a setting"
+        entries = {e["name"]: e for e in record["inputs"] if e["stored"] is False}
+        for name, sha512 in files.items():
+            assert re.fullmatch(r"[0-9a-f]{128}", entries[name]["sha512"]) and entries[name]["sha512"] == sha512
+        assert str(tmp_path) not in json.dumps(record)
+    assert "fields.txt" in {e["name"] for e in cli_record["inputs"]}, "the command line's field list"
     assert info["vocabulary"]["sha256"] == hashlib.sha256(vocab.read_bytes()).hexdigest()
     assert "sha512" not in info["vocabulary"]
 
