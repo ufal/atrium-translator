@@ -1115,3 +1115,26 @@ Documentation only; no code, test or configuration change.
   CI green.
 * **Open:** batch paradata `config` holds the paths it was given (asked on [#84](https://github.com/ufal/atrium-project/issues/84)).
 * Logs only; not pushed.
+
+## 2026-11-27 — atrium-project#84: the non-A options prepared (ARÚP's answers pending)
+
+* **1b, 2b:** `build_run_config` through `name_only` (URLs kept); `vocabulary_sha256` → `vocabulary_sha512` (`_file_sha512`; the service hashes the resolved vocabulary at startup). The 11-25 open item is prepared.
+* **Checked:** 1182 passed (1180 at baseline); a parity test runs the real CLI and the service; openapi regenerated. The committed sample paradata still carry paths and the SHA-256 until the samples are regenerated.
+* **Shared:** the re-vendored `atrium_paradata.py` (`name_only`, `start --config-name`, `RENDERED_PDF_DISTRIBUTION`), `atrium_document.schema.json` (H3 descriptions: the forced pages and the pages showing graphics) and `atrium_rocrate.py` (a docstring), byte-identical to the hub's; the pin moves to the hub's squash commit before the PR opens.
+* **Not in the PR:** the committed samples, regenerated from the merged code before the tags.
+* The change is `atrium-translator.decisions-84.zip`, these logs `atrium-translator.agent_dev_logs.zip`.
+* Logs only; not pushed.
+
+## 2026-11-27 (evening) — atrium-project#84: ARÚP's answers, #67 adjusted
+
+* **ARÚP (comment 7, motyc 16:25):** 1(c) and 2(b): `config` holds only what shaped the output; a file that is not a
+  distribution is named by file name and SHA-512.
+* **Decisions 1, 2:** `build_run_config` drops `input_path`, `output_dir`, `vocabulary` and `vocabulary_sha512`; the
+  vocabulary and a local XSD are input entries (name, SHA-512, `stored: false`) on the command line and in the
+  service; an XSD URL stays a setting. `/info` keeps its SHA-256 (service identity, not paradata).
+* **The log files:** the command line also names each `<doc>_log.csv` it writes as an output entry (name, SHA-512,
+  `stored: false`); no row enters the paradata, and the service names none (`paradata/metadata-en`).
+* **Samples:** the LINDAT one regenerated (the translations byte-identical, the logs CRLF as the writer writes them,
+  15/15 valid against AMČR's XSD); the EuroLLM one is for the cluster.
+* **Verified:** 1190 passed, 4 skipped (Python 3.11).
+* Not pushed.

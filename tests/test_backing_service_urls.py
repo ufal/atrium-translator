@@ -243,6 +243,9 @@ class TestServiceParadata:
             def log_component(self, *a, **kw):
                 pass
 
+            def add_input_files(self, *paths, **kw):
+                return []
+
             #: ParadataLogger's limits_applied accessor (atrium-project#53); the service
             #: echoes it to the caller after the run.
             limits_applied = []

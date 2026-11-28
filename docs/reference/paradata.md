@@ -61,16 +61,22 @@ the component licences with [para_licenses.py](../../para_licenses.py). Every fi
 | `skipped_files_detail`              | `{file, reason, timestamp}` for every skipped file                                                                                                                                                      |
 | `limits`                            | the sampling and splitting notes (`limit`, `effect`, `value`, count, detail): a segment split at `TRANSLATION_CHUNK_CHARS`, a language decided on a sample, a glossary's selection of terms in a prompt |
 
-`config` holds the run's settings (`input_path`, `output_dir`, `source_lang`, `target_lang`, `formats`, `mode`:
-`alto`, `metadata` or `detect`, `output_mode`, `translation_backend`, `xsd_url`, `xsd_strict`,
-`fast_align`, `vocabulary`, `vocabulary_sha256`, `chunk_limit`), the language-ID model and the translation endpoint
+`config` holds the run's settings only (`source_lang`, `target_lang`, `formats`, `mode`: `alto`, `metadata` or
+`detect`, `output_mode`, `translation_backend`, `xsd_url`, `xsd_strict`, `fast_align`, `chunk_limit`), the
+language-ID model and the translation endpoint
 actually resolved (`lang_id_model`, `translation_api`), the source-language policy (`default_source_lang`,
 `fasttext_confidence_threshold`, `lang_id_min_letters`, `lang_id_languages`: the languages the backend translates
 into the target), and the counts of the run: `detected_kind` per document when the root element decided,
 `vocabulary_protected_terms` per document and its `_total` with a vocabulary, `lindat_degenerate_replies` per
 document and its `_total` with LINDAT, and, with an XSD, `xsd_validation` (`valid`, `invalid` doc ids, `strict`).
 The service's `paradataRecord.config` has the same keys, built by the same functions (`main.build_run_config`,
-`main.run_outcome_config`), with file names where the command line has paths.
+`main.run_outcome_config`). No path and no file name of the run is in `config` (atrium-project#84 decision 1(c)):
+the records are the run's `inputs`/`outputs` by distribution name (`metadata` in, `metadata-en` out), and the
+vocabulary, a local XSD and the command line's field list (`--xpaths`) are `inputs` entries by file name and SHA-512,
+`stored: false` (decision 2; the vocabulary was fingerprinted by SHA-256 in `config` before). The command line also
+names each `<doc>_log.csv` it writes as an `outputs` entry the same way, by name and SHA-512 only: no row of a log
+enters the paradata, and the service, whose record is `paradata/metadata-en`, names none. `xsd_url` holds an XSD
+given as a URL, a setting; it is empty for a local one. The service's `/info` still reports the vocabulary's SHA-256.
 
 ### An example
 

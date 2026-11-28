@@ -1,5 +1,7 @@
 # Strategy — [atrium-project#84](https://github.com/ufal/atrium-project/issues/84) (doc-schema-v2): the translator's metadata-en job
 
+> _**Refreshed 2026-11-27 (evening)**: Status — 11-27 (evening) (ARÚP's answers on atrium-project#84, comment 7; the PR adjusted)._
+> _**Refreshed 2026-11-27**: Status — 11-27 (the non-A options of atrium-project#84 prepared, not pushed)._
 > _**Refreshed 2026-11-25**: Status — 11-25 (the v2.0.0-beta release prep)._
 > _**Refreshed 2026-11-22**: #65 merged (atrium-project#79 and #40: the docs, the CLI's refusal of a metadata run
 > without a field list, the CI schedules); the pins at `fbffe25`._
@@ -16,6 +18,10 @@
 > contract digest.
 > This file is this repository's slice only; the repository has no open issue. Its 11-11 version
 > (written before the issue existed) is superseded; the section "2026-11-12" is the current reading._
+
+**Status (2026-11-27, evening)**: 🟡 **ARÚP answered atrium-project#84 (comment 7). #67 is adjusted: `config` keeps the run's settings only; the vocabulary and a local XSD are input entries by name and SHA-512, beside the records (`metadata` in, `metadata-en` out) (decisions 1, 2); `vocabulary_sha512` leaves `config`; the command line names each `_log.csv` it writes as an output entry, the service none. The LINDAT sample is regenerated; the EuroLLM one is for the cluster. See the DEVLOG entry of 11-27 (evening).**
+
+**Status (2026-11-27)**: 🟡 **The non-A options of atrium-project#84 prepared (not pushed; ARÚP has not answered): the paradata `config` names the input, output, vocabulary and a local XSD, never paths (decision 1), and fingerprints the vocabulary by `vocabulary_sha512` (decision 2), on the command line and the service; `/info` keeps its SHA-256. One PR, after the hub's. See the DEVLOG entry of 11-27.**
 
 **Status (2026-11-22)**: 🟡 **As on 11-19, now pinned to `fbffe25` since atrium-project#79's merge (11-22, #65 `a064ac4`); `test` is one commit past `master`. The command line refuses a metadata run with a missing or empty field list (exit 1), as the service does (422 `missing_xpaths`). `lindat-daily.yml` and `scheduled-smoke.yml` run by dispatch only on `test`; on `master` until the release merge (atrium-project#77).**
 

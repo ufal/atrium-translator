@@ -79,17 +79,18 @@ def build_run_config(
     translator=None,
     default_source_lang: str | None = None,
     allowed_languages=None,
-    input_path: str = "",
-    output_dir: str = "",
     formats: str = "",
     xsd: str = "",
     xsd_strict: bool = False,
     fast_align: bool = False,
-    vocabulary: str = "",
-    vocabulary_sha256: str = "",
 ) -> dict:
     """The run's parameters as its paradata records them: one builder for the command line and
     the service (atrium-project#72), so a batch run and a ``/translate`` call record the same keys.
+
+    Settings only (atrium-project#84 decision 1): never a path or the name of a file the run read
+    or wrote. The records are the run's inputs and outputs by distribution name; the vocabulary, a
+    local XSD and the command line's field list are input entries by file name and SHA-512
+    (`run_input_files`, decision 2). An XSD given as a URL is a setting (``xsd_url``).
 
     *mode* is ``alto``, ``metadata`` or, when each file's root element decides, ``detect``.
     *translator* is the live backend when there is one: its ``base_url`` (LINDAT) or
@@ -98,8 +99,6 @@ def build_run_config(
     """
     backend_name = str(backend_name or "lindat")
     cfg = {
-        "input_path": str(input_path or ""),
-        "output_dir": str(output_dir or ""),
         "source_lang": str(source_lang),
         "target_lang": str(target_lang),
         "formats": str(formats or ""),
@@ -109,11 +108,9 @@ def build_run_config(
         # the source-language text was kept beside the translation or overwritten.
         "output_mode": str(output_mode or DEFAULT_OUTPUT_MODE),
         "translation_backend": backend_name,
-        "xsd_url": str(xsd or ""),
+        "xsd_url": str(xsd) if "://" in str(xsd or "") else "",
         "xsd_strict": bool(xsd_strict),
         "fast_align": bool(fast_align),
-        "vocabulary": str(vocabulary or ""),
-        "vocabulary_sha256": str(vocabulary_sha256 or ""),
         "chunk_limit": TRANSLATION_CHUNK_CHARS.get(),
         "lang_id_model": "facebook/fasttext-language-identification",
     }
@@ -195,8 +192,8 @@ def degenerate_replies(translator) -> int | None:
 
 
 def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
-    """The command line's run parameters, through the builder the service uses."""
-    vocabulary = getattr(args, "vocabulary", None)
+    """The command line's run parameters, through the builder the service uses (``build_run_config``):
+    settings only; the files it reads are input entries (``run_input_files``)."""
     return build_run_config(
         backend_name=str(getattr(args, "backend", "") or "lindat"),
         source_lang=args.source_lang,
@@ -204,24 +201,20 @@ def _build_paradata_config(args, config: configparser.ConfigParser) -> dict:
         mode=_run_mode(args),
         output_mode=str(getattr(args, "output_mode", DEFAULT_OUTPUT_MODE) or DEFAULT_OUTPUT_MODE),
         default_source_lang=getattr(args, "default_source_lang", None),
-        input_path=str(args.input_path),
-        output_dir=str(args.output or config.get("DEFAULT", "output", fallback="")),
         formats=str(args.formats),
         xsd=str(args.xsd or ""),
         xsd_strict=bool(getattr(args, "xsd_strict", False)),
         fast_align=bool(getattr(args, "fast_align", False)),
-        vocabulary=str(vocabulary or ""),
-        vocabulary_sha256=_sha256_of(vocabulary),
     )
 
 
-def _sha256_of(path) -> str:
-    """sha256 of a file, or "" when there is none (the vocabulary, so two runs can be told apart)."""
-    if not path or not Path(path).is_file():
-        return ""
-    import hashlib
-
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def run_input_files(*, vocabulary=None, xsd=None, xpaths=None) -> list[str]:
+    """The files a run reads besides the records (atrium-project#84 decisions 1 and 2): the
+    vocabulary, a local XSD (an XSD URL is a setting) and the command line's field list, as input
+    entries by file name and SHA-512 (``ParadataLogger.add_input_files``). Those not given, or not
+    files, are left out."""
+    paths = [vocabulary, None if "://" in str(xsd or "") else xsd, xpaths]
+    return [str(p) for p in paths if p and Path(str(p)).is_file()]
 
 
 def _run_mode(args) -> str:
@@ -631,6 +624,7 @@ def process_single_file(
     xsd_schema=None,
     lang_policy: SourceLanguagePolicy | None = None,
     xsd_verdicts: dict | None = None,
+    name_log: bool = False,
 ) -> tuple[bool, int]:
     """
     Process a single XML file (ALTO or metadata).
@@ -645,6 +639,10 @@ def process_single_file(
     *lang_policy* is the source-language policy for ``--source_lang auto``
     (built once in ``main()``); ``None`` lets ``utils`` build it from the
     environment and the backend.
+
+    *name_log*: the command line names the ``_log.csv`` it wrote as an output entry, by file name
+    and SHA-512 (atrium-project#84 decision 1). The service does not: its record is
+    ``paradata/metadata-en``, which holds no per-field log.
     """
     translator.reset_protected_count()
     # LindatTranslator also counts replies it rejected as degenerate and re-requested;
@@ -801,6 +799,10 @@ def process_single_file(
     # failed document is visible in the output folder as before.
     if xml_written or not csv_log_path.exists():
         os.replace(partial_log_path, csv_log_path)
+        # A file the command line wrote that is not a distribution: named by its file name and
+        # SHA-512, `stored: false` (atrium-project#84 decision 1); its rows stay out of the paradata.
+        if name_log:
+            _logger.add_output_files(str(csv_log_path), media_type="text/csv")
     else:
         partial_log_path.unlink(missing_ok=True)
 
@@ -920,6 +922,12 @@ def main() -> int:
         # directory, a run started elsewhere recorded version "unknown" and UNKNOWN licences.
         config_dir=str(Path(__file__).resolve().parent),
     ) as _logger:
+        # The vocabulary, a local XSD and the field list, by file name and SHA-512 (decision 1).
+        _logger.add_input_files(
+            *run_input_files(
+                vocabulary=getattr(args, "vocabulary", None), xsd=args.xsd, xpaths=getattr(args, "xpaths", None)
+            )
+        )
         if args.mode_explicit and not args.alto and not args.xpaths:
             print("[ERROR] Specify either the --alto flag or the field list with --xpaths FILE.")
             return _refused(_logger)
@@ -1148,6 +1156,7 @@ def main() -> int:
                     _logger=_logger,
                     xsd_schema=xsd_schema,
                     lang_policy=lang_policy,
+                    name_log=True,
                     xsd_verdicts=xsd_verdicts,
                 )
             except ContentLimitError as exc:

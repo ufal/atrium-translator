@@ -16,6 +16,10 @@ v1.7.0-beta: the service's paradata records the run's outcome keys as the comman
 (`main.run_outcome_config`), and a query boolean that cannot be read is refused (422) as the same form
 value is, instead of meaning its default.
 
+v2.0.0-beta (atrium-project#84 decisions 1 and 2): both sides' paradata `config` name the input, the output,
+the vocabulary and a local XSD by file or folder name, never by path, and fingerprint the vocabulary by
+SHA-512 (`vocabulary_sha512`); `/info` keeps its SHA-256.
+
 What stays apart by design (directories and URL lists on the command line only; backend, vocabulary and
 XPaths set per deployment in the service): docs/usage.md "The command line and the service".
 """
@@ -23,8 +27,11 @@ XPaths set per deployment in the service): docs/usage.md "The command line and t
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
+import re
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
@@ -415,3 +422,91 @@ def test_both_entry_points_record_the_same_run_keys(stub, monkeypatch):
         )
     )
     assert cli_keys == service_keys
+    # atrium-project#84 decision 1(c): settings only; no file or folder of the run's.
+    assert not {"input_path", "output_dir", "vocabulary", "vocabulary_sha512", "vocabulary_sha256"} & cli_keys
+
+
+def test_both_entry_points_name_the_vocabulary_and_xsd_as_input_entries(stub, monkeypatch, tmp_path):
+    """atrium-project#84 decisions 1(c) and 2: each side's paradata `config` holds settings only; the
+    vocabulary and the local XSD are input entries by file name and SHA-512, beside the records (and the
+    command line's field list too). `/info` keeps the vocabulary's SHA-256."""
+    vocab = tmp_path / "terms" / "vocabulary.csv"
+    vocab.parent.mkdir()
+    vocab.write_text("source_lemma,target_translation\nhradiště,hillfort\n", encoding="utf-8")
+    xsd = tmp_path / "schemas" / "amcr.xsd"
+    xsd.parent.mkdir()
+    xsd.write_text(_XSD_OK, encoding="utf-8")
+    source = tmp_path / "in" / "record.xml"
+    source.parent.mkdir()
+    source.write_text(_AMCR, encoding="utf-8")
+    target = tmp_path / "out" / "record_en.xml"  # -o names the translated file itself
+
+    code = _cli(
+        monkeypatch,
+        str(source),
+        "--source_lang",
+        "cs",
+        "--xpaths",
+        "fields.txt",
+        "--vocabulary",
+        str(vocab),
+        "--xsd",
+        str(xsd),
+        "-o",
+        str(target),
+    )
+    assert code == EXIT_OK
+    cli_record = json.loads(next((target.parent / "paradata").glob("*.json")).read_text(encoding="utf-8"))
+
+    # The service as a deployment runs it: VOCABULARY_PATH and XSD_PATH resolved at startup.
+    @asynccontextmanager
+    async def _no_lifecycle(state):
+        yield
+
+    monkeypatch.setattr(api_module, "VOCABULARY_PATH", str(vocab))
+    monkeypatch.setattr(api_module, "XSD_PATH", str(xsd))
+    monkeypatch.setattr(api_module, "get_backend", lambda *a, **k: stub)
+    monkeypatch.setattr(api_module, "LanguageIdentifier", lambda: None)
+    monkeypatch.setattr(api_module, "serve_lifecycle", _no_lifecycle)
+    monkeypatch.setattr(api_module._state, "warm", False)
+    with TestClient(api_module.app) as live:
+        response = live.post(
+            "/translate",
+            files={"file": ("record.xml", _AMCR.encode("utf-8"), "application/xml")},
+            data={"source_lang": "cs", "response_format": "json", "xpaths": _XPATHS},
+        )
+        info = live.get("/info").json()
+    assert response.status_code == 200, response.text[:600]
+    service_record = response.json()["paradata"]["paradataRecord"]
+
+    files = {
+        "vocabulary.csv": hashlib.sha512(vocab.read_bytes()).hexdigest(),
+        "amcr.xsd": hashlib.sha512(xsd.read_bytes()).hexdigest(),
+    }
+    for record in (cli_record, service_record):
+        config = record["config"]
+        assert not {"input_path", "output_dir", "vocabulary", "vocabulary_sha512"} & set(config)
+        assert config["xsd_url"] == "", "a local XSD is an input entry, not a setting"
+        entries = {e["name"]: e for e in record["inputs"] if e["stored"] is False}
+        for name, sha512 in files.items():
+            assert re.fullmatch(r"[0-9a-f]{128}", entries[name]["sha512"]) and entries[name]["sha512"] == sha512
+        assert str(tmp_path) not in json.dumps(record)
+    assert "fields.txt" in {e["name"] for e in cli_record["inputs"]}, "the command line's field list"
+    assert info["vocabulary"]["sha256"] == hashlib.sha256(vocab.read_bytes()).hexdigest()
+    assert "sha512" not in info["vocabulary"]
+
+
+def test_an_xsd_url_is_recorded_as_given():
+    """A schema named by URL is no path on the machine that ran the job: it is kept."""
+    url = "https://api.aiscr.cz/schema/amcr/2.2/amcr.xsd"
+    config = main_module.build_run_config(
+        backend_name="lindat",
+        translator=StubBackend(),
+        source_lang="cs",
+        target_lang="en",
+        mode="metadata",
+        output_mode="replace",
+        xsd=url,
+        allowed_languages=frozenset({"cs", "en"}),
+    )
+    assert config["xsd_url"] == url
